@@ -141,3 +141,62 @@ def _subtree_xml(el: ET.Element | None) -> str:
     raw = re.sub(r'\s*xmlns(?::\w+)?="[^"]*"', "", raw)
     raw = re.sub(r"<(/)?([\w]+):", r"<\1", raw)
     return raw
+
+
+def _esc(text: str) -> str:
+    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def build_additem_xml(fields: dict) -> str:
+    lines = ["<Item>"]
+    lines.append(f"  <Title>{_esc(fields['title'])}</Title>")
+    lines.append(f"  <Description><![CDATA[{fields['description']}]]></Description>")
+    lines.append("  <ListingType>FixedPriceItem</ListingType>")
+    lines.append(f"  <ListingDuration>{fields.get('listing_duration') or 'GTC'}</ListingDuration>")
+    lines.append(f"  <StartPrice currencyID=\"USD\">{fields['start_price']}</StartPrice>")
+    lines.append(f"  <Quantity>{fields['quantity']}</Quantity>")
+    lines.append(f"  <PrimaryCategory><CategoryID>{fields['primary_category_id']}</CategoryID></PrimaryCategory>")
+    if fields.get("secondary_category_id"):
+        lines.append(f"  <SecondaryCategory><CategoryID>{fields['secondary_category_id']}</CategoryID></SecondaryCategory>")
+    if fields.get("condition_id"):
+        lines.append(f"  <ConditionID>{fields['condition_id']}</ConditionID>")
+    if fields.get("condition_description"):
+        lines.append(f"  <ConditionDescription>{_esc(fields['condition_description'])}</ConditionDescription>")
+    if fields.get("sku"):
+        lines.append(f"  <SKU>{_esc(fields['sku'])}</SKU>")
+    if fields.get("pictures"):
+        lines.append("  <PictureDetails>")
+        for url in fields["pictures"]:
+            lines.append(f"    <PictureURL>{url}</PictureURL>")
+        lines.append("  </PictureDetails>")
+    if fields.get("item_specifics"):
+        lines.append("  <ItemSpecifics>")
+        for name, value in fields["item_specifics"]:
+            lines.append(f"    <NameValueList><Name>{_esc(name)}</Name><Value>{_esc(value)}</Value></NameValueList>")
+        lines.append("  </ItemSpecifics>")
+    if fields.get("shipping_xml"):
+        lines.append(f"  {fields['shipping_xml']}")
+    for loc in fields.get("ship_to_locations", []):
+        lines.append(f"  <ShipToLocations>{loc}</ShipToLocations>")
+    if fields.get("return_policy_xml"):
+        lines.append(f"  {fields['return_policy_xml']}")
+    if fields.get("dispatch_time_max"):
+        lines.append(f"  <DispatchTimeMax>{fields['dispatch_time_max']}</DispatchTimeMax>")
+    if fields.get("store_category_id") or fields.get("store_category2_id"):
+        lines.append("  <Storefront>")
+        if fields.get("store_category_id"):
+            lines.append(f"    <StoreCategoryID>{fields['store_category_id']}</StoreCategoryID>")
+        if fields.get("store_category2_id"):
+            lines.append(f"    <StoreCategory2ID>{fields['store_category2_id']}</StoreCategory2ID>")
+        lines.append("  </Storefront>")
+    lines.append("</Item>")
+    return "\n".join(lines)
+
+
+def add_item(cfg: dict, token: str, fields: dict) -> str:
+    body = build_additem_xml(fields)
+    root = trading_call(cfg, token, "AddItem", body)
+    new_id = root.findtext(_t("ItemID")) or ""
+    if not new_id:
+        raise RuntimeError("AddItem succeeded but returned no ItemID")
+    return new_id

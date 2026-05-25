@@ -152,3 +152,57 @@ def test_fetch_all_active_listings_paginates_multiple_pages():
     assert len(items) == 2
     assert items[0]["item_id"] == "001"
     assert items[1]["item_id"] == "002"
+
+
+ADD_ITEM_RESPONSE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<AddItemResponse xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Ack>Success</Ack>
+  <ItemID>999</ItemID>
+</AddItemResponse>"""
+
+
+SAMPLE_FIELDS = {
+    "title": "Cool Shirt", "description": "Great condition",
+    "primary_category_id": "123", "secondary_category_id": "",
+    "store_category_id": "456", "store_category2_id": "",
+    "start_price": "19.99", "quantity": "2",
+    "listing_duration": "GTC", "listing_type": "FixedPriceItem",
+    "condition_id": "1000", "condition_description": "",
+    "pictures": ["https://i.ebayimg.com/a.jpg", "https://i.ebayimg.com/b.jpg"],
+    "item_specifics": [("Brand", "Nike"), ("Size", "XL")],
+    "sku": "MY-SKU-001",
+    "shipping_xml": "<ShippingDetails><ShippingType>Free</ShippingType></ShippingDetails>",
+    "ship_to_locations": ["US"],
+    "return_policy_xml": "<ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption></ReturnPolicy>",
+    "dispatch_time_max": "1",
+}
+
+
+def test_build_additem_xml_includes_sku_and_pictures():
+    from ebay_api import build_additem_xml
+    xml = build_additem_xml(SAMPLE_FIELDS)
+    assert "MY-SKU-001" in xml
+    assert "https://i.ebayimg.com/a.jpg" in xml
+    assert "https://i.ebayimg.com/b.jpg" in xml
+
+
+def test_build_additem_xml_includes_item_specifics():
+    from ebay_api import build_additem_xml
+    xml = build_additem_xml(SAMPLE_FIELDS)
+    assert "Nike" in xml
+    assert "Brand" in xml
+    assert "Size" in xml
+
+
+def test_build_additem_xml_includes_store_category():
+    from ebay_api import build_additem_xml
+    xml = build_additem_xml(SAMPLE_FIELDS)
+    assert "456" in xml
+
+
+def test_add_item_returns_new_item_id():
+    from ebay_api import add_item
+    cfg = {"app_id": "a", "cert_id": "c", "dev_id": "d"}
+    with patch("requests.post", return_value=_mock_resp(ADD_ITEM_RESPONSE_XML)):
+        new_id = add_item(cfg, "tok", SAMPLE_FIELDS)
+    assert new_id == "999"
