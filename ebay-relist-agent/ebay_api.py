@@ -152,14 +152,14 @@ def build_additem_xml(fields: dict) -> str:
     lines.append(f"  <Title>{_esc(fields['title'])}</Title>")
     lines.append(f"  <Description><![CDATA[{fields['description']}]]></Description>")
     lines.append("  <ListingType>FixedPriceItem</ListingType>")
-    lines.append(f"  <ListingDuration>{fields.get('listing_duration') or 'GTC'}</ListingDuration>")
+    lines.append(f"  <ListingDuration>{_esc(fields.get('listing_duration') or 'GTC')}</ListingDuration>")
     lines.append(f"  <StartPrice currencyID=\"USD\">{fields['start_price']}</StartPrice>")
     lines.append(f"  <Quantity>{fields['quantity']}</Quantity>")
     lines.append(f"  <PrimaryCategory><CategoryID>{fields['primary_category_id']}</CategoryID></PrimaryCategory>")
     if fields.get("secondary_category_id"):
         lines.append(f"  <SecondaryCategory><CategoryID>{fields['secondary_category_id']}</CategoryID></SecondaryCategory>")
     if fields.get("condition_id"):
-        lines.append(f"  <ConditionID>{fields['condition_id']}</ConditionID>")
+        lines.append(f"  <ConditionID>{_esc(fields['condition_id'])}</ConditionID>")
     if fields.get("condition_description"):
         lines.append(f"  <ConditionDescription>{_esc(fields['condition_description'])}</ConditionDescription>")
     if fields.get("sku"):
@@ -177,7 +177,7 @@ def build_additem_xml(fields: dict) -> str:
     if fields.get("shipping_xml"):
         lines.append(f"  {fields['shipping_xml']}")
     for loc in fields.get("ship_to_locations", []):
-        lines.append(f"  <ShipToLocations>{loc}</ShipToLocations>")
+        lines.append(f"  <ShipToLocations>{_esc(loc)}</ShipToLocations>")
     if fields.get("return_policy_xml"):
         lines.append(f"  {fields['return_policy_xml']}")
     if fields.get("dispatch_time_max"):

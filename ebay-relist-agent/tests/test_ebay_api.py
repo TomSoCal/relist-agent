@@ -197,7 +197,7 @@ def test_build_additem_xml_includes_item_specifics():
 def test_build_additem_xml_includes_store_category():
     from ebay_api import build_additem_xml
     xml = build_additem_xml(SAMPLE_FIELDS)
-    assert "456" in xml
+    assert "<StoreCategoryID>456</StoreCategoryID>" in xml
 
 
 def test_add_item_returns_new_item_id():
@@ -206,3 +206,23 @@ def test_add_item_returns_new_item_id():
     with patch("requests.post", return_value=_mock_resp(ADD_ITEM_RESPONSE_XML)):
         new_id = add_item(cfg, "tok", SAMPLE_FIELDS)
     assert new_id == "999"
+
+
+def test_build_additem_xml_escapes_special_chars_in_title():
+    from ebay_api import build_additem_xml
+    fields = {**SAMPLE_FIELDS, "title": "Shirt & Tie <New>"}
+    xml = build_additem_xml(fields)
+    assert "<Title>Shirt &amp; Tie &lt;New&gt;</Title>" in xml
+
+
+def test_add_item_raises_when_no_item_id_returned():
+    import pytest
+    from ebay_api import add_item
+    NO_ID_XML = """<?xml version="1.0" encoding="utf-8"?>
+<AddItemResponse xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Ack>Success</Ack>
+</AddItemResponse>"""
+    cfg = {"app_id": "a", "cert_id": "c", "dev_id": "d"}
+    with patch("requests.post", return_value=_mock_resp(NO_ID_XML)):
+        with pytest.raises(RuntimeError, match="no ItemID"):
+            add_item(cfg, "tok", SAMPLE_FIELDS)
