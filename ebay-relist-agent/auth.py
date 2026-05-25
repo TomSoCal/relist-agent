@@ -70,7 +70,10 @@ def get_access_token(cfg: dict) -> str:
         data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"], "scope": SCOPES},
         timeout=30,
     )
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except Exception as e:
+        raise RuntimeError(f"Token refresh failed ({resp.status_code}) — re-run --setup if credentials changed") from e
     data = resp.json()
     tokens["access_token"] = data["access_token"]
     tokens["expires_at"] = (now + timedelta(seconds=data["expires_in"])).isoformat()
@@ -80,24 +83,9 @@ def get_access_token(cfg: dict) -> str:
     return tokens["access_token"]
 
 
-_auth_code_queue: queue.Queue = queue.Queue()
-
-
-class _CallbackHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        if "code" in params:
-            _auth_code_queue.put(params["code"][0])
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"<h1>Authorization successful! You may close this tab.</h1>")
-        else:
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(b"<h1>Authorization failed.</h1>")
-
-    def log_message(self, *_):
-        pass
+def _serve_until_code(server: HTTPServer, code_queue: queue.Queue) -> None:
+    while code_queue.empty():
+        server.handle_request()
 
 
 def _do_oauth(cfg: dict) -> None:
@@ -107,16 +95,33 @@ def _do_oauth(cfg: dict) -> None:
         f"&redirect_uri={urllib.parse.quote(cfg['ru_name'])}"
         f"&scope={urllib.parse.quote(SCOPES)}"
     )
-    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), _CallbackHandler)
-    threading.Thread(target=server.handle_request, daemon=True).start()
+    auth_code_queue: queue.Queue = queue.Queue()
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "code" in params:
+                auth_code_queue.put(params["code"][0])
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"<h1>Authorization successful! You may close this tab.</h1>")
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"<h1>Waiting...</h1>")
+
+        def log_message(self, *_):
+            pass
+
+    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), _Handler)
+    threading.Thread(target=_serve_until_code, args=(server, auth_code_queue), daemon=True).start()
     print("\nOpening browser for eBay authorization...")
     webbrowser.open(auth_url)
     print("Waiting for authorization (120s timeout)...")
     try:
-        code = _auth_code_queue.get(timeout=120)
+        code = auth_code_queue.get(timeout=120)
     except queue.Empty:
         print("ERROR: Timed out.")
-        server.server_close()
         raise SystemExit(1)
     finally:
         server.server_close()
@@ -132,10 +137,12 @@ def _do_oauth(cfg: dict) -> None:
         print(f"ERROR: {resp.status_code}\n{resp.text}")
         raise SystemExit(1)
     data = resp.json()
+    if not data.get("refresh_token"):
+        raise RuntimeError("eBay did not return a refresh token. Check your app credentials and scopes.")
     now = datetime.now(timezone.utc)
     save_tokens({
         "access_token":  data["access_token"],
-        "refresh_token": data.get("refresh_token", ""),
+        "refresh_token": data["refresh_token"],
         "expires_at":    (now + timedelta(seconds=data["expires_in"])).isoformat(),
     })
     print("Tokens saved.")
