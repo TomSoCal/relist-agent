@@ -106,3 +106,49 @@ def test_get_item_extracts_all_fields():
         "https://i.ebayimg.com/img2.jpg",
     ]
     assert fields["item_specifics"] == [("Brand", "Nike"), ("Size", "XL")]
+
+
+def test_fetch_all_active_listings_paginates_multiple_pages():
+    from ebay_api import fetch_all_active_listings
+
+    PAGE1_XML = """<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingResponse xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Ack>Success</Ack>
+  <ActiveList>
+    <ItemArray>
+      <Item>
+        <ItemID>001</ItemID>
+        <Title>Page1 Item</Title>
+        <ListingType>FixedPriceItem</ListingType>
+        <Quantity>1</Quantity>
+        <ListingDetails><StartTime>2026-01-01T00:00:00.000Z</StartTime></ListingDetails>
+      </Item>
+    </ItemArray>
+    <PaginationResult><TotalNumberOfPages>2</TotalNumberOfPages></PaginationResult>
+  </ActiveList>
+</GetMyeBaySellingResponse>"""
+
+    PAGE2_XML = """<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingResponse xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Ack>Success</Ack>
+  <ActiveList>
+    <ItemArray>
+      <Item>
+        <ItemID>002</ItemID>
+        <Title>Page2 Item</Title>
+        <ListingType>FixedPriceItem</ListingType>
+        <Quantity>2</Quantity>
+        <ListingDetails><StartTime>2026-01-02T00:00:00.000Z</StartTime></ListingDetails>
+      </Item>
+    </ItemArray>
+    <PaginationResult><TotalNumberOfPages>2</TotalNumberOfPages></PaginationResult>
+  </ActiveList>
+</GetMyeBaySellingResponse>"""
+
+    cfg = {"app_id": "a", "cert_id": "c", "dev_id": "d"}
+    responses = [_mock_resp(PAGE1_XML), _mock_resp(PAGE2_XML)]
+    with patch("requests.post", side_effect=responses):
+        items = fetch_all_active_listings(cfg, "tok")
+    assert len(items) == 2
+    assert items[0]["item_id"] == "001"
+    assert items[1]["item_id"] == "002"

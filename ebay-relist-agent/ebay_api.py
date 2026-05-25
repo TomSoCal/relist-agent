@@ -58,7 +58,9 @@ def fetch_all_active_listings(cfg: dict, token: str) -> list[dict]:
     <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
   </ActiveList>"""
         root = trading_call(cfg, token, "GetMyeBaySelling", body)
-        for item in root.findall(f".//{_t('ActiveList')}/{_t('ItemArray')}/{_t('Item')}"):
+        active_list = root.find(_t("ActiveList"))
+        item_array = active_list.find(_t("ItemArray")) if active_list is not None else None
+        for item in (item_array.findall(_t("Item")) if item_array is not None else []):
             try:
                 qty = int(item.findtext(_t("Quantity")) or "0")
             except ValueError:
@@ -70,9 +72,11 @@ def fetch_all_active_listings(cfg: dict, token: str) -> list[dict]:
                 "quantity":     qty,
                 "start_time":   _txt(item, "ListingDetails/StartTime"),
             })
-        total_pages = int(
-            root.findtext(f".//{_t('ActiveList')}/{_t('PaginationResult')}/{_t('TotalNumberOfPages')}") or "1"
-        )
+        pagination = active_list.find(_t("PaginationResult")) if active_list is not None else None
+        try:
+            total_pages = int(pagination.findtext(_t("TotalNumberOfPages")) if pagination is not None else "1")
+        except ValueError:
+            total_pages = 1
         if page >= total_pages:
             break
         page += 1
@@ -80,6 +84,8 @@ def fetch_all_active_listings(cfg: dict, token: str) -> list[dict]:
 
 
 def get_item(cfg: dict, token: str, item_id: str) -> dict:
+    if not str(item_id).isdigit():
+        raise ValueError(f"item_id must be numeric, got: {item_id!r}")
     body = f"""
   <ItemID>{item_id}</ItemID>
   <DetailLevel>ReturnAll</DetailLevel>
@@ -120,6 +126,8 @@ def get_item(cfg: dict, token: str, item_id: str) -> dict:
 
 
 def end_item(cfg: dict, token: str, item_id: str) -> None:
+    if not str(item_id).isdigit():
+        raise ValueError(f"item_id must be numeric, got: {item_id!r}")
     body = f"""
   <ItemID>{item_id}</ItemID>
   <EndingReason>NotAvailable</EndingReason>"""
@@ -131,6 +139,5 @@ def _subtree_xml(el: ET.Element | None) -> str:
         return ""
     raw = ET.tostring(el, encoding="unicode")
     raw = re.sub(r'\s*xmlns(?::\w+)?="[^"]*"', "", raw)
-    raw = re.sub(r"<ns\d+:", "<", raw)
-    raw = re.sub(r"</ns\d+:", "</", raw)
+    raw = re.sub(r"<(/)?([\w]+):", r"<\1", raw)
     return raw
