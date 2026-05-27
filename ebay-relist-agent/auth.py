@@ -1,11 +1,8 @@
 import base64
 import json
-import queue
-import threading
 import urllib.parse
 import webbrowser
 from datetime import datetime, timedelta, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import requests
@@ -16,7 +13,6 @@ TOKEN_FILE = BASE_DIR / "tokens.json"
 
 OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 OAUTH_AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
-CALLBACK_PORT = 8080
 
 SCOPES = " ".join([
     "https://api.ebay.com/oauth/api_scope",
@@ -61,7 +57,11 @@ def get_access_token(cfg: dict) -> str:
         return tokens["access_token"]
 
     if not tokens.get("refresh_token"):
-        raise RuntimeError("No refresh token found — run with --setup to authenticate.")
+        raise RuntimeError(
+            "No refresh token — token expired. "
+            "Go to developer.ebay.com > User Tokens > Sign in to Production, "
+            "copy the new token, and re-run: python ebay_relist_agent.py --setup"
+        )
 
     creds = base64.b64encode(f"{cfg['app_id']}:{cfg['cert_id']}".encode()).decode()
     resp = requests.post(
@@ -83,11 +83,6 @@ def get_access_token(cfg: dict) -> str:
     return tokens["access_token"]
 
 
-def _serve_until_code(server: HTTPServer, code_queue: queue.Queue) -> None:
-    while code_queue.empty():
-        server.handle_request()
-
-
 def _do_oauth(cfg: dict) -> None:
     auth_url = (
         f"{OAUTH_AUTH_URL}?client_id={urllib.parse.quote(cfg['app_id'])}"
@@ -95,36 +90,17 @@ def _do_oauth(cfg: dict) -> None:
         f"&redirect_uri={urllib.parse.quote(cfg['ru_name'])}"
         f"&scope={urllib.parse.quote(SCOPES)}"
     )
-    auth_code_queue: queue.Queue = queue.Queue()
-
-    class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            if "code" in params:
-                auth_code_queue.put(params["code"][0])
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b"<h1>Authorization successful! You may close this tab.</h1>")
-            else:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b"<h1>Waiting...</h1>")
-
-        def log_message(self, *_):
-            pass
-
-    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), _Handler)
-    threading.Thread(target=_serve_until_code, args=(server, auth_code_queue), daemon=True).start()
     print("\nOpening browser for eBay authorization...")
     webbrowser.open(auth_url)
-    print("Waiting for authorization (120s timeout)...")
-    try:
-        code = auth_code_queue.get(timeout=120)
-    except queue.Empty:
-        print("ERROR: Timed out.")
+    print("\nAfter you approve, your browser will redirect to a URL that fails to load.")
+    print("Copy the full URL from your browser's address bar and paste it below.\n")
+
+    raw = input("Paste the redirect URL here: ").strip()
+    params = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+    if "code" not in params:
+        print("ERROR: No 'code' found in the URL. Make sure you copied the full URL.")
         raise SystemExit(1)
-    finally:
-        server.server_close()
+    code = params["code"][0]
 
     creds = base64.b64encode(f"{cfg['app_id']}:{cfg['cert_id']}".encode()).decode()
     resp = requests.post(
@@ -148,18 +124,40 @@ def _do_oauth(cfg: dict) -> None:
     print("Tokens saved.")
 
 
+def _paste_portal_token() -> None:
+    print("\nPaste the token from the developer portal (User Tokens > Sign in to Production):")
+    token = input("Token: ").strip()
+    if not token:
+        print("ERROR: No token entered.")
+        raise SystemExit(1)
+    print("Expiry date shown on portal (e.g. 'Thu, 18 Nov 2027 18:33:06 GMT').")
+    expiry_raw = input("Expiry (leave blank to default to 18 months from now): ").strip()
+    now = datetime.now(timezone.utc)
+    if expiry_raw:
+        import email.utils
+        try:
+            expires_at = email.utils.parsedate_to_datetime(expiry_raw)
+        except Exception:
+            print(f"Could not parse '{expiry_raw}', defaulting to 18 months from now.")
+            expires_at = now + timedelta(days=548)
+    else:
+        expires_at = now + timedelta(days=548)
+    save_tokens({
+        "access_token": token,
+        "refresh_token": "",
+        "expires_at": expires_at.isoformat(),
+    })
+    print("Tokens saved.")
+
+
 def interactive_setup() -> None:
     print("=" * 60)
     print("eBay Relist Agent Setup")
     print("=" * 60)
     print("""
-You need a free eBay developer account:
-  1. Go to https://developer.ebay.com and sign in
-  2. Create a new application keyset (Production environment)
-  3. Under "User Tokens", add a redirect URI: http://localhost:8080/callback
-  4. Note the RuName shown next to that redirect URI
-  5. Copy your App ID, Cert ID, and Dev ID from the keyset
-  6. For Gmail: create an App Password at myaccount.google.com > Security > App Passwords
+You need from developer.ebay.com > My Account > Application Keys:
+  - App ID (Client ID), Cert ID (Client Secret), Dev ID, RuName
+And a Gmail App Password from myaccount.google.com > Security > App Passwords.
 """)
     cfg = {
         "app_id":             input("App ID (Client ID):      ").strip(),
@@ -170,5 +168,12 @@ You need a free eBay developer account:
     }
     save_config(cfg)
     print(f"\nConfig saved to {CONFIG_FILE}")
-    _do_oauth(cfg)
+    print("\nHow would you like to authenticate?")
+    print("  1) Paste token from developer portal (recommended)")
+    print("  2) OAuth redirect flow (browser-based)")
+    choice = input("Choice [1/2]: ").strip()
+    if choice == "2":
+        _do_oauth(cfg)
+    else:
+        _paste_portal_token()
     print("\nSetup complete! Run setup_task.ps1 (as admin) to schedule daily runs.")

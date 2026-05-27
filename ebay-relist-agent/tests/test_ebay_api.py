@@ -69,6 +69,7 @@ GET_ITEM_XML = """<?xml version="1.0" encoding="utf-8"?>
 def _mock_resp(xml_str):
     r = MagicMock()
     r.text = xml_str
+    r.content = xml_str.encode("utf-8")
     r.raise_for_status = MagicMock()
     return r
 

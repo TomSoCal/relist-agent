@@ -25,6 +25,7 @@ def trading_call(cfg: dict, token: str, call_name: str, body_xml: str) -> ET.Ele
     payload = (
         f'<?xml version="1.0" encoding="utf-8"?>\n'
         f'<{call_name}Request xmlns="{NS}">\n'
+        f"  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>\n"
         f"{body_xml}\n"
         f"</{call_name}Request>"
     )
@@ -35,12 +36,11 @@ def trading_call(cfg: dict, token: str, call_name: str, body_xml: str) -> ET.Ele
         "X-EBAY-API-CERT-NAME":           cfg["cert_id"],
         "X-EBAY-API-COMPATIBILITY-LEVEL": "1225",
         "X-EBAY-API-SITEID":              "0",
-        "Content-Type":                   "text/xml",
-        "Authorization":                  f"Bearer {token}",
+        "Content-Type":                   "text/xml; charset=utf-8",
     }
     resp = requests.post(TRADING_API_URL, data=payload.encode("utf-8"), headers=headers, timeout=30)
     resp.raise_for_status()
-    root = ET.fromstring(resp.text)
+    root = ET.fromstring(resp.content)
     ack = root.findtext(_t("Ack")) or ""
     if ack not in ("Success", "Warning"):
         msgs = "; ".join(el.text for el in root.findall(f".//{_t('ShortMessage')}") if el.text)
@@ -118,6 +118,11 @@ def get_item(cfg: dict, token: str, item_id: str) -> dict:
         "pictures":              pictures,
         "item_specifics":        item_specifics,
         "sku":                   _txt(item, "SKU"),
+        "currency":              _txt(item, "Currency") or "USD",
+        "country":               _txt(item, "Country") or "US",
+        "location":              _txt(item, "Location"),
+        "postal_code":           _txt(item, "PostalCode"),
+        "payment_methods":       [el.text for el in item.findall(_t("PaymentMethods")) if el.text],
         "shipping_xml":          _subtree_xml(item.find(_t("ShippingDetails"))),
         "ship_to_locations":     ship_to,
         "return_policy_xml":     _subtree_xml(item.find(_t("ReturnPolicy"))),
@@ -148,12 +153,22 @@ def _esc(text: str) -> str:
 
 
 def build_additem_xml(fields: dict) -> str:
+    currency = _esc(fields.get("currency") or "USD")
+    country = _esc(fields.get("country") or "US")
     lines = ["<Item>"]
     lines.append(f"  <Title>{_esc(fields['title'])}</Title>")
     lines.append(f"  <Description><![CDATA[{fields['description']}]]></Description>")
     lines.append("  <ListingType>FixedPriceItem</ListingType>")
     lines.append(f"  <ListingDuration>{_esc(fields.get('listing_duration') or 'GTC')}</ListingDuration>")
-    lines.append(f"  <StartPrice currencyID=\"USD\">{fields['start_price']}</StartPrice>")
+    lines.append(f"  <StartPrice currencyID=\"{currency}\">{fields['start_price']}</StartPrice>")
+    lines.append(f"  <Currency>{currency}</Currency>")
+    lines.append(f"  <Country>{country}</Country>")
+    if fields.get("location"):
+        lines.append(f"  <Location>{_esc(fields['location'])}</Location>")
+    if fields.get("postal_code"):
+        lines.append(f"  <PostalCode>{_esc(fields['postal_code'])}</PostalCode>")
+    for method in fields.get("payment_methods", []):
+        lines.append(f"  <PaymentMethods>{_esc(method)}</PaymentMethods>")
     lines.append(f"  <Quantity>{fields['quantity']}</Quantity>")
     lines.append(f"  <PrimaryCategory><CategoryID>{fields['primary_category_id']}</CategoryID></PrimaryCategory>")
     if fields.get("secondary_category_id"):
