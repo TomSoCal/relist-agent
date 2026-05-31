@@ -93,6 +93,11 @@ def run() -> None:
             continue
 
         try:
+            end_item(cfg, token, iid)
+        except Exception as e:
+            log(f"  WARNING EndItem {iid} failed: {e}")
+
+        try:
             new_id = add_item(cfg, token, fields)
         except Exception as e:
             log(f"  ERROR AddItem {iid}: {e}")
@@ -109,11 +114,6 @@ def run() -> None:
         )
         if kff_result.get("status") == "flag":
             log(f"  KFF flagged relist {iid} -> {new_id}: {kff_result.get('suggestion', '')}")
-
-        try:
-            end_item(cfg, token, iid)
-        except Exception as e:
-            log(f"  WARNING EndItem {iid} failed (new listing {new_id} is live): {e}")
 
         log(f"  Relisted: {iid} -> {new_id} — {item['title']}")
         relisted_report.append({"old_id": iid, "new_id": new_id, "title": item["title"]})

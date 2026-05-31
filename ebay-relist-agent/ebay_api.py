@@ -101,6 +101,9 @@ def get_item(cfg: dict, token: str, item_id: str) -> dict:
         for nvl in item.findall(f"{_t('ItemSpecifics')}/{_t('NameValueList')}")
     ]
     ship_to = [el.text for el in item.findall(_t("ShipToLocations")) if el.text]
+    shipping_profile_id = item.findtext(f".//{_t('ShippingProfileID')}", "") or ""
+    return_profile_id = item.findtext(f".//{_t('ReturnProfileID')}", "") or ""
+    payment_profile_id = item.findtext(f".//{_t('PaymentProfileID')}", "") or ""
 
     return {
         "title":                 _txt(item, "Title"),
@@ -122,10 +125,10 @@ def get_item(cfg: dict, token: str, item_id: str) -> dict:
         "country":               _txt(item, "Country") or "US",
         "location":              _txt(item, "Location"),
         "postal_code":           _txt(item, "PostalCode"),
-        "payment_methods":       [el.text for el in item.findall(_t("PaymentMethods")) if el.text],
-        "shipping_xml":          _subtree_xml(item.find(_t("ShippingDetails"))),
+        "shipping_profile_id":   shipping_profile_id,
+        "return_profile_id":     return_profile_id,
+        "payment_profile_id":    payment_profile_id,
         "ship_to_locations":     ship_to,
-        "return_policy_xml":     _subtree_xml(item.find(_t("ReturnPolicy"))),
         "dispatch_time_max":     _txt(item, "DispatchTimeMax"),
     }
 
@@ -167,8 +170,6 @@ def build_additem_xml(fields: dict) -> str:
         lines.append(f"  <Location>{_esc(fields['location'])}</Location>")
     if fields.get("postal_code"):
         lines.append(f"  <PostalCode>{_esc(fields['postal_code'])}</PostalCode>")
-    for method in fields.get("payment_methods", []):
-        lines.append(f"  <PaymentMethods>{_esc(method)}</PaymentMethods>")
     lines.append(f"  <Quantity>{fields['quantity']}</Quantity>")
     lines.append(f"  <PrimaryCategory><CategoryID>{fields['primary_category_id']}</CategoryID></PrimaryCategory>")
     if fields.get("secondary_category_id"):
@@ -189,12 +190,17 @@ def build_additem_xml(fields: dict) -> str:
         for name, value in fields["item_specifics"]:
             lines.append(f"    <NameValueList><Name>{_esc(name)}</Name><Value>{_esc(value)}</Value></NameValueList>")
         lines.append("  </ItemSpecifics>")
-    if fields.get("shipping_xml"):
-        lines.append(f"  {fields['shipping_xml']}")
+    if fields.get("shipping_profile_id") or fields.get("return_profile_id") or fields.get("payment_profile_id"):
+        lines.append("  <SellerProfiles>")
+        if fields.get("shipping_profile_id"):
+            lines.append(f"    <SellerShippingProfile><ShippingProfileID>{fields['shipping_profile_id']}</ShippingProfileID></SellerShippingProfile>")
+        if fields.get("return_profile_id"):
+            lines.append(f"    <SellerReturnProfile><ReturnProfileID>{fields['return_profile_id']}</ReturnProfileID></SellerReturnProfile>")
+        if fields.get("payment_profile_id"):
+            lines.append(f"    <SellerPaymentProfile><PaymentProfileID>{fields['payment_profile_id']}</PaymentProfileID></SellerPaymentProfile>")
+        lines.append("  </SellerProfiles>")
     for loc in fields.get("ship_to_locations", []):
         lines.append(f"  <ShipToLocations>{_esc(loc)}</ShipToLocations>")
-    if fields.get("return_policy_xml"):
-        lines.append(f"  {fields['return_policy_xml']}")
     if fields.get("dispatch_time_max"):
         lines.append(f"  <DispatchTimeMax>{fields['dispatch_time_max']}</DispatchTimeMax>")
     if fields.get("store_category_id") or fields.get("store_category2_id"):
