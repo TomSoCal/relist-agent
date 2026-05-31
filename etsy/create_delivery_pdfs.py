@@ -732,7 +732,7 @@ EVENTS = [
         "bg_light":  "#E1F5FE",
         "emoji":     "🗺️",
         "tab7":      "Route Planner",
-        "sheet_url": "https://docs.google.com/spreadsheets/d/1ZqOERh6iWS1RSRpoCt9RcaLG4VShv4iKPGcZmnB4aMI/copy",
+        "sheet_url": "https://docs.google.com/spreadsheets/d/1Kd8nPZ13ReNB-rKeXpWetP3142a1WJ6COlJ8HUG3LIg/copy",
     },
     {
         "key":       "rv-vacation",
@@ -743,7 +743,7 @@ EVENTS = [
         "bg_light":  "#E8F5E9",
         "emoji":     "🚐",
         "tab7":      "Maintenance Log",
-        "sheet_url": "https://docs.google.com/spreadsheets/d/12lqKeiz7W_BRMGDAGMzrIJLuRyQqjycGXYd85wYj9LI/copy",
+        "sheet_url": "https://docs.google.com/spreadsheets/d/1KBWBXfkDIqnjQ9DBphJJda2PO5fXWmK-XKtMvJ2C6zA/copy",
     },
     {
         "key":       "first-time-rv",
@@ -754,7 +754,7 @@ EVENTS = [
         "bg_light":  "#E0F2F1",
         "emoji":     "🚐",
         "tab7":      "System Learning",
-        "sheet_url": "https://docs.google.com/spreadsheets/d/1zSerzJbHYD0FHbxjr9QkxMOqgfAh0p2cCAeVCvL4LcI/copy",
+        "sheet_url": "https://docs.google.com/spreadsheets/d/1RmEr26yGsl5kGFyl7HC28UGq4R0T67KCBMjFER0aoiA/copy",
     },
 ]
 

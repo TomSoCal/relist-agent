@@ -247,10 +247,27 @@ def populate_standard_tabs(sh, listing: Dict):
 
 def populate_research_driven_tabs(sh, listing: Dict, research: Dict, design: Dict):
     """Populate tabs based on research findings and design specifications."""
-    # Use standard population - simpler and more reliable
+    # Delete default sheet
     try:
-        populate_standard_tabs(sh, listing)
-        print(f"      [OK] Populated with standard tabs")
+        sh.del_worksheet(sh.sheet1)
+    except:
+        pass
+
+    category = research.get('category', 'generic_event')
+    event_research = research.get('research', {})
+
+    try:
+        # Route to category-specific population
+        if category == 'road_trip':
+            populate_road_trip_tabs(sh, listing, event_research)
+        elif category == 'rv_vacation':
+            populate_rv_vacation_tabs(sh, listing, event_research)
+        elif category == 'first_time_rv':
+            populate_first_time_rv_tabs(sh, listing, event_research)
+        else:
+            # Generic fallback
+            populate_standard_tabs(sh, listing)
+        print(f"      [OK] Populated with {category} content")
     except Exception as e:
         print(f"      [ERROR] Population failed: {str(e)[:80]}")
 
@@ -258,9 +275,26 @@ def populate_road_trip_tabs(sh, listing: Dict, research: Dict):
     """Populate Road Trip Planner tabs."""
     title = listing.get('title', 'Road Trip Planner').split('|')[0].strip()
 
+    # First, create all tabs
+    tabs_to_create = [
+        ("Dashboard", 100, 8),
+        ("Route Planner", 150, 8),
+        ("Fuel Cost Calculator", 100, 7),
+        ("Packing Checklist", 150, 3),
+        ("Group Itinerary", 100, 5),
+        ("Instructions", 100, 2),
+    ]
+
+    for tab_name, rows, cols in tabs_to_create:
+        try:
+            sh.add_worksheet(title=tab_name, rows=rows, cols=cols)
+        except Exception as e:
+            pass  # Tab might already exist
+
     # Dashboard
     try:
         dash = sh.worksheet("Dashboard")
+        dash.clear()  # Clear any default content
         dash.append_rows([
             [title.upper()],
             [""],
@@ -343,9 +377,26 @@ def populate_rv_vacation_tabs(sh, listing: Dict, research: Dict):
     """Populate RV Vacation Planner tabs."""
     title = listing.get('title', 'RV Vacation Planner').split('|')[0].strip()
 
+    # First, create all tabs
+    tabs_to_create = [
+        ("Dashboard", 100, 8),
+        ("Campsite Tracker", 150, 8),
+        ("Maintenance Log", 100, 5),
+        ("Water/Electrical Usage", 100, 5),
+        ("Fuel Efficiency", 100, 6),
+        ("Instructions", 100, 2),
+    ]
+
+    for tab_name, rows, cols in tabs_to_create:
+        try:
+            sh.add_worksheet(title=tab_name, rows=rows, cols=cols)
+        except Exception as e:
+            pass  # Tab might already exist
+
     # Dashboard
     try:
         dash = sh.worksheet("Dashboard")
+        dash.clear()  # Clear any default content
         dash.append_rows([
             [title.upper()],
             [""],
@@ -418,9 +469,26 @@ def populate_first_time_rv_tabs(sh, listing: Dict, research: Dict):
     """Populate First-Time RV Planner tabs."""
     title = listing.get('title', 'First-Time RV Planner').split('|')[0].strip()
 
+    # First, create all tabs
+    tabs_to_create = [
+        ("Dashboard", 100, 8),
+        ("13-Section Checklist", 200, 4),
+        ("System Learning Guide", 150, 4),
+        ("Emergency Contacts", 100, 4),
+        ("Pre-Trip Checklist", 150, 3),
+        ("Instructions", 100, 2),
+    ]
+
+    for tab_name, rows, cols in tabs_to_create:
+        try:
+            sh.add_worksheet(title=tab_name, rows=rows, cols=cols)
+        except Exception as e:
+            pass  # Tab might already exist
+
     # Dashboard
     try:
         dash = sh.worksheet("Dashboard")
+        dash.clear()  # Clear any default content
         dash.append_rows([
             [title.upper()],
             [""],
