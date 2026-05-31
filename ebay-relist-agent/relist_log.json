@@ -1,0 +1,443 @@
+[
+  {
+    "date": "2026-05-27",
+    "item_id": "286933116002",
+    "title": "Vintage Tupperware Cream Container Push Button Seal Lid #1415-7 Almond Beige",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287057844051",
+    "title": "HP 98 Black 95 Tri-Color Combo Pack Printer Ink Cartridges New Expired 11/17",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771642",
+    "title": "Funko Pop! Heroes Pride Batman #141 Vinyl Figure Boxed",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771643",
+    "title": "Funko Pop! Disney The Nightmare Before Christmas Mayor #807",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771650",
+    "title": "Funko Pop! Pride Hello Kitty #28 Vinyl Figure Boxed",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771654",
+    "title": "Funko Pop! Wizarding World Harry Potter Hermione w/ Gift #123",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771657",
+    "title": "Funko Pop! Games Sonic the Hedgehog Sonic with Emerald #284",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771659",
+    "title": "Funko Pop! Television The Office Andy Bernard #1061 Target Exclusive",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771661",
+    "title": "Funko Pop! Disney Fantasia Hyacinth Hippo #992 Vinyl Figure",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771664",
+    "title": "VAULTED Funko Pop! Disney Adventures of the Gummi Bears Gruffi #779",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Currency> exists or <Item.Currency> is specified as an empty tag.; No <Item.Country> exists or <Item.Country> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "286933116002",
+    "title": "Vintage Tupperware Cream Container Push Button Seal Lid #1415-7 Almond Beige",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287057844051",
+    "title": "HP 98 Black 95 Tri-Color Combo Pack Printer Ink Cartridges New Expired 11/17",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771642",
+    "title": "Funko Pop! Heroes Pride Batman #141 Vinyl Figure Boxed",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771643",
+    "title": "Funko Pop! Disney The Nightmare Before Christmas Mayor #807",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771650",
+    "title": "Funko Pop! Pride Hello Kitty #28 Vinyl Figure Boxed",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771654",
+    "title": "Funko Pop! Wizarding World Harry Potter Hermione w/ Gift #123",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771657",
+    "title": "Funko Pop! Games Sonic the Hedgehog Sonic with Emerald #284",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771659",
+    "title": "Funko Pop! Television The Office Andy Bernard #1061 Target Exclusive",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771661",
+    "title": "Funko Pop! Disney Fantasia Hyacinth Hippo #992 Vinyl Figure",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "item_id": "287136771664",
+    "title": "VAULTED Funko Pop! Disney Adventures of the Gummi Bears Gruffi #779",
+    "status": "error",
+    "reason": "AddItem failed: No <Item.Location> exists or <Item.Location> is specified as an empty tag."
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "286933116002",
+    "new_item_id": "287357330966",
+    "title": "Vintage Tupperware Cream Container Push Button Seal Lid #1415-7 Almond Beige",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287057844051",
+    "new_item_id": "287357342928",
+    "title": "HP 98 Black 95 Tri-Color Combo Pack Printer Ink Cartridges New Expired 11/17",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771642",
+    "new_item_id": "287357353756",
+    "title": "Funko Pop! Heroes Pride Batman #141 Vinyl Figure Boxed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771643",
+    "new_item_id": "287357361303",
+    "title": "Funko Pop! Disney The Nightmare Before Christmas Mayor #807",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771650",
+    "new_item_id": "287357362843",
+    "title": "Funko Pop! Pride Hello Kitty #28 Vinyl Figure Boxed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771654",
+    "new_item_id": "287357363664",
+    "title": "Funko Pop! Wizarding World Harry Potter Hermione w/ Gift #123",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771657",
+    "new_item_id": "287357364276",
+    "title": "Funko Pop! Games Sonic the Hedgehog Sonic with Emerald #284",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771659",
+    "new_item_id": "287357364963",
+    "title": "Funko Pop! Television The Office Andy Bernard #1061 Target Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771661",
+    "new_item_id": "287357366357",
+    "title": "Funko Pop! Disney Fantasia Hyacinth Hippo #992 Vinyl Figure",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-27",
+    "old_item_id": "287136771664",
+    "new_item_id": "287357367083",
+    "title": "VAULTED Funko Pop! Disney Adventures of the Gummi Bears Gruffi #779",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "item_id": "287136771694",
+    "title": "Funko Pop! Disney Holiday Christmas Daisy Duck #1127 Vinyl Figure",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771695",
+    "new_item_id": "287361558623",
+    "title": "VAULTED Funko Pop! Disney Alice Through the Looking Glass Time #184",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771697",
+    "new_item_id": "287361559604",
+    "title": "Funko Pop! Television The Simpsons Glowing Mr. Burns #1162 PX Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771698",
+    "new_item_id": "287361560647",
+    "title": "VAULTED Funko Pop! Monsters Snuggle-Tooth #3 Vinyl Figure Boxed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771701",
+    "new_item_id": "287361561328",
+    "title": "Donald Duck 1128 Disney, Holiday, Christmas",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771702",
+    "new_item_id": "287361567947",
+    "title": "VAULTED Funko Pop! Disney Adventures of the Gummi Bears Tummi #777",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771703",
+    "new_item_id": "287361570239",
+    "title": "VAULTED Funko Pop! Rocks Devo Whip It #216 Vinyl Figure Boxed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771704",
+    "new_item_id": "287361570878",
+    "title": "VAULTED Funko Pop! Television Westworld Dolores #505 Fall Convention",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771705",
+    "new_item_id": "287361571902",
+    "title": "VAULTED Funko Pop! Comics Saga Lying Cat #11 PX Previews Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-29",
+    "old_item_id": "287136771707",
+    "new_item_id": "287361572923",
+    "title": "Funko Pop! Disney Walt Disney Archives Beanstalk Mickey #800",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "item_id": "287136771694",
+    "title": "Funko Pop! Disney Holiday Christmas Daisy Duck #1127 Vinyl Figure",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771708",
+    "new_item_id": "287363534658",
+    "title": "VAULTED Funko Pop! Ad Icons McDonald\u2019s Cowboy McNugget #111",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771709",
+    "new_item_id": "287363535391",
+    "title": "Funko Pop! Movies Mortal Engines Hester Shaw #680 Hot Topic",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771711",
+    "new_item_id": "287363539753",
+    "title": "VAULTED Funko Pop! Television Fantasy Island Tattoo #989",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771712",
+    "new_item_id": "287363544052",
+    "title": "VAULTED Funko Pop! Marvel Gwenpool with Phone #164 Toys R Us Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771713",
+    "new_item_id": "287363544793",
+    "title": "VAULTED Funko Pop! Television The Strain Vaun #281 Vinyl Figure",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771716",
+    "new_item_id": "287363545637",
+    "title": "Funko Pop! DC Super Heroes Penguin Snowman #367 Hot Topic Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771714",
+    "new_item_id": "287363546561",
+    "title": "Funko Pop! Heroes Aquaman Black Manta #249 Regal Cinemas Exclusive",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "old_item_id": "287136771715",
+    "new_item_id": "287363547311",
+    "title": "VAULTED Funko Pop! Television Son of Zorn Zorn Office Attire #404",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-30",
+    "item_id": "287193296514",
+    "title": "Imillet FI-362C Wireless Surveillance Camera Night Vision White",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-31",
+    "item_id": "287136771694",
+    "title": "Funko Pop! Disney Holiday Christmas Daisy Duck #1127 Vinyl Figure",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-31",
+    "item_id": "287193296514",
+    "title": "Imillet FI-362C Wireless Surveillance Camera Night Vision White",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287193296524",
+    "new_item_id": "287365524396",
+    "title": "Amazon Cloud Cam PB04JL White 1080P HD Indoor Security Camera Works with Alexa",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287193296532",
+    "new_item_id": "287365525452",
+    "title": "Safety 1st Video Baby Monitor Model 08028T TESTED ",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589147",
+    "new_item_id": "287365531854",
+    "title": "Intex 29001E Type S1 Easy Set Filter Cartridges \u2013 2 Pack (2 Filters) \u2013 NEW Seale",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "item_id": "287213589149",
+    "title": "Vintage Christmas ornament glass ice cream cone 3 flavors ",
+    "status": "error",
+    "reason": "AddItem failed: Listing violates the Duplicate Listing policy.; Seller has opted into business policies. Please use policy IDs rather than legacy fields for Shipping, Payments or Returns."
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589150",
+    "new_item_id": "287365534502",
+    "title": "Clear Choice CLCH104 Refrigerator Water Filter \u2013 Replacement for Select Models",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589151",
+    "new_item_id": "287365540661",
+    "title": "ICEPURE PRO RWF0500A Refrigerator Replacement Water Filter \u2013 2 Pack \u2013 NEW Sealed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589152",
+    "new_item_id": "287365541963",
+    "title": "GE MWF Refrigerator Replacement Water Filter \u2013 1 Pack \u2013 Brand New Sealed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589153",
+    "new_item_id": "287365542837",
+    "title": "Kenmore 9083 Replacement Refrigerator Water Filter \u2013 NEW Sealed",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287136771694",
+    "new_item_id": "287365572223",
+    "title": "Funko Pop! Disney Holiday Christmas Daisy Duck #1127 Vinyl Figure",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287193296514",
+    "new_item_id": "287365570912",
+    "title": "Imillet FI-362C Wireless Surveillance Camera Night Vision White",
+    "status": "relisted"
+  },
+  {
+    "date": "2026-05-31",
+    "old_item_id": "287213589149",
+    "new_item_id": "287365570503",
+    "title": "Vintage Christmas ornament glass ice cream cone 3 flavors",
+    "status": "relisted"
+  }
+]
