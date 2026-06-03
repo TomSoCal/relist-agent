@@ -611,19 +611,23 @@ class InventoryWindow(tk.Toplevel):
         tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", fill="x", expand=True, padx=2)
         tk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
 
-        # Items container with scrollbar
-        container = tk.Frame(table_frame, bg=BG_PRIMARY)
-        container.pack(fill="both", expand=True)
+        # Canvas with scrollbar for items
+        list_container = tk.Frame(table_frame, bg=BG_PRIMARY)
+        list_container.pack(fill="both", expand=True)
 
-        self.items_frame = tk.Frame(container, bg=BG_SECONDARY)
-        self.items_frame.pack(fill="both", expand=True, side="left")
+        self.canvas = tk.Canvas(list_container, bg=BG_SECONDARY, highlightthickness=0, height=300)
+        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
+        self.items_frame = tk.Frame(self.canvas, bg=BG_SECONDARY)
 
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._scroll_items)
+        self.items_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw", width=800)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind("<Button-4>", self._on_mousewheel)
+        self.canvas.bind("<Button-5>", self._on_mousewheel)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-
-        self.items_frame.bind("<MouseWheel>", self._on_mousewheel)
-        self.items_frame.bind("<Button-4>", self._on_mousewheel)
-        self.items_frame.bind("<Button-5>", self._on_mousewheel)
 
         self.tree = None  # Keep for compatibility
 
@@ -635,18 +639,29 @@ class InventoryWindow(tk.Toplevel):
             from auth import get_access_token
             from ebay_api import fetch_all_active_listings
 
-            self.item_count.config(text="Fetching from eBay...")
+            self.progress.config(maximum=100, value=50)
+            self.progress_text.config(text="Fetching from eBay...")
+            self.item_count.config(text="Loading...")
+            self.update()
+
             token = get_access_token(self.app_config)
 
             # Load active listings
             self.all_items = fetch_all_active_listings(self.app_config, token)
 
-            self.progress.config(maximum=1, value=0)
-            self.progress_text.config(text="")
+            self.progress.config(value=90)
+            self.progress_text.config(text="Rendering items...")
+            self.update()
+
             self.filter_items()
+
+            self.progress.config(value=100)
+            self.progress_text.config(text="Done")
             self.item_count.config(text=f"Loaded {len(self.all_items)} items")
         except Exception as e:
             import traceback
+            self.progress.config(value=0)
+            self.progress_text.config(text="")
             error_msg = f"Error: {str(e)}"
             self.item_count.config(text=error_msg)
             print(f"Load items error: {traceback.format_exc()}")
@@ -705,13 +720,22 @@ class InventoryWindow(tk.Toplevel):
             # Date
             tk.Label(row, text=formatted_date, width=25, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").pack(side="left", padx=2)
 
+        # Update canvas scroll region
+        self.items_frame.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
         self.item_count.config(text=f"{len(filtered)} of {len(self.all_items)} items")
 
-    def _scroll_items(self, *args):
-        pass
+    def _on_frame_configure(self, event=None):
+        """Update scroll region when frame size changes"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_mousewheel(self, event):
-        pass
+        """Handle mousewheel scrolling"""
+        if event.num == 5 or event.delta < 0:
+            self.canvas.yview_scroll(3, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.canvas.yview_scroll(-3, "units")
 
     def refresh_data(self):
         """Refresh inventory from eBay"""
