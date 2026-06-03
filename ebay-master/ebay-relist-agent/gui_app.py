@@ -185,6 +185,7 @@ class SettingsWindow(tk.Toplevel):
     def apply_schedule(self, run_time, run_days):
         """Apply the schedule to Windows Task Scheduler"""
         import subprocess
+        import os
 
         script_path = BASE_DIR / "update_schedule.ps1"
         if not script_path.exists():
@@ -196,13 +197,19 @@ class SettingsWindow(tk.Toplevel):
             days_str = "', '".join(run_days)
             ps_cmd = f"""
             $script = '{script_path}'
-            Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script, '-Time', '{run_time}', '-Days', @('{days_str}')) -Verb RunAs -Wait
+            Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script, '-Time', '{run_time}', '-Days', @('{days_str}')) -Verb RunAs -WindowStyle Hidden -Wait
             """
+
+            # Hide the PowerShell window
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
 
             subprocess.run(
                 ["powershell", "-NoProfile", "-Command", ps_cmd],
                 capture_output=True,
-                timeout=10
+                timeout=10,
+                startupinfo=startupinfo
             )
         except Exception as e:
             messagebox.showwarning("Warning", f"Could not auto-update schedule: {e}\nYou may need to run with admin privileges.")
