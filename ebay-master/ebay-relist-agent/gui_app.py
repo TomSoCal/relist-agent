@@ -638,21 +638,21 @@ class InventoryWindow(tk.Toplevel):
             from auth import get_access_token
             from ebay_api import fetch_all_active_listings
 
+            self.item_count.config(text="Fetching from eBay...")
             token = get_access_token(self.app_config)
 
             # Load active listings
             self.all_items = fetch_all_active_listings(self.app_config, token)
 
-            self.progress.config(maximum=1)
-            self.progress["value"] = 0
-
-
-            self.progress.config(value=0)
+            self.progress.config(maximum=1, value=0)
             self.progress_text.config(text="")
             self.filter_items()
             self.item_count.config(text=f"Loaded {len(self.all_items)} items")
         except Exception as e:
-            self.item_count.config(text=f"Error loading items: {e}")
+            import traceback
+            error_msg = f"Error: {str(e)}"
+            self.item_count.config(text=error_msg)
+            print(f"Load items error: {traceback.format_exc()}")
 
     def filter_items(self, *args):
         search_term = self.search_var.get().lower()
@@ -702,6 +702,10 @@ class InventoryWindow(tk.Toplevel):
 
             # Date
             ttk.Label(row, text=formatted_date, width=25, font=("Arial", 9), foreground=TEXT_SECONDARY).pack(side="left", padx=2)
+
+        # Force canvas to update scroll region
+        self.items_frame.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
         self.item_count.config(text=f"{len(filtered)} of {len(self.all_items)} items")
 
