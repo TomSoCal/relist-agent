@@ -645,7 +645,7 @@ class InventoryWindow(tk.Toplevel):
             token = get_access_token(self.app_config)
 
             # Load active listings
-            self.all_items = fetch_all_active_listings(self.config, token)
+            self.all_items = fetch_all_active_listings(self.app_config, token)
 
             self.progress.config(maximum=1)
             self.progress["value"] = 0
@@ -741,7 +741,7 @@ class InventoryWindow(tk.Toplevel):
                 from ebay_api import end_item
 
                 token = get_access_token(self.app_config)
-                end_item(self.config, token, item_id)
+                end_item(self.app_config, token, item_id)
                 messagebox.showinfo("Success", f"Item {item_id} delisted successfully")
                 # Reload inventory
                 self.all_items = []
@@ -774,13 +774,13 @@ class InventoryWindow(tk.Toplevel):
                 token = get_access_token(self.app_config)
 
                 # Get full item details FIRST (before delisting)
-                details = get_item(self.config, token, item_id)
+                details = get_item(self.app_config, token, item_id)
 
                 # Delist the old item
-                end_item(self.config, token, item_id)
+                end_item(self.app_config, token, item_id)
 
                 # Create new listing with same details
-                new_item_id = add_item(self.config, token, details)
+                new_item_id = add_item(self.app_config, token, details)
 
                 messagebox.showinfo("Success", f"Listing refreshed!\n\nOld: {item_id}\nNew: {new_item_id}")
 
