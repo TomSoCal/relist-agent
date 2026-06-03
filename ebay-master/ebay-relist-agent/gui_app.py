@@ -130,7 +130,7 @@ class SettingsWindow(tk.Toplevel):
         self.listings_per_run.set(config.get("listings_per_run", 10))
 
         # Schedule Frame
-        schedule_frame = ttk.LabelFrame(form_frame, text="Schedule", padding=10)
+        schedule_frame = tk.LabelFrame(form_frame, text="Schedule", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
         schedule_frame.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
         # Time
@@ -331,7 +331,7 @@ class MainApp(tk.Tk):
             ttk.Label(info_frame, text=f"Store: {self.app_config['store_name']}", font=("Arial", 10)).pack(anchor="w")
 
         # Log area
-        log_frame = ttk.LabelFrame(self, text="Activity Log", padding=10)
+        log_frame = tk.LabelFrame(self, text="Activity Log", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
         log_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=80, bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
@@ -838,7 +838,7 @@ class LogViewerWindow(tk.Toplevel):
         ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Filter frame
-        filter_frame = ttk.LabelFrame(self, text="Filter", padding=10)
+        filter_frame = tk.LabelFrame(self, text="Filter", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
         filter_frame.pack(fill="x", padx=10, pady=10)
 
         ttk.Label(filter_frame, text="From Date:").grid(row=0, column=0, sticky="w")
@@ -863,7 +863,7 @@ class LogViewerWindow(tk.Toplevel):
         ttk.Button(filter_frame, text="Apply Filter", command=self.apply_filter).grid(row=0, column=8, padx=5)
 
         # Table frame
-        table_frame = ttk.LabelFrame(self, text="History", padding=10)
+        table_frame = tk.LabelFrame(self, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Text widget for log (with built-in scrollbars)
