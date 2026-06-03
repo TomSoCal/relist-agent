@@ -634,20 +634,47 @@ class InventoryWindow(tk.Toplevel):
         # Load items in background
         threading.Thread(target=self.load_items, daemon=True).start()
 
-    def load_items(self):
+    def load_items(self, force_refresh=False):
         try:
+            from datetime import datetime, timedelta
             from auth import get_access_token
             from ebay_api import fetch_all_active_listings
 
+            cache_file = BASE_DIR / "inventory_cache.json"
+            cache_valid_hours = 6
+
+            # Try to load from cache first (unless force refresh)
+            if not force_refresh and cache_file.exists():
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cache_data = json.load(f)
+                        cache_time = datetime.fromisoformat(cache_data.get("timestamp", ""))
+                        if datetime.now() - cache_time < timedelta(hours=cache_valid_hours):
+                            self.all_items = cache_data.get("items", [])
+                            self.progress.config(value=100)
+                            self.progress_text.config(text="Loaded from cache")
+                            self.item_count.config(text=f"Loaded {len(self.all_items)} items (cached)")
+                            self.filter_items()
+                            return
+                except Exception:
+                    pass  # Cache load failed, fetch fresh
+
+            # Fetch fresh data from eBay
             self.progress.config(maximum=100, value=50)
             self.progress_text.config(text="Fetching from eBay...")
             self.item_count.config(text="Loading...")
             self.update()
 
             token = get_access_token(self.app_config)
-
-            # Load active listings
             self.all_items = fetch_all_active_listings(self.app_config, token)
+
+            # Save to cache
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "items": self.all_items
+            }
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=2)
 
             self.progress.config(value=90)
             self.progress_text.config(text="Rendering items...")
@@ -700,16 +727,14 @@ class InventoryWindow(tk.Toplevel):
             row_bg = BG_SECONDARY if idx % 2 == 0 else BG_TERTIARY
 
             # Create row frame
-            row = tk.Frame(self.items_frame, bg=row_bg, height=30)
-            row.pack(fill="x", padx=0, pady=0)
-            row.pack_propagate(False)
+            row = tk.Frame(self.items_frame, bg=row_bg)
+            row.pack(fill="x", padx=0, pady=1)
 
             # Action buttons
-            btn_frame = tk.Frame(row, bg=row_bg, width=70)
-            btn_frame.pack(side="left", padx=2, pady=3, fill="x")
-            btn_frame.pack_propagate(False)
-            tk.Button(btn_frame, text="❌", width=3, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.delist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
-            tk.Button(btn_frame, text="♻️", width=3, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.relist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
+            btn_frame = tk.Frame(row, bg=row_bg)
+            btn_frame.pack(side="left", padx=2, pady=2)
+            tk.Button(btn_frame, text="❌", width=2, height=1, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.delist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="♻️", width=2, height=1, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.relist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
 
             # Item ID
             tk.Label(row, text=item_id, width=15, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
@@ -739,21 +764,21 @@ class InventoryWindow(tk.Toplevel):
             self.canvas.yview_scroll(-3, "units")
 
     def refresh_data(self):
-        """Refresh inventory from eBay"""
+        """Refresh inventory from eBay (force fresh fetch)"""
         result = messagebox.askyesno(
             "Refresh Data",
-            "Reload the inventory from eBay?"
+            "Force refresh from eBay? (This will skip cache and fetch fresh data)"
         )
         if result:
             # Clear items frame
             for widget in self.items_frame.winfo_children():
                 widget.destroy()
 
-            # Reload
+            # Reload with force_refresh=True
             self.all_items = []
             self.progress["value"] = 0
             self.item_count.config(text="Loading...")
-            threading.Thread(target=self.load_items, daemon=True).start()
+            threading.Thread(target=lambda: self.load_items(force_refresh=True), daemon=True).start()
 
     def delist_item(self, item_id, title):
         """Delist a single item by ID"""
