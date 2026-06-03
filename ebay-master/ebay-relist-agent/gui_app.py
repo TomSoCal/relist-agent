@@ -367,6 +367,9 @@ class MainApp(tk.Tk):
         self.log_text.insert("end", "Loading...\n")
         self.log_text.config(state="disabled")
 
+        # Track log file modification time for auto-refresh
+        self.last_log_modify_time = 0
+
         # Buttons
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=10)
@@ -380,6 +383,9 @@ class MainApp(tk.Tk):
 
         # Load log in background thread
         threading.Thread(target=self.refresh_log, daemon=True).start()
+
+        # Start auto-refresh polling
+        self.auto_refresh_activity_log()
 
     def refresh_log(self):
         try:
@@ -439,6 +445,20 @@ class MainApp(tk.Tk):
         self.log_text.delete(1.0, "end")
         self.log_text.insert("end", text)
         self.log_text.config(state="disabled")
+
+    def auto_refresh_activity_log(self):
+        """Auto-refresh activity log if file has been modified"""
+        try:
+            if LOG_FILE.exists():
+                current_modify_time = LOG_FILE.stat().st_mtime
+                if current_modify_time > self.last_log_modify_time:
+                    self.last_log_modify_time = current_modify_time
+                    self.refresh_log()
+        except:
+            pass
+
+        # Schedule next check in 2 seconds
+        self.after(2000, self.auto_refresh_activity_log)
 
     def open_settings(self):
         SettingsWindow(self, self.app_config, self.refresh_log)
@@ -567,16 +587,12 @@ class InventoryWindow(tk.Toplevel):
         )
         banner_label.pack(fill="x")
 
-        # Quick actions toolbar
-        actions_frame = tk.Frame(self, bg=BG_PRIMARY, relief="solid", borderwidth=1)
-        actions_frame.pack(fill="x", padx=0, pady=0)
+        # Button guide
+        guide_frame = tk.Frame(self, bg=BG_PRIMARY, relief="solid", borderwidth=1)
+        guide_frame.pack(fill="x", padx=0, pady=0)
 
-        tk.Label(actions_frame, text="Quick Actions:", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 9, "bold")).pack(side="left", padx=10, pady=5)
-
-        # Action buttons with descriptions
-        tk.Button(actions_frame, text="ℹ️ Info", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.show_guide).pack(side="left", padx=3)
-        tk.Button(actions_frame, text="🔄 Refresh", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.refresh_data).pack(side="left", padx=3)
-        tk.Button(actions_frame, text="📋 View Log", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.open_activity_log).pack(side="left", padx=3)
+        tk.Label(guide_frame, text="Action Buttons:", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 9, "bold")).pack(side="left", padx=10, pady=5)
+        tk.Label(guide_frame, text="❌ = End listing  |  ♻️ = Delist & Relist", bg=BG_PRIMARY, fg=TEXT_SECONDARY, font=("Arial", 9)).pack(side="left", padx=10, pady=5)
 
         # Info note
         info_frame = ttk.Frame(self)
@@ -993,8 +1009,12 @@ class LogViewerWindow(tk.Toplevel):
 
         # Load all data
         self.all_entries = []
+        self.last_modify_time = 0
         self.load_all_entries()
         self.apply_filter()
+
+        # Auto-refresh log every 2 seconds
+        self.auto_refresh_log()
 
     def load_all_entries(self):
         try:
@@ -1009,6 +1029,22 @@ class LogViewerWindow(tk.Toplevel):
         """Reload log entries and reapply filters"""
         self.load_all_entries()
         self.apply_filter()
+
+    def auto_refresh_log(self):
+        """Auto-refresh log if file has been modified"""
+        try:
+            if LOG_FILE.exists():
+                current_modify_time = LOG_FILE.stat().st_mtime
+                if current_modify_time > self.last_modify_time:
+                    self.last_modify_time = current_modify_time
+                    self.load_all_entries()
+                    self.apply_filter()
+        except:
+            pass
+
+        # Schedule next refresh in 2 seconds
+        if self.winfo_exists():
+            self.after(2000, self.auto_refresh_log)
 
     def apply_filter(self):
         from_date = self.from_date.get()
