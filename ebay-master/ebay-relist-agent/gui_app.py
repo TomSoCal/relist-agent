@@ -7,10 +7,30 @@ from tkinter import scrolledtext
 from pathlib import Path
 import threading
 from theme import *
+from PIL import Image, ImageTk
 
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
 LOG_FILE = BASE_DIR / "relist_log.json"
+
+# Cache for info icon
+_info_icon_cache = None
+
+def get_info_icon(size=24):
+    global _info_icon_cache
+    if _info_icon_cache is not None:
+        return _info_icon_cache
+
+    icon_path = BASE_DIR / "INFO_ICON.png"
+    if icon_path.exists():
+        try:
+            img = Image.open(str(icon_path))
+            img.thumbnail((size, size), Image.Resampling.LANCZOS)
+            _info_icon_cache = ImageTk.PhotoImage(img)
+            return _info_icon_cache
+        except Exception:
+            return None
+    return None
 
 
 def load_config():
@@ -73,7 +93,11 @@ class SettingsWindow(tk.Toplevel):
         header = ttk.Frame(self, style='TFrame')
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Settings", font=("Arial", 12, "bold")).pack(side="left")
-        ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+        icon = get_info_icon(24)
+        if icon:
+            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+        else:
+            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Form container
         form_frame = ttk.Frame(self)
@@ -325,7 +349,11 @@ class MainApp(tk.Tk):
         title_frame = ttk.Frame(info_frame)
         title_frame.pack(anchor="w")
         ttk.Label(title_frame, text="Relist Agent", font=("Arial", 14, "bold")).pack(side="left")
-        ttk.Button(title_frame, text="ⓘ", width=3, command=self.show_main_guide).pack(side="left", padx=5)
+        icon = get_info_icon(24)
+        if icon:
+            ttk.Button(title_frame, image=icon, command=self.show_main_guide, width=2).pack(side="left", padx=5)
+        else:
+            ttk.Button(title_frame, text="ⓘ", width=3, command=self.show_main_guide).pack(side="left", padx=5)
 
         if self.app_config.get("store_name"):
             ttk.Label(info_frame, text=f"Store: {self.app_config['store_name']}", font=("Arial", 10)).pack(anchor="w")
@@ -518,7 +546,11 @@ class InventoryWindow(tk.Toplevel):
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Store Inventory", font=("Arial", 12, "bold")).pack(side="left")
-        ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+        icon = get_info_icon(24)
+        if icon:
+            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+        else:
+            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Feature banner
         banner_frame = tk.Frame(self, bg=BANNER_BG, relief="solid", borderwidth=2, highlightthickness=0, bd=0)
@@ -835,7 +867,11 @@ class LogViewerWindow(tk.Toplevel):
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Log Viewer", font=("Arial", 12, "bold")).pack(side="left")
-        ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+        icon = get_info_icon(24)
+        if icon:
+            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+        else:
+            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Filter frame
         filter_frame = tk.LabelFrame(self, text="Filter", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
