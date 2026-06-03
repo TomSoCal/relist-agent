@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 from tkinter import scrolledtext
 from pathlib import Path
 import threading
+from theme import *
 
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
@@ -35,8 +36,10 @@ class QuickGuideWindow(tk.Toplevel):
         super().__init__(parent)
         self.title(f"Quick Guide - {title}")
         self.geometry("600x500")
+        self.config(bg=BG_PRIMARY)
 
-        text_widget = scrolledtext.ScrolledText(self, height=25, width=70, wrap="word", font=("Arial", 10))
+        text_widget = scrolledtext.ScrolledText(self, height=25, width=70, wrap="word", font=("Arial", 10),
+                                                bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
         text_widget.pack(fill="both", expand=True, padx=10, pady=10)
         text_widget.insert("end", guide_text)
         text_widget.config(state="disabled")
@@ -49,9 +52,19 @@ class SettingsWindow(tk.Toplevel):
         self.geometry("550x700")
         self.config_dict = config
         self.on_save = on_save
+        self.config(bg=BG_PRIMARY)
+
+        # Configure custom ttk style
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TFrame', background=BG_PRIMARY)
+        style.configure('TLabel', background=BG_PRIMARY, foreground=TEXT_PRIMARY, font=("Arial", 10))
+        style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY)
+        style.configure('TButton', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
+        style.map('TButton', background=[('active', BLUE_HOVER)])
 
         # Header with title and info icon
-        header = ttk.Frame(self)
+        header = ttk.Frame(self, style='TFrame')
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Settings", font=("Arial", 12, "bold")).pack(side="left")
         ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
@@ -253,6 +266,21 @@ class MainApp(tk.Tk):
         self.geometry("700x500")
         self.config = load_config()
 
+        # Configure window background
+        self.config(bg=BG_PRIMARY)
+
+        # Configure global ttk style
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TFrame', background=BG_PRIMARY)
+        style.configure('TLabel', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TButton', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame.Label', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.map('TButton', background=[('active', BLUE_HOVER)])
+        style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY, borderwidth=1)
+        style.configure('TCheckbutton', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+
         # Set window icon
         icon_path = BASE_DIR / "ERA_Icon.png"
         if icon_path.exists():
@@ -294,7 +322,7 @@ class MainApp(tk.Tk):
         log_frame = ttk.LabelFrame(self, text="Activity Log", padding=10)
         log_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=80)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=80, bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
         self.log_text.pack(fill="both", expand=True)
         self.log_text.insert("end", "Loading...\n")
         self.log_text.config(state="disabled")
@@ -451,8 +479,22 @@ class InventoryWindow(tk.Toplevel):
         super().__init__(parent)
         self.title("Store Inventory")
         self.geometry("1200x700")
+        self.config(bg=BG_PRIMARY)
         self.config = config
         self.all_items = []
+
+        # Configure ttk style for this window
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TFrame', background=BG_PRIMARY)
+        style.configure('TLabel', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TButton', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame.Label', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.map('TButton', background=[('active', BLUE_HOVER)])
+        style.configure('Treeview', background=BG_SECONDARY, foreground=TEXT_PRIMARY, fieldbackground=BG_SECONDARY)
+        style.configure('Treeview.Heading', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
+        style.map('Treeview.Heading', background=[('active', BLUE_HOVER)])
 
         # Header with title and guide icon
         header = ttk.Frame(self)
@@ -461,13 +503,14 @@ class InventoryWindow(tk.Toplevel):
         ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Feature banner
-        banner_frame = tk.Frame(self, bg="#2a2a2a", relief="solid", borderwidth=1)
+        banner_frame = tk.Frame(self, bg=BANNER_BG, relief="solid", borderwidth=2, highlightthickness=0, bd=0)
         banner_frame.pack(fill="x", padx=0, pady=0)
+        banner_frame.config(highlightbackground=BANNER_BORDER, highlightthickness=1)
         banner_label = tk.Label(
             banner_frame,
             text="✨ NEW: Click ❌ Delist or ♻️ Relist below to manually manage your listings",
-            bg="#2a2a2a",
-            fg="#0066FF",
+            bg=BANNER_BG,
+            fg=BANNER_FG,
             font=("Arial", 9, "bold"),
             padx=10,
             pady=5
@@ -478,9 +521,9 @@ class InventoryWindow(tk.Toplevel):
         info_frame = ttk.Frame(self)
         info_frame.pack(fill="x", padx=10, pady=5)
         ttk.Label(info_frame, text="ℹ️ First load fetches all item details (~1 min per 100 items). Future loads will be much faster thanks to caching.",
-                  font=("Arial", 9), foreground="blue").pack(anchor="w")
-        ttk.Label(info_frame, text="💡 Double-click Item ID to open on eBay",
-                  font=("Arial", 9), foreground="green").pack(anchor="w")
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+        ttk.Label(info_frame, text="💡 Double-click Item ID to open",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
 
         # Search and controls frame
         search_frame = ttk.Frame(self)
@@ -751,6 +794,18 @@ class LogViewerWindow(tk.Toplevel):
         super().__init__(parent)
         self.title("Log Viewer - All Runs")
         self.geometry("900x600")
+        self.config(bg=BG_PRIMARY)
+
+        # Configure ttk style for this window
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TFrame', background=BG_PRIMARY)
+        style.configure('TLabel', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TButton', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('TLabelFrame.Label', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.map('TButton', background=[('active', BLUE_HOVER)])
+        style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY)
 
         # Header with title and guide icon
         header = ttk.Frame(self)
@@ -788,7 +843,7 @@ class LogViewerWindow(tk.Toplevel):
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Text widget for log (with built-in scrollbars)
-        self.log_display = scrolledtext.ScrolledText(table_frame, height=20, width=100)
+        self.log_display = scrolledtext.ScrolledText(table_frame, height=20, width=100, bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
         self.log_display.pack(fill="both", expand=True)
 
         # Load all data
