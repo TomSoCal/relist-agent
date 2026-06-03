@@ -687,13 +687,19 @@ class InventoryWindow(tk.Toplevel):
             cache_valid_hours = 6
 
             # Try to load from cache first (unless force refresh)
+            cached_items = {}
+            cached_item_ids = set()
+
             if not force_refresh and cache_file.exists():
                 try:
                     with open(cache_file, "r", encoding="utf-8") as f:
                         cache_data = json.load(f)
                         cache_time = datetime.fromisoformat(cache_data.get("timestamp", ""))
                         if datetime.now() - cache_time < timedelta(hours=cache_valid_hours):
-                            self.all_items = cache_data.get("items", [])
+                            cached_items = {item.get("item_id"): item for item in cache_data.get("items", []) if item.get("item_id")}
+                            cached_item_ids = set(cached_items.keys())
+
+                            self.all_items = list(cached_items.values())
                             self.progress.config(value=100)
                             self.progress_text.config(text="Loaded from cache")
                             self.item_count.config(text=f"Loaded {len(self.all_items)} items (cached)")
@@ -709,12 +715,30 @@ class InventoryWindow(tk.Toplevel):
             self.update()
 
             token = get_access_token(self.app_config)
-            self.all_items = fetch_all_active_listings(self.app_config, token)
+            fresh_items = fetch_all_active_listings(self.app_config, token)
+            fresh_item_ids = {item.get("item_id") for item in fresh_items if item.get("item_id")}
+
+            # Smart cache: detect new and deleted items
+            new_item_ids = fresh_item_ids - cached_item_ids
+            deleted_item_ids = cached_item_ids - fresh_item_ids
+
+            if new_item_ids or deleted_item_ids:
+                self.progress.config(value=75)
+                if new_item_ids:
+                    self.progress_text.config(text=f"Found {len(new_item_ids)} new items, {len(deleted_item_ids)} deleted")
+                else:
+                    self.progress_text.config(text=f"Found {len(deleted_item_ids)} deleted items")
+                self.update()
+
+            # Combine: keep cached items (not deleted), add new items
+            self.all_items = [item for item in fresh_items if item.get("item_id") in fresh_item_ids]
 
             # Save to cache
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
-                "items": self.all_items
+                "items": self.all_items,
+                "new_count": len(new_item_ids),
+                "deleted_count": len(deleted_item_ids)
             }
             with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(cache_data, f, indent=2)
@@ -727,7 +751,10 @@ class InventoryWindow(tk.Toplevel):
 
             self.progress.config(value=100)
             self.progress_text.config(text="Done")
-            self.item_count.config(text=f"Loaded {len(self.all_items)} items")
+            status_msg = f"Loaded {len(self.all_items)} items"
+            if new_item_ids or deleted_item_ids:
+                status_msg += f" ({len(new_item_ids)} new, {len(deleted_item_ids)} deleted)"
+            self.item_count.config(text=status_msg)
         except Exception as e:
             import traceback
             self.progress.config(value=0)
