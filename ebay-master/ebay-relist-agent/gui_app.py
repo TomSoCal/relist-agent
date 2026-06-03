@@ -567,6 +567,17 @@ class InventoryWindow(tk.Toplevel):
         )
         banner_label.pack(fill="x")
 
+        # Quick actions toolbar
+        actions_frame = tk.Frame(self, bg=BG_PRIMARY, relief="solid", borderwidth=1)
+        actions_frame.pack(fill="x", padx=0, pady=0)
+
+        tk.Label(actions_frame, text="Quick Actions:", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 9, "bold")).pack(side="left", padx=10, pady=5)
+
+        # Action buttons with descriptions
+        tk.Button(actions_frame, text="ℹ️ Info", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.show_guide).pack(side="left", padx=3)
+        tk.Button(actions_frame, text="🔄 Refresh", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.refresh_data).pack(side="left", padx=3)
+        tk.Button(actions_frame, text="📋 View Log", bg=BLUE_PRIMARY, fg=TEXT_PRIMARY, relief="flat", padx=8, pady=3, command=self.open_activity_log).pack(side="left", padx=3)
+
         # Info note
         info_frame = ttk.Frame(self)
         info_frame.pack(fill="x", padx=10, pady=5)
@@ -907,6 +918,10 @@ after search filtering, and Y is total items in your store.
 """
         QuickGuideWindow(self, "Inventory", guide_text)
 
+    def open_activity_log(self):
+        """Open the activity log viewer"""
+        LogViewerWindow(self)
+
 
 class LogViewerWindow(tk.Toplevel):
     def __init__(self, parent):
@@ -966,6 +981,7 @@ class LogViewerWindow(tk.Toplevel):
         self.search.grid(row=0, column=7, sticky="w", padx=5)
 
         ttk.Button(filter_frame, text="Apply Filter", command=self.apply_filter).grid(row=0, column=8, padx=5)
+        ttk.Button(filter_frame, text="🔄 Refresh", command=self.refresh_log).grid(row=0, column=9, padx=5)
 
         # Table frame
         table_frame = tk.LabelFrame(self, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
@@ -988,6 +1004,11 @@ class LogViewerWindow(tk.Toplevel):
                 self.all_entries = json.load(f)
         except Exception as e:
             self.log_display.insert("end", f"Error loading log: {e}\n")
+
+    def refresh_log(self):
+        """Reload log entries and reapply filters"""
+        self.load_all_entries()
+        self.apply_filter()
 
     def apply_filter(self):
         from_date = self.from_date.get()
