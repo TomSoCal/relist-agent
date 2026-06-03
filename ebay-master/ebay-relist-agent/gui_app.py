@@ -603,41 +603,47 @@ class InventoryWindow(tk.Toplevel):
         table_frame = tk.Frame(self, bg=BG_PRIMARY)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+        # Header + scrollable content container
+        content_frame = tk.Frame(table_frame, bg=BG_PRIMARY)
+        content_frame.pack(fill="both", expand=True)
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.rowconfigure(1, weight=1)
+
         # Header row using grid
-        header_frame = tk.Frame(table_frame, bg=BG_PRIMARY)
-        header_frame.pack(fill="x", padx=0, pady=(0, 5))
+        header_frame = tk.Frame(content_frame, bg=BG_PRIMARY, height=30)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 5))
         header_frame.columnconfigure(2, weight=1)  # Title column expands
+        header_frame.pack_propagate(False)
 
         tk.Label(header_frame, text="Actions", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="ew", padx=2, pady=2)
         tk.Label(header_frame, text="Item ID", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=2)
         tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
         tk.Label(header_frame, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
 
-        # Set column widths (in pixels approximate)
+        # Set column widths (in pixels)
         header_frame.columnconfigure(0, minsize=90)   # Actions
         header_frame.columnconfigure(1, minsize=100)  # Item ID
         header_frame.columnconfigure(3, minsize=160)  # Date Listed
 
-        # Canvas with scrollbar for items
-        list_container = tk.Frame(table_frame, bg=BG_PRIMARY)
-        list_container.pack(fill="both", expand=True)
+        # Canvas with scrollbar for items (below header)
+        list_container = tk.Frame(content_frame, bg=BG_PRIMARY)
+        list_container.grid(row=1, column=0, sticky="nsew")
+        list_container.columnconfigure(0, weight=1)
+        list_container.rowconfigure(0, weight=1)
 
-        self.canvas = tk.Canvas(list_container, bg=BG_SECONDARY, highlightthickness=0, height=300)
+        self.canvas = tk.Canvas(list_container, bg=BG_SECONDARY, highlightthickness=0)
         scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
         self.items_frame = tk.Frame(self.canvas, bg=BG_SECONDARY)
 
         self.items_frame.bind("<Configure>", self._on_frame_configure)
-        self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind("<Button-4>", self._on_mousewheel)
         self.canvas.bind("<Button-5>", self._on_mousewheel)
 
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Store header frame for column synchronization
-        self.header_frame = header_frame
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
 
         self.tree = None  # Keep for compatibility
 
@@ -769,8 +775,12 @@ class InventoryWindow(tk.Toplevel):
         self.item_count.config(text=f"{len(filtered)} of {len(self.all_items)} items")
 
     def _on_frame_configure(self, event=None):
-        """Update scroll region when frame size changes"""
+        """Update scroll region and canvas window width"""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Match canvas window width to canvas width
+        canvas_width = self.canvas.winfo_width()
+        if canvas_width > 1:
+            self.canvas.itemconfig(self.canvas_window, width=canvas_width)
 
     def _on_mousewheel(self, event):
         """Handle mousewheel scrolling"""
