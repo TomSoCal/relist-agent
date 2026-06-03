@@ -254,20 +254,6 @@ class MainApp(tk.Tk):
             except Exception:
                 pass
 
-        # Change notes banner
-        notes_frame = tk.Frame(self, bg="#FFF9E6", relief="solid", borderwidth=1)
-        notes_frame.pack(fill="x", padx=0, pady=0)
-        notes_label = tk.Label(
-            notes_frame,
-            text="✨ NEW: Click ❌ Delist or ♻️ Relist in Inventory to manually manage your listings",
-            bg="#FFF9E6",
-            fg="#333",
-            font=("Arial", 9),
-            padx=10,
-            pady=5
-        )
-        notes_label.pack(fill="x")
-
         # Header with logo
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10, pady=10)
@@ -466,6 +452,20 @@ class InventoryWindow(tk.Toplevel):
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Store Inventory", font=("Arial", 12, "bold")).pack(side="left")
         ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+
+        # Feature banner
+        banner_frame = tk.Frame(self, bg="#FFF9E6", relief="solid", borderwidth=1)
+        banner_frame.pack(fill="x", padx=0, pady=0)
+        banner_label = tk.Label(
+            banner_frame,
+            text="✨ NEW: Click ❌ Delist or ♻️ Relist below to manually manage your listings",
+            bg="#FFF9E6",
+            fg="#333",
+            font=("Arial", 9),
+            padx=10,
+            pady=5
+        )
+        banner_label.pack(fill="x")
 
         # Info note
         info_frame = ttk.Frame(self)
