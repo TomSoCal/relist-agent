@@ -725,7 +725,7 @@ ACTIONS
 • Select an item in the list
 • Click to create a new listing with same details
 • Uses current price, description, condition, shipping, etc.
-• Old listing remains active
+• Creates a second active listing (delist the old one if you don't want duplicates)
 
 REFRESH DATA
 Click to reload the inventory from eBay.
