@@ -264,10 +264,10 @@ class MainApp(tk.Tk):
         super().__init__()
         self.title("Relist Agent")
         self.geometry("700x500")
-        self.config = load_config()
+        self.app_config = load_config()
 
         # Configure window background
-        self.config(bg=BG_PRIMARY)
+        tk.Tk.config(self, bg=BG_PRIMARY)
 
         # Configure global ttk style
         style = ttk.Style()
@@ -315,8 +315,8 @@ class MainApp(tk.Tk):
         ttk.Label(title_frame, text="Relist Agent", font=("Arial", 14, "bold")).pack(side="left")
         ttk.Button(title_frame, text="ⓘ", width=3, command=self.show_main_guide).pack(side="left", padx=5)
 
-        if self.config.get("store_name"):
-            ttk.Label(info_frame, text=f"Store: {self.config['store_name']}", font=("Arial", 10)).pack(anchor="w")
+        if self.app_config.get("store_name"):
+            ttk.Label(info_frame, text=f"Store: {self.app_config['store_name']}", font=("Arial", 10)).pack(anchor="w")
 
         # Log area
         log_frame = ttk.LabelFrame(self, text="Activity Log", padding=10)
@@ -352,7 +352,7 @@ class MainApp(tk.Tk):
 
             # Filter by log_days setting
             from datetime import datetime, timedelta
-            log_days = self.config.get("log_days", 3)
+            log_days = self.app_config.get("log_days", 3)
             cutoff_date = (datetime.now() - timedelta(days=log_days)).date()
 
             filtered_entries = [
@@ -401,7 +401,7 @@ class MainApp(tk.Tk):
         self.log_text.config(state="disabled")
 
     def open_settings(self):
-        SettingsWindow(self, self.config, self.refresh_log)
+        SettingsWindow(self, self.app_config, self.refresh_log)
 
     def run_agent(self):
         threading.Thread(target=self._run_agent_thread, daemon=True).start()
@@ -471,7 +471,7 @@ TYPICAL WORKFLOW
         QuickGuideWindow(self, "Dashboard", guide_text)
 
     def open_inventory(self):
-        InventoryWindow(self, self.config)
+        InventoryWindow(self, self.app_config)
 
 
 class InventoryWindow(tk.Toplevel):
@@ -479,8 +479,8 @@ class InventoryWindow(tk.Toplevel):
         super().__init__(parent)
         self.title("Store Inventory")
         self.geometry("1200x700")
-        self.config(bg=BG_PRIMARY)
-        self.config = config
+        tk.Toplevel.config(self, bg=BG_PRIMARY)
+        self.app_config = config
         self.all_items = []
 
         # Configure ttk style for this window
@@ -592,7 +592,7 @@ class InventoryWindow(tk.Toplevel):
             from auth import get_access_token
             from ebay_api import fetch_all_active_listings
 
-            token = get_access_token(self.config)
+            token = get_access_token(self.app_config)
 
             # Load active listings
             self.all_items = fetch_all_active_listings(self.config, token)
@@ -690,7 +690,7 @@ class InventoryWindow(tk.Toplevel):
                 from auth import get_access_token
                 from ebay_api import end_item
 
-                token = get_access_token(self.config)
+                token = get_access_token(self.app_config)
                 end_item(self.config, token, item_id)
                 messagebox.showinfo("Success", f"Item {item_id} delisted successfully")
                 # Reload inventory
@@ -721,7 +721,7 @@ class InventoryWindow(tk.Toplevel):
                 from auth import get_access_token
                 from ebay_api import get_item, add_item, end_item
 
-                token = get_access_token(self.config)
+                token = get_access_token(self.app_config)
 
                 # Get full item details FIRST (before delisting)
                 details = get_item(self.config, token, item_id)
@@ -794,7 +794,7 @@ class LogViewerWindow(tk.Toplevel):
         super().__init__(parent)
         self.title("Log Viewer - All Runs")
         self.geometry("900x600")
-        self.config(bg=BG_PRIMARY)
+        tk.Toplevel.config(self, bg=BG_PRIMARY)
 
         # Configure ttk style for this window
         style = ttk.Style()
