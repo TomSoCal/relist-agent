@@ -644,13 +644,16 @@ class InventoryWindow(tk.Toplevel):
 
         tk.Label(header_frame, text="Actions", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="ew", padx=2, pady=2)
         tk.Label(header_frame, text="Item ID", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=2)
-        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
-        tk.Label(header_frame, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="SKU", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=2)
 
         # Set column widths (in pixels)
         header_frame.columnconfigure(0, minsize=90)   # Actions
         header_frame.columnconfigure(1, minsize=100)  # Item ID
-        header_frame.columnconfigure(3, minsize=160)  # Date Listed
+        header_frame.columnconfigure(2, minsize=80)   # SKU
+        header_frame.columnconfigure(3, weight=1)     # Title (expands)
+        header_frame.columnconfigure(4, minsize=160)  # Date Listed
 
         # Canvas with scrollbar for items (below header)
         list_container = tk.Frame(content_frame, bg=BG_PRIMARY)
@@ -791,6 +794,7 @@ class InventoryWindow(tk.Toplevel):
                 formatted_date = ""
 
             item_id = item.get("item_id", "")
+            sku = item.get("sku", "")
             title = item.get("title", "")
 
             # Alternate row colors
@@ -799,7 +803,7 @@ class InventoryWindow(tk.Toplevel):
             # Create row frame using grid
             row = tk.Frame(self.items_frame, bg=row_bg, height=30)
             row.pack(fill="x", padx=0, pady=0)
-            row.columnconfigure(2, weight=1)  # Title expands
+            row.columnconfigure(3, weight=1)  # Title expands
 
             # Action buttons
             btn_frame = tk.Frame(row, bg=row_bg)
@@ -810,17 +814,21 @@ class InventoryWindow(tk.Toplevel):
             # Item ID
             tk.Label(row, text=item_id, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=0)
 
+            # SKU
+            tk.Label(row, text=sku, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=0)
+
             # Title (truncate long titles)
             title_display = (title[:50] + "...") if len(title) > 50 else title
-            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=0)
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=0)
 
             # Date
-            tk.Label(row, text=formatted_date, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=0)
+            tk.Label(row, text=formatted_date, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=0)
 
             # Match header column widths
             row.columnconfigure(0, minsize=90)   # Actions
             row.columnconfigure(1, minsize=100)  # Item ID
-            row.columnconfigure(3, minsize=160)  # Date Listed
+            row.columnconfigure(2, minsize=80)   # SKU
+            row.columnconfigure(4, minsize=160)  # Date Listed
 
         # Update canvas scroll region
         self.items_frame.update_idletasks()
