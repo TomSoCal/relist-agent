@@ -1,6 +1,6 @@
-# ⚠️ CRITICAL RULES - eBay Relist Agent
+# ⚠️ CRITICAL RULES - Relist Agent
 
-These are non-negotiable rules for ALL versions and implementations of the eBay Relist Agent.
+These are non-negotiable rules for ALL versions and implementations of the Relist Agent.
 
 ## Rule 1: NEVER Create Duplicate Listings
 
@@ -44,6 +44,49 @@ All user-initiated actions that modify listings must:
 2. Allow user to cancel
 3. Verify success/failure
 4. Show user the result (success or error)
+
+---
+
+## Rule 3: NEVER mention "eBay" in User-Facing Branding or Titles
+
+**⛔ VIOLATION PENALTY:** Legal action from eBay
+
+**Implementation Requirements:**
+- NO mentions of "eBay" in:
+  - Window titles
+  - Button labels
+  - Menu items
+  - Help text
+  - About dialogs
+  - Documentation titles visible to users
+  - Branding/logos
+
+**ALLOWED locations for "eBay":**
+- Code comments (internal only)
+- API documentation references
+- Technical error messages
+- Module/function names
+- Configuration comments
+- Internal variable names
+
+**Examples:**
+```
+# ✅ CORRECT
+Window title: "Relist Agent"
+Help: "Manage your listings"
+Button: "Relist Selected"
+
+# ❌ WRONG
+Window title: "eBay Relist Agent"
+Help: "Manage your eBay listings"
+Button: "Relist on eBay"
+```
+
+**Why This Matters:**
+- eBay has strict trademark and brand usage policies
+- Unauthorized use of their brand can trigger cease-and-desist letters
+- Legal action protects both the account and the business
+- This is a non-negotiable legal constraint
 
 ---
 
