@@ -599,40 +599,36 @@ class InventoryWindow(tk.Toplevel):
         self.progress_text = ttk.Label(progress_frame, text="")
         self.progress_text.pack(side="left", padx=5)
 
-        # Table frame
+        # Table frame with custom scrollable list
         table_frame = ttk.Frame(self)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Treeview with columns
-        columns = ("Item ID", "Title", "Date Listed")
-        self.tree = ttk.Treeview(table_frame, columns=columns, height=25)
-        self.tree.column("#0", width=0, stretch="no")
-        self.tree.column("Item ID", anchor="w", width=120)
-        self.tree.column("Title", anchor="w", width=500)
-        self.tree.column("Date Listed", anchor="center", width=180)
+        # Header row
+        header_frame = ttk.Frame(table_frame)
+        header_frame.pack(fill="x", padx=0, pady=(0, 5))
+        ttk.Label(header_frame, text="", width=20, font=("Arial", 10, "bold")).pack(side="left", padx=2)
+        ttk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold")).pack(side="left", padx=2)
+        ttk.Label(header_frame, text="Title", font=("Arial", 10, "bold")).pack(side="left", fill="x", expand=True, padx=2)
+        ttk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold")).pack(side="left", padx=2)
 
-        for col in columns:
-            self.tree.heading(col, text=col)
+        # Scrollable items frame
+        canvas = tk.Canvas(table_frame, bg=BG_SECONDARY, highlightthickness=0, relief="flat", height=400)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+        self.items_frame = ttk.Frame(canvas, style='TFrame')
+        self.items_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
-        # Scrollbars
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscroll=vsb.set, xscroll=hsb.set)
+        canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
+        canvas.configure(yscroll=scrollbar.set)
 
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
+        canvas.pack(side="left", fill="both", expand=True, padx=0)
+        scrollbar.pack(side="right", fill="y", padx=0)
 
-        # Bind double-click to open item
-        self.tree.bind("<Double-1>", self.open_item)
-
-        # Action buttons
-        action_frame = ttk.Frame(self)
-        action_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(action_frame, text="❌ Delist Selected", command=self.delist_selected).pack(side="left", padx=5)
-        ttk.Button(action_frame, text="♻️ Relist Selected", command=self.relist_selected).pack(side="left", padx=5)
+        # Store reference for filter_items
+        self.canvas = canvas
+        self.tree = None  # Keep for compatibility with other methods
 
         # Load items in background
         threading.Thread(target=self.load_items, daemon=True).start()
@@ -662,8 +658,8 @@ class InventoryWindow(tk.Toplevel):
         search_term = self.search_var.get().lower()
 
         # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        for widget in self.items_frame.winfo_children():
+            widget.destroy()
 
         # Filter by title and SKU
         filtered = [
@@ -685,11 +681,27 @@ class InventoryWindow(tk.Toplevel):
             else:
                 formatted_date = ""
 
-            self.tree.insert("", "end", values=(
-                item.get("item_id", ""),
-                item.get("title", ""),
-                formatted_date
-            ))
+            item_id = item.get("item_id", "")
+            title = item.get("title", "")
+
+            # Create row frame
+            row = ttk.Frame(self.items_frame, style='TFrame')
+            row.pack(fill="x", padx=0, pady=2)
+
+            # Action buttons
+            btn_frame = ttk.Frame(row, style='TFrame')
+            btn_frame.pack(side="left", padx=2)
+            ttk.Button(btn_frame, text="❌", width=2, command=lambda iid=item_id, t=title: self.delist_item(iid, t)).pack(side="left", padx=1)
+            ttk.Button(btn_frame, text="♻️", width=2, command=lambda iid=item_id, t=title: self.relist_item(iid, t)).pack(side="left", padx=1)
+
+            # Item ID
+            ttk.Label(row, text=item_id, width=15, font=("Arial", 9)).pack(side="left", padx=2)
+
+            # Title
+            ttk.Label(row, text=title, font=("Arial", 9)).pack(side="left", fill="x", expand=True, padx=2)
+
+            # Date
+            ttk.Label(row, text=formatted_date, width=25, font=("Arial", 9), foreground=TEXT_SECONDARY).pack(side="left", padx=2)
 
         self.item_count.config(text=f"{len(filtered)} of {len(self.all_items)} items")
 
@@ -700,9 +712,9 @@ class InventoryWindow(tk.Toplevel):
             "Reload the inventory from eBay?"
         )
         if result:
-            # Clear table
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+            # Clear items frame
+            for widget in self.items_frame.winfo_children():
+                widget.destroy()
 
             # Reload
             self.all_items = []
@@ -710,26 +722,8 @@ class InventoryWindow(tk.Toplevel):
             self.item_count.config(text="Loading...")
             threading.Thread(target=self.load_items, daemon=True).start()
 
-    def open_item(self, event):
-        import webbrowser
-        selection = self.tree.selection()
-        if selection:
-            item = self.tree.item(selection[0])
-            item_id = item["values"][0]
-            url = f"https://www.ebay.com/itm/{item_id}"
-            webbrowser.open(url)
-
-    def delist_selected(self):
-        """End the selected listing"""
-        selection = self.tree.selection()
-        if not selection:
-            messagebox.showwarning("No Selection", "Please select an item to delist")
-            return
-
-        item = self.tree.item(selection[0])
-        item_id = item["values"][0]
-        title = item["values"][1]
-
+    def delist_item(self, item_id, title):
+        """Delist a single item by ID"""
         confirm = messagebox.askyesno(
             "Confirm Delist",
             f"End listing: {title}?\n\nItem ID: {item_id}"
@@ -750,17 +744,8 @@ class InventoryWindow(tk.Toplevel):
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delist: {e}")
 
-    def relist_selected(self):
-        """Relist the selected item (delist old, create new)"""
-        selection = self.tree.selection()
-        if not selection:
-            messagebox.showwarning("No Selection", "Please select an item to relist")
-            return
-
-        item = self.tree.item(selection[0])
-        item_id = item["values"][0]
-        title = item["values"][1]
-
+    def relist_item(self, item_id, title):
+        """Relist a single item (delist old, create new)"""
         confirm = messagebox.askyesno(
             "Confirm Relist",
             f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will end the current listing and create a new one with the same details"
