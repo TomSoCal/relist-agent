@@ -461,14 +461,14 @@ class InventoryWindow(tk.Toplevel):
         ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
 
         # Feature banner
-        banner_frame = tk.Frame(self, bg="#FFF9E6", relief="solid", borderwidth=1)
+        banner_frame = tk.Frame(self, bg="#2a2a2a", relief="solid", borderwidth=1)
         banner_frame.pack(fill="x", padx=0, pady=0)
         banner_label = tk.Label(
             banner_frame,
             text="✨ NEW: Click ❌ Delist or ♻️ Relist below to manually manage your listings",
-            bg="#FFF9E6",
-            fg="#333",
-            font=("Arial", 9),
+            bg="#2a2a2a",
+            fg="#0066FF",
+            font=("Arial", 9, "bold"),
             padx=10,
             pady=5
         )
