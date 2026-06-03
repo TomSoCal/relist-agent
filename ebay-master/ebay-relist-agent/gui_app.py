@@ -249,7 +249,7 @@ Windows Task Scheduler with your new schedule.
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("eBay Relist Agent")
+        self.title("Relist Agent")
         self.geometry("700x500")
         self.config = load_config()
 
@@ -284,7 +284,7 @@ class MainApp(tk.Tk):
 
         title_frame = ttk.Frame(info_frame)
         title_frame.pack(anchor="w")
-        ttk.Label(title_frame, text="eBay Relist Agent", font=("Arial", 14, "bold")).pack(side="left")
+        ttk.Label(title_frame, text="Relist Agent", font=("Arial", 14, "bold")).pack(side="left")
         ttk.Button(title_frame, text="ⓘ", width=3, command=self.show_main_guide).pack(side="left", padx=5)
 
         if self.config.get("store_name"):
@@ -402,7 +402,7 @@ class MainApp(tk.Tk):
         LogViewerWindow(self)
 
     def show_about(self):
-        messagebox.showinfo("About", "eBay Relist Agent\n\nAutomatically relist your eBay items daily.\n\nVersion 1.0\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
+        messagebox.showinfo("About", "Relist Agent\n\nAutomatically relist your items daily.\n\nVersion 1.0\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
 
     def show_main_guide(self):
         guide_text = """DASHBOARD QUICK GUIDE
