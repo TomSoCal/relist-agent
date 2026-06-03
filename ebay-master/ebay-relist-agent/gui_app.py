@@ -651,7 +651,7 @@ class InventoryWindow(tk.Toplevel):
                 messagebox.showerror("Error", f"Failed to delist: {e}")
 
     def relist_selected(self):
-        """Relist the selected item"""
+        """Relist the selected item (delist old, create new)"""
         selection = self.tree.selection()
         if not selection:
             messagebox.showwarning("No Selection", "Please select an item to relist")
@@ -663,23 +663,26 @@ class InventoryWindow(tk.Toplevel):
 
         confirm = messagebox.askyesno(
             "Confirm Relist",
-            f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will create a new listing with the same details"
+            f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will end the current listing and create a new one with the same details"
         )
 
         if confirm:
             try:
                 from auth import get_access_token
-                from ebay_api import get_item, add_item
+                from ebay_api import get_item, add_item, end_item
 
                 token = get_access_token(self.config)
 
-                # Get full item details
+                # Get full item details FIRST (before delisting)
                 details = get_item(self.config, token, item_id)
+
+                # Delist the old item
+                end_item(self.config, token, item_id)
 
                 # Create new listing with same details
                 new_item_id = add_item(self.config, token, details)
 
-                messagebox.showinfo("Success", f"New listing created!\n\nOld: {item_id}\nNew: {new_item_id}")
+                messagebox.showinfo("Success", f"Listing refreshed!\n\nOld: {item_id}\nNew: {new_item_id}")
 
                 # Reload inventory
                 self.all_items = []
@@ -723,9 +726,9 @@ ACTIONS
 
 ♻️ RELIST SELECTED
 • Select an item in the list
-• Click to create a new listing with same details
+• Click to automatically delist and relist with same details
 • Uses current price, description, condition, shipping, etc.
-• Creates a second active listing (delist the old one if you don't want duplicates)
+• Old listing ends, new listing is created seamlessly
 
 REFRESH DATA
 Click to reload the inventory from eBay.
