@@ -110,15 +110,9 @@ class SettingsWindow(tk.Toplevel):
         self.listings_per_run.grid(row=8, column=1, sticky="w", padx=10, pady=5)
         self.listings_per_run.set(config.get("listings_per_run", 10))
 
-        # Low Inventory Threshold
-        ttk.Label(form_frame, text="Low Inventory Alert (units):").grid(row=9, column=0, sticky="w", padx=10, pady=5)
-        self.low_inventory_threshold = ttk.Spinbox(form_frame, from_=1, to=100, width=10)
-        self.low_inventory_threshold.grid(row=9, column=1, sticky="w", padx=10, pady=5)
-        self.low_inventory_threshold.set(config.get("low_inventory_threshold", 5))
-
         # Schedule Frame
         schedule_frame = ttk.LabelFrame(form_frame, text="Schedule", padding=10)
-        schedule_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        schedule_frame.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
         # Time
         ttk.Label(schedule_frame, text="Run Time (HH:MM):").grid(row=0, column=0, sticky="w")
@@ -176,7 +170,6 @@ class SettingsWindow(tk.Toplevel):
             "store_name": self.store_name.get(),
             "log_days": int(self.log_days.get()),
             "listings_per_run": int(self.listings_per_run.get()),
-            "low_inventory_threshold": int(self.low_inventory_threshold.get()),
             "run_time": run_time,
             "run_days": selected_days,
         })
@@ -231,11 +224,6 @@ EMAIL SETTINGS
 STORE INFORMATION
 • Store Name: Your eBay store name (displays in dashboard)
 
-INVENTORY ALERTS
-• Low Inventory Alert: Set the quantity threshold for alerts
-  (default: 5 units). When items fall below this, a red button
-  appears on the dashboard showing low inventory items.
-
 SCHEDULE SETTINGS
 • Log Days to Display: How many days of activity logs to show
   on the main dashboard (default: 3 days)
@@ -249,112 +237,6 @@ Click Save to store all settings and automatically update the
 Windows Task Scheduler with your new schedule.
 """
         QuickGuideWindow(self, "Settings", guide_text)
-
-
-class LowInventoryWindow(tk.Toplevel):
-    def __init__(self, parent, all_items, threshold):
-        super().__init__(parent)
-        self.title("Low Inventory Items")
-        self.geometry("800x500")
-
-        # Header with title and guide icon
-        header = ttk.Frame(self)
-        header.pack(fill="x", padx=10, pady=10)
-        ttk.Label(header, text=f"Low Inventory Items (< {threshold} units)", font=("Arial", 12, "bold")).pack(side="left")
-        ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
-
-        # Filter by quantity
-        filter_frame = ttk.Frame(self)
-        filter_frame.pack(fill="x", padx=10, pady=5)
-        ttk.Label(filter_frame, text="Threshold:").pack(side="left", padx=5)
-        self.threshold_var = tk.StringVar(value=str(threshold))
-        threshold_spin = ttk.Spinbox(filter_frame, from_=1, to=100, textvariable=self.threshold_var, width=5)
-        threshold_spin.pack(side="left", padx=5)
-        ttk.Button(filter_frame, text="Apply", command=lambda: self.update_display(int(self.threshold_var.get()), all_items)).pack(side="left", padx=5)
-
-        # Table frame
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        # Treeview with columns
-        columns = ("Item ID", "Title", "Quantity")
-        self.tree = ttk.Treeview(table_frame, columns=columns, height=20)
-        self.tree.column("#0", width=0, stretch="no")
-        self.tree.column("Item ID", anchor="w", width=120)
-        self.tree.column("Title", anchor="w", width=500)
-        self.tree.column("Quantity", anchor="center", width=100)
-
-        for col in columns:
-            self.tree.heading(col, text=col)
-
-        # Scrollbars
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscroll=vsb.set, xscroll=hsb.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
-
-        # Status
-        self.status_label = ttk.Label(self, text="")
-        self.status_label.pack(fill="x", padx=10, pady=5)
-
-        self.all_items = all_items
-        self.update_display(threshold, all_items)
-
-    def update_display(self, threshold, all_items):
-        # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-        # Filter items below threshold
-        low_items = [item for item in all_items if int(item.get("quantity", 0)) < threshold]
-        low_items.sort(key=lambda x: int(x.get("quantity", 0)))
-
-        for item in low_items:
-            self.tree.insert("", "end", values=(
-                item.get("item_id", ""),
-                item.get("title", ""),
-                item.get("quantity", 0)
-            ))
-
-        self.status_label.config(text=f"{len(low_items)} items below {threshold} units")
-
-    def show_guide(self):
-        guide_text = """LOW INVENTORY QUICK GUIDE
-
-OVERVIEW
-Shows all items in your store with quantity below your
-configured threshold. Use this to identify items that need
-restocking or repricing.
-
-COLUMNS
-
-Item ID
-• Unique eBay identifier
-• Double-click to open on eBay.com
-
-Title
-• The listing title
-
-Quantity
-• Current available quantity
-• Items are sorted by lowest quantity first
-
-ADJUST THRESHOLD
-Change the threshold spinbox and click Apply to see items
-below a different quantity level. Helpful for getting alerts
-at different inventory levels.
-
-TYPICAL WORKFLOW
-1. Review low inventory items
-2. Restock items or adjust pricing
-3. Close this window and continue
-"""
-        QuickGuideWindow(self, "Low Inventory", guide_text)
 
 
 class MainApp(tk.Tk):
@@ -371,6 +253,20 @@ class MainApp(tk.Tk):
                 self.iconphoto(False, tk.PhotoImage(file=str(icon_path)))
             except Exception:
                 pass
+
+        # Change notes banner
+        notes_frame = tk.Frame(self, bg="#FFF9E6", relief="solid", borderwidth=1)
+        notes_frame.pack(fill="x", padx=0, pady=0)
+        notes_label = tk.Label(
+            notes_frame,
+            text="✨ NEW: Click ❌ Delist or ♻️ Relist in Inventory to manually manage your listings",
+            bg="#FFF9E6",
+            fg="#333",
+            font=("Arial", 9),
+            padx=10,
+            pady=5
+        )
+        notes_label.pack(fill="x")
 
         # Header with logo
         header = ttk.Frame(self)
@@ -401,23 +297,6 @@ class MainApp(tk.Tk):
         if self.config.get("store_name"):
             ttk.Label(info_frame, text=f"Store: {self.config['store_name']}", font=("Arial", 10)).pack(anchor="w")
 
-        # Alerts area
-        alerts_frame = ttk.Frame(self)
-        alerts_frame.pack(fill="x", padx=10, pady=10)
-        self.low_inventory_btn = tk.Button(
-            alerts_frame,
-            text="Low Inventory",
-            bg="red",
-            fg="white",
-            font=("Arial", 10, "bold"),
-            command=self.open_low_inventory,
-            relief="raised"
-        )
-        self.low_inventory_btn.pack(side="left", padx=5)
-        self.low_inventory_btn.pack_forget()  # Hidden by default
-        self.flash_state = False
-        self.low_inventory_active = False
-
         # Log area
         log_frame = ttk.LabelFrame(self, text="Activity Log", padding=10)
         log_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -438,51 +317,8 @@ class MainApp(tk.Tk):
         ttk.Button(btn_frame, text="About", command=self.show_about).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Exit", command=self.quit).pack(side="left", padx=5)
 
-        # Load log and check inventory in background thread
-        def load_all():
-            self.refresh_log()
-            self.check_low_inventory()
-
-        threading.Thread(target=load_all, daemon=True).start()
-
-    def check_low_inventory(self):
-        """Check if any items have low inventory"""
-        try:
-            from auth import get_access_token
-            from ebay_api import fetch_all_active_listings
-
-            token = get_access_token(self.config)
-            items = fetch_all_active_listings(self.config, token)
-            threshold = self.config.get("low_inventory_threshold", 5)
-
-            low_items = [item for item in items if int(item.get("quantity", 0)) < threshold]
-
-            if low_items:
-                self.low_inventory_active = True
-                self.low_inventory_btn.pack(side="left", padx=5)
-                self.start_flash_animation()
-                self.last_inventory_items = items
-            else:
-                self.low_inventory_active = False
-                self.low_inventory_btn.pack_forget()
-        except Exception as e:
-            pass
-
-    def start_flash_animation(self):
-        """Start flashing animation for low inventory button"""
-        if self.low_inventory_active:
-            self.flash_state = not self.flash_state
-            if self.flash_state:
-                self.low_inventory_btn.config(bg="darkred")
-            else:
-                self.low_inventory_btn.config(bg="red")
-            self.after(500, self.start_flash_animation)
-
-    def open_low_inventory(self):
-        """Open low inventory window"""
-        threshold = self.config.get("low_inventory_threshold", 5)
-        if hasattr(self, 'last_inventory_items'):
-            LowInventoryWindow(self, self.last_inventory_items, threshold)
+        # Load log in background thread
+        threading.Thread(target=self.refresh_log, daemon=True).start()
 
     def refresh_log(self):
         try:
@@ -578,11 +414,6 @@ class MainApp(tk.Tk):
     def show_main_guide(self):
         guide_text = """DASHBOARD QUICK GUIDE
 
-ALERTS
-If a red "Low Inventory" button appears and flashes, you have
-items below your low inventory threshold. Click it to see which
-items need restocking. Configure the threshold in Settings.
-
 ACTIVITY LOG
 Shows your most recent relist activity. Displays:
 • Started: Time when the relist began
@@ -593,8 +424,7 @@ Shows your most recent relist activity. Displays:
 
 DASHBOARD BUTTONS
 
-SETTINGS - Configure API credentials, email, schedule, alerts,
-  and more
+SETTINGS - Configure API credentials, email, schedule, and more
 
 VIEW LOG - Open detailed log viewer to filter and search all
   historical relist activity by date, status, or keywords
@@ -612,9 +442,9 @@ EXIT - Close the application
 
 TYPICAL WORKFLOW
 1. Configure Settings with your eBay API credentials
-2. Set your preferred run schedule and alerts
+2. Set your preferred run schedule
 3. Agent will automatically run at scheduled times
-4. Check Dashboard for activity, alerts, and low inventory
+4. Check Dashboard for activity and results
 5. Use Inventory to browse your store
 """
         QuickGuideWindow(self, "Dashboard", guide_text)
@@ -697,6 +527,12 @@ class InventoryWindow(tk.Toplevel):
 
         # Bind double-click to open item
         self.tree.bind("<Double-1>", self.open_item)
+
+        # Action buttons
+        action_frame = ttk.Frame(self)
+        action_frame.pack(fill="x", padx=10, pady=10)
+        ttk.Button(action_frame, text="❌ Delist Selected", command=self.delist_selected).pack(side="left", padx=5)
+        ttk.Button(action_frame, text="♻️ Relist Selected", command=self.relist_selected).pack(side="left", padx=5)
 
         # Load items in background
         threading.Thread(target=self.load_items, daemon=True).start()
@@ -783,6 +619,75 @@ class InventoryWindow(tk.Toplevel):
             url = f"https://www.ebay.com/itm/{item_id}"
             webbrowser.open(url)
 
+    def delist_selected(self):
+        """End the selected listing"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an item to delist")
+            return
+
+        item = self.tree.item(selection[0])
+        item_id = item["values"][0]
+        title = item["values"][1]
+
+        confirm = messagebox.askyesno(
+            "Confirm Delist",
+            f"End listing: {title}?\n\nItem ID: {item_id}"
+        )
+
+        if confirm:
+            try:
+                from auth import get_access_token
+                from ebay_api import end_item
+
+                token = get_access_token(self.config)
+                end_item(self.config, token, item_id)
+                messagebox.showinfo("Success", f"Item {item_id} delisted successfully")
+                # Reload inventory
+                self.all_items = []
+                self.filter_items()
+                threading.Thread(target=self.load_items, daemon=True).start()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delist: {e}")
+
+    def relist_selected(self):
+        """Relist the selected item"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an item to relist")
+            return
+
+        item = self.tree.item(selection[0])
+        item_id = item["values"][0]
+        title = item["values"][1]
+
+        confirm = messagebox.askyesno(
+            "Confirm Relist",
+            f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will create a new listing with the same details"
+        )
+
+        if confirm:
+            try:
+                from auth import get_access_token
+                from ebay_api import get_item, add_item
+
+                token = get_access_token(self.config)
+
+                # Get full item details
+                details = get_item(self.config, token, item_id)
+
+                # Create new listing with same details
+                new_item_id = add_item(self.config, token, details)
+
+                messagebox.showinfo("Success", f"New listing created!\n\nOld: {item_id}\nNew: {new_item_id}")
+
+                # Reload inventory
+                self.all_items = []
+                self.filter_items()
+                threading.Thread(target=self.load_items, daemon=True).start()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to relist: {e}")
+
     def show_guide(self):
         guide_text = """INVENTORY QUICK GUIDE
 
@@ -808,6 +713,19 @@ Title
 Date Listed
 • When the item was originally listed
 • Format: MM/DD/YYYY HH:MM AM/PM
+
+ACTIONS
+
+❌ DELIST SELECTED
+• Select an item in the list
+• Click to end/delete the listing
+• Requires confirmation before delisting
+
+♻️ RELIST SELECTED
+• Select an item in the list
+• Click to create a new listing with same details
+• Uses current price, description, condition, shipping, etc.
+• Old listing remains active
 
 REFRESH DATA
 Click to reload the inventory from eBay.
