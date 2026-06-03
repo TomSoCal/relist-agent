@@ -600,35 +600,32 @@ class InventoryWindow(tk.Toplevel):
         self.progress_text.pack(side="left", padx=5)
 
         # Table frame with custom scrollable list
-        table_frame = ttk.Frame(self)
+        table_frame = tk.Frame(self, bg=BG_PRIMARY)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Header row
-        header_frame = ttk.Frame(table_frame)
+        header_frame = tk.Frame(table_frame, bg=BG_PRIMARY)
         header_frame.pack(fill="x", padx=0, pady=(0, 5))
-        ttk.Label(header_frame, text="", width=20, font=("Arial", 10, "bold")).pack(side="left", padx=2)
-        ttk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold")).pack(side="left", padx=2)
-        ttk.Label(header_frame, text="Title", font=("Arial", 10, "bold")).pack(side="left", fill="x", expand=True, padx=2)
-        ttk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold")).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Actions", width=12, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", fill="x", expand=True, padx=2)
+        tk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
 
-        # Scrollable items frame
-        canvas = tk.Canvas(table_frame, bg=BG_SECONDARY, highlightthickness=0, relief="flat", height=400)
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
-        self.items_frame = ttk.Frame(canvas, style='TFrame')
-        self.items_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        # Items container with scrollbar
+        container = tk.Frame(table_frame, bg=BG_PRIMARY)
+        container.pack(fill="both", expand=True)
 
-        canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
-        canvas.configure(yscroll=scrollbar.set)
+        self.items_frame = tk.Frame(container, bg=BG_SECONDARY)
+        self.items_frame.pack(fill="both", expand=True, side="left")
 
-        canvas.pack(side="left", fill="both", expand=True, padx=0)
-        scrollbar.pack(side="right", fill="y", padx=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=self._scroll_items)
+        scrollbar.pack(side="right", fill="y")
 
-        # Store reference for filter_items
-        self.canvas = canvas
-        self.tree = None  # Keep for compatibility with other methods
+        self.items_frame.bind("<MouseWheel>", self._on_mousewheel)
+        self.items_frame.bind("<Button-4>", self._on_mousewheel)
+        self.items_frame.bind("<Button-5>", self._on_mousewheel)
+
+        self.tree = None  # Keep for compatibility
 
         # Load items in background
         threading.Thread(target=self.load_items, daemon=True).start()
@@ -668,7 +665,7 @@ class InventoryWindow(tk.Toplevel):
                search_term in item.get("sku", "").lower()
         ]
 
-        for item in filtered:
+        for idx, item in enumerate(filtered):
             # Format date from ISO format to 12-hour time
             date_str = item.get("start_time", "")
             if date_str:
@@ -684,30 +681,37 @@ class InventoryWindow(tk.Toplevel):
             item_id = item.get("item_id", "")
             title = item.get("title", "")
 
+            # Alternate row colors
+            row_bg = BG_SECONDARY if idx % 2 == 0 else BG_TERTIARY
+
             # Create row frame
-            row = ttk.Frame(self.items_frame, style='TFrame')
-            row.pack(fill="x", padx=0, pady=2)
+            row = tk.Frame(self.items_frame, bg=row_bg, height=30)
+            row.pack(fill="x", padx=0, pady=0)
+            row.pack_propagate(False)
 
             # Action buttons
-            btn_frame = ttk.Frame(row, style='TFrame')
-            btn_frame.pack(side="left", padx=2)
-            ttk.Button(btn_frame, text="❌", width=2, command=lambda iid=item_id, t=title: self.delist_item(iid, t)).pack(side="left", padx=1)
-            ttk.Button(btn_frame, text="♻️", width=2, command=lambda iid=item_id, t=title: self.relist_item(iid, t)).pack(side="left", padx=1)
+            btn_frame = tk.Frame(row, bg=row_bg)
+            btn_frame.pack(side="left", padx=2, pady=3)
+            tk.Button(btn_frame, text="❌", width=3, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.delist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="♻️", width=3, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.relist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
 
             # Item ID
-            ttk.Label(row, text=item_id, width=15, font=("Arial", 9)).pack(side="left", padx=2)
+            tk.Label(row, text=item_id, width=15, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2)
 
-            # Title
-            ttk.Label(row, text=title, font=("Arial", 9)).pack(side="left", fill="x", expand=True, padx=2)
+            # Title (truncate long titles)
+            title_display = (title[:50] + "...") if len(title) > 50 else title
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2)
 
             # Date
-            ttk.Label(row, text=formatted_date, width=25, font=("Arial", 9), foreground=TEXT_SECONDARY).pack(side="left", padx=2)
-
-        # Force canvas to update scroll region
-        self.items_frame.update_idletasks()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            tk.Label(row, text=formatted_date, width=25, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").pack(side="left", padx=2)
 
         self.item_count.config(text=f"{len(filtered)} of {len(self.all_items)} items")
+
+    def _scroll_items(self, *args):
+        pass
+
+    def _on_mousewheel(self, event):
+        pass
 
     def refresh_data(self):
         """Refresh inventory from eBay"""
