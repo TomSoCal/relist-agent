@@ -603,13 +603,13 @@ class InventoryWindow(tk.Toplevel):
         table_frame = tk.Frame(self, bg=BG_PRIMARY)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Header row
+        # Header row - must match item row widths exactly
         header_frame = tk.Frame(table_frame, bg=BG_PRIMARY)
         header_frame.pack(fill="x", padx=0, pady=(0, 5))
-        tk.Label(header_frame, text="Actions", width=12, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
-        tk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
-        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", fill="x", expand=True, padx=2)
-        tk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Actions", width=16, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
+        tk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
+        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2, pady=0)
+        tk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
 
         # Canvas with scrollbar for items
         list_container = tk.Frame(table_frame, bg=BG_PRIMARY)
@@ -705,20 +705,21 @@ class InventoryWindow(tk.Toplevel):
             row.pack_propagate(False)
 
             # Action buttons
-            btn_frame = tk.Frame(row, bg=row_bg)
-            btn_frame.pack(side="left", padx=2, pady=3)
+            btn_frame = tk.Frame(row, bg=row_bg, width=70)
+            btn_frame.pack(side="left", padx=2, pady=3, fill="x")
+            btn_frame.pack_propagate(False)
             tk.Button(btn_frame, text="❌", width=3, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.delist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
             tk.Button(btn_frame, text="♻️", width=3, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.relist_item(iid, t), relief="flat", border=0).pack(side="left", padx=1)
 
             # Item ID
-            tk.Label(row, text=item_id, width=15, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2)
+            tk.Label(row, text=item_id, width=15, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
 
             # Title (truncate long titles)
             title_display = (title[:50] + "...") if len(title) > 50 else title
-            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2)
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2, pady=0)
 
             # Date
-            tk.Label(row, text=formatted_date, width=25, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").pack(side="left", padx=2)
+            tk.Label(row, text=formatted_date, width=25, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").pack(side="left", padx=2, pady=0)
 
         # Update canvas scroll region
         self.items_frame.update_idletasks()
