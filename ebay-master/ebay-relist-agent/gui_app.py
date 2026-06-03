@@ -62,6 +62,10 @@ class SettingsWindow(tk.Toplevel):
         style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY)
         style.configure('TButton', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
         style.map('TButton', background=[('active', BLUE_HOVER)])
+        style.configure('Vertical.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.configure('Horizontal.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
 
         # Header with title and info icon
         header = ttk.Frame(self, style='TFrame')
@@ -280,6 +284,10 @@ class MainApp(tk.Tk):
         style.map('TButton', background=[('active', BLUE_HOVER)])
         style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY, borderwidth=1)
         style.configure('TCheckbutton', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
+        style.configure('Vertical.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.configure('Horizontal.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
 
         # Set window icon
         icon_path = BASE_DIR / "ERA_Icon.png"
@@ -495,6 +503,10 @@ class InventoryWindow(tk.Toplevel):
         style.configure('Treeview', background=BG_SECONDARY, foreground=TEXT_PRIMARY, fieldbackground=BG_SECONDARY)
         style.configure('Treeview.Heading', background=BLUE_PRIMARY, foreground=TEXT_PRIMARY)
         style.map('Treeview.Heading', background=[('active', BLUE_HOVER)])
+        style.configure('Vertical.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.configure('Horizontal.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
 
         # Header with title and guide icon
         header = ttk.Frame(self)
@@ -806,6 +818,10 @@ class LogViewerWindow(tk.Toplevel):
         style.configure('TLabelFrame.Label', background=BG_PRIMARY, foreground=TEXT_PRIMARY)
         style.map('TButton', background=[('active', BLUE_HOVER)])
         style.configure('TEntry', fieldbackground=BG_SECONDARY, foreground=TEXT_PRIMARY)
+        style.configure('Vertical.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.configure('Horizontal.TScrollbar', background=SCROLLBAR_BG, troughcolor=SCROLLBAR_TROUGH, lightcolor=BG_TERTIARY, darkcolor=BG_TERTIARY)
+        style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
 
         # Header with title and guide icon
         header = ttk.Frame(self)
