@@ -95,9 +95,9 @@ class SettingsWindow(tk.Toplevel):
         ttk.Label(header, text="Settings", font=("Arial", 12, "bold")).pack(side="left")
         icon = get_info_icon(24)
         if icon:
-            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+            tk.Button(header, image=icon, command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
         else:
-            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+            tk.Button(header, text="ⓘ", command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
 
         # Form container
         form_frame = ttk.Frame(self)
@@ -548,9 +548,9 @@ class InventoryWindow(tk.Toplevel):
         ttk.Label(header, text="Store Inventory", font=("Arial", 12, "bold")).pack(side="left")
         icon = get_info_icon(24)
         if icon:
-            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+            tk.Button(header, image=icon, command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
         else:
-            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+            tk.Button(header, text="ⓘ", command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
 
         # Feature banner
         banner_frame = tk.Frame(self, bg=BANNER_BG, relief="solid", borderwidth=2, highlightthickness=0, bd=0)
@@ -869,9 +869,9 @@ class LogViewerWindow(tk.Toplevel):
         ttk.Label(header, text="Log Viewer", font=("Arial", 12, "bold")).pack(side="left")
         icon = get_info_icon(24)
         if icon:
-            ttk.Button(header, image=icon, command=self.show_guide, width=2).pack(side="left", padx=5)
+            tk.Button(header, image=icon, command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
         else:
-            ttk.Button(header, text="ⓘ", width=3, command=self.show_guide).pack(side="left", padx=5)
+            tk.Button(header, text="ⓘ", command=self.show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0).pack(side="left", padx=5)
 
         # Filter frame
         filter_frame = tk.LabelFrame(self, text="Filter", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
