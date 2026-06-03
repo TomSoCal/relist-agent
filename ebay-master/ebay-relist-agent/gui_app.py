@@ -175,7 +175,7 @@ class SettingsWindow(tk.Toplevel):
 
         # Days of week
         ttk.Label(schedule_frame, text="Days to Run:").grid(row=1, column=0, sticky="nw", pady=5)
-        days_frame = ttk.Frame(schedule_frame)
+        days_frame = tk.Frame(schedule_frame, bg=BG_PRIMARY)
         days_frame.grid(row=1, column=1, sticky="w", padx=5)
 
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -185,8 +185,10 @@ class SettingsWindow(tk.Toplevel):
         for i, day in enumerate(days):
             var = tk.BooleanVar(value=day in run_days)
             self.day_vars[day] = var
-            cb = ttk.Checkbutton(days_frame, text=day, variable=var)
-            cb.grid(row=i // 4, column=i % 4, sticky="w", padx=5)
+            cb = tk.Checkbutton(days_frame, text=day, variable=var, bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                               activebackground="black", activeforeground=TEXT_PRIMARY, selectcolor=BLUE_PRIMARY,
+                               font=("Arial", 10), relief="flat", borderwidth=0)
+            cb.grid(row=i // 4, column=i % 4, sticky="w", padx=5, pady=3)
 
         # Buttons
         btn_frame = ttk.Frame(self)
