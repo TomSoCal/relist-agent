@@ -603,13 +603,20 @@ class InventoryWindow(tk.Toplevel):
         table_frame = tk.Frame(self, bg=BG_PRIMARY)
         table_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Header row - must match item row widths exactly
+        # Header row using grid
         header_frame = tk.Frame(table_frame, bg=BG_PRIMARY)
         header_frame.pack(fill="x", padx=0, pady=(0, 5))
-        tk.Label(header_frame, text="Actions", width=16, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
-        tk.Label(header_frame, text="Item ID", width=15, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
-        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2, pady=0)
-        tk.Label(header_frame, text="Date Listed", width=25, font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
+        header_frame.columnconfigure(2, weight=1)  # Title column expands
+
+        tk.Label(header_frame, text="Actions", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="Item ID", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
+        tk.Label(header_frame, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
+
+        # Set column widths (in pixels approximate)
+        header_frame.columnconfigure(0, minsize=90)   # Actions
+        header_frame.columnconfigure(1, minsize=100)  # Item ID
+        header_frame.columnconfigure(3, minsize=160)  # Date Listed
 
         # Canvas with scrollbar for items
         list_container = tk.Frame(table_frame, bg=BG_PRIMARY)
@@ -620,7 +627,7 @@ class InventoryWindow(tk.Toplevel):
         self.items_frame = tk.Frame(self.canvas, bg=BG_SECONDARY)
 
         self.items_frame.bind("<Configure>", self._on_frame_configure)
-        self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw", width=800)
+        self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind("<Button-4>", self._on_mousewheel)
@@ -628,6 +635,9 @@ class InventoryWindow(tk.Toplevel):
 
         self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+        # Store header frame for column synchronization
+        self.header_frame = header_frame
 
         self.tree = None  # Keep for compatibility
 
@@ -726,25 +736,31 @@ class InventoryWindow(tk.Toplevel):
             # Alternate row colors
             row_bg = BG_SECONDARY if idx % 2 == 0 else BG_TERTIARY
 
-            # Create row frame
-            row = tk.Frame(self.items_frame, bg=row_bg)
-            row.pack(fill="x", padx=0, pady=1)
+            # Create row frame using grid
+            row = tk.Frame(self.items_frame, bg=row_bg, height=30)
+            row.pack(fill="x", padx=0, pady=0)
+            row.columnconfigure(2, weight=1)  # Title expands
 
             # Action buttons
             btn_frame = tk.Frame(row, bg=row_bg)
-            btn_frame.pack(side="left", padx=2, pady=2)
+            btn_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
             tk.Button(btn_frame, text="❌", width=2, height=1, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.delist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
             tk.Button(btn_frame, text="♻️", width=2, height=1, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.relist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
 
             # Item ID
-            tk.Label(row, text=item_id, width=15, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", padx=2, pady=0)
+            tk.Label(row, text=item_id, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=0)
 
             # Title (truncate long titles)
             title_display = (title[:50] + "...") if len(title) > 50 else title
-            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").pack(side="left", fill="x", expand=True, padx=2, pady=0)
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=0)
 
             # Date
-            tk.Label(row, text=formatted_date, width=25, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").pack(side="left", padx=2, pady=0)
+            tk.Label(row, text=formatted_date, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=0)
+
+            # Match header column widths
+            row.columnconfigure(0, minsize=90)   # Actions
+            row.columnconfigure(1, minsize=100)  # Item ID
+            row.columnconfigure(3, minsize=160)  # Date Listed
 
         # Update canvas scroll region
         self.items_frame.update_idletasks()
