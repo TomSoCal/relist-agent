@@ -351,9 +351,9 @@ class MainApp(tk.Tk):
         ttk.Label(title_frame, text="Relist Agent", font=("Arial", 14, "bold")).pack(side="left")
         icon = get_info_icon(24)
         if icon:
-            ttk.Button(title_frame, image=icon, command=self.show_main_guide, width=2).pack(side="left", padx=5)
+            tk.Button(title_frame, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
         else:
-            ttk.Button(title_frame, text="ⓘ", width=3, command=self.show_main_guide).pack(side="left", padx=5)
+            tk.Button(title_frame, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
 
         if self.app_config.get("store_name"):
             ttk.Label(info_frame, text=f"Store: {self.app_config['store_name']}", font=("Arial", 10)).pack(anchor="w")
