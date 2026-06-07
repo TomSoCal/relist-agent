@@ -1,0 +1,208 @@
+name: Build Relist Agent Multi-Platform
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            python-version: '3.11'
+            artifact: 'Relist Agent.exe'
+            artifact-path: 'DISTRIBUTION/Relist Agent.exe'
+
+          - os: macos-latest
+            python-version: '3.11'
+            artifact: 'Relist Agent.app'
+            artifact-path: 'DISTRIBUTION/Relist Agent.app'
+
+          - os: ubuntu-latest
+            python-version: '3.11'
+            artifact: 'relist-agent'
+            artifact-path: 'DISTRIBUTION/relist-agent'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pillow
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Build on Windows
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller --windowed --onefile `
+            --name "Relist Agent" `
+            --icon "ERA_Icon.ico" `
+            --distpath "DISTRIBUTION" `
+            --add-data "licenses.json;." `
+            --add-data "ERA_Icon.png;." `
+            --add-data "ERA_Logo.png;." `
+            --add-data "update_checker.py;." `
+            --add-data "version.json;." `
+            --add-data "scheduler_windows.py;." `
+            --hidden-import=tkinter `
+            --hidden-import=PIL `
+            --hidden-import=gspread `
+            --hidden-import=google `
+            --hidden-import=firecrawl `
+            --hidden-import=playwright `
+            --hidden-import=urllib `
+            gui_app.py
+
+      - name: Build on macOS
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller --windowed --onefile \
+            --name "Relist Agent" \
+            --icon "ERA_Icon.ico" \
+            --distpath "DISTRIBUTION" \
+            --add-data "licenses.json:." \
+            --add-data "ERA_Icon.png:." \
+            --add-data "ERA_Logo.png:." \
+            --add-data "update_checker.py:." \
+            --add-data "version.json:." \
+            --add-data "scheduler_macos.py:." \
+            --hidden-import=tkinter \
+            --hidden-import=PIL \
+            --hidden-import=gspread \
+            --hidden-import=google \
+            --hidden-import=firecrawl \
+            --hidden-import=playwright \
+            --hidden-import=urllib \
+            gui_app.py
+
+      - name: Build on Linux
+        if: runner.os == 'Linux'
+        run: |
+          pyinstaller --windowed --onefile \
+            --name "relist-agent" \
+            --distpath "DISTRIBUTION" \
+            --add-data "licenses.json:." \
+            --add-data "ERA_Icon.png:." \
+            --add-data "ERA_Logo.png:." \
+            --add-data "update_checker.py:." \
+            --add-data "version.json:." \
+            --add-data "scheduler_linux.py:." \
+            --hidden-import=tkinter \
+            --hidden-import=PIL \
+            --hidden-import=gspread \
+            --hidden-import=google \
+            --hidden-import=firecrawl \
+            --hidden-import=playwright \
+            --hidden-import=urllib \
+            gui_app.py
+
+      - name: Create macOS DMG
+        if: runner.os == 'macOS'
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Relist Agent" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --app-drop-link 450 200 \
+            "DISTRIBUTION/Relist-Agent-${{ steps.version.outputs.VERSION }}.dmg" \
+            "DISTRIBUTION/Relist Agent.app"
+
+      - name: Create Linux AppImage
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appimage-builder
+          mkdir -p AppDir/usr/bin
+          cp "DISTRIBUTION/relist-agent" AppDir/usr/bin/
+          cp ERA_Icon.png AppDir/relist-agent.png
+          # Create minimal AppImage
+          cd DISTRIBUTION
+          mv relist-agent ../AppDir/usr/bin/
+          cd ..
+          # Build simple AppImage (minimal config)
+          appimagetool AppDir/ "Relist-Agent-${{ steps.version.outputs.VERSION }}.AppImage" || \
+          # Fallback: just package the binary
+          tar -czf "Relist-Agent-Linux-${{ steps.version.outputs.VERSION }}.tar.gz" DISTRIBUTION/relist-agent licenses.json version.json *.txt
+
+      - name: Rename artifacts for Windows
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p "Relist-Agent-Beta-${{ steps.version.outputs.VERSION }}"
+          cp DISTRIBUTION/* "Relist-Agent-Beta-${{ steps.version.outputs.VERSION }}/" || true
+          mv "Relist-Agent-Beta-${{ steps.version.outputs.VERSION }}" "Relist-Agent-Windows-Beta-${{ steps.version.outputs.VERSION }}"
+
+      - name: Rename artifacts for macOS
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "Relist-Agent-Mac-Beta-${{ steps.version.outputs.VERSION }}"
+          cp DISTRIBUTION/* "Relist-Agent-Mac-Beta-${{ steps.version.outputs.VERSION }}/" || true
+          mv "Relist-Agent-Mac-Beta-${{ steps.version.outputs.VERSION }}" "Relist-Agent-MAC-Beta-${{ steps.version.outputs.VERSION }}"
+
+      - name: Rename artifacts for Linux
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "Relist-Agent-Linux-Beta-${{ steps.version.outputs.VERSION }}"
+          cp DISTRIBUTION/* "Relist-Agent-Linux-Beta-${{ steps.version.outputs.VERSION }}/" || true
+          mv "Relist-Agent-Linux-Beta-${{ steps.version.outputs.VERSION }}" "Relist-Agent-linux-Beta-${{ steps.version.outputs.VERSION }}"
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v3
+        with:
+          name: Relist-Agent-Windows-Beta-${{ steps.version.outputs.VERSION }}
+          path: Relist-Agent-Windows-Beta-${{ steps.version.outputs.VERSION }}/
+
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v3
+        with:
+          name: Relist-Agent-MAC-Beta-${{ steps.version.outputs.VERSION }}
+          path: Relist-Agent-MAC-Beta-${{ steps.version.outputs.VERSION }}/
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v3
+        with:
+          name: Relist-Agent-linux-Beta-${{ steps.version.outputs.VERSION }}
+          path: Relist-Agent-linux-Beta-${{ steps.version.outputs.VERSION }}/
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Relist-Agent-Windows-Beta-*/**
+            Relist-Agent-MAC-Beta-*/**
+            Relist-Agent-linux-Beta-*/**
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
