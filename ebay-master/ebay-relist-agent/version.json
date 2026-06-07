@@ -1,6 +1,6 @@
 {
-  "latest_version": "1.0.1",
-  "info": "User-configured email support for daily reports. Support any SMTP service (Gmail, Outlook, Domain).",
+  "latest_version": "1.0.2",
+  "info": "Email settings in GUI. Configure any SMTP service (Gmail, Outlook, Domain).",
   "download_url": "https://www.thetrashedpanda.com/relist-agent",
   "release_date": "2026-06-07"
 }
