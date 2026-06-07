@@ -1,0 +1,251 @@
+RELIST AGENT - UPDATE SYSTEM GUIDE
+How to Release Updates to Customers
+
+OVERVIEW
+========
+When you release a new version of Relist Agent, customers can manually
+check for updates by clicking the "Check Update" button in the app Settings.
+No automatic notifications - user controls when to check.
+
+HOW IT WORKS FOR CUSTOMERS
+===========================
+
+1. Customer runs Relist Agent
+2. Clicks "Check Update" button in Settings section
+3. App checks version.json for latest version
+4. If newer version available:
+   • "Download update version X.X.X?" dialog appears
+   • Shows what's new in the info field
+   • User clicks "Yes" to auto-download
+   • ZIP automatically downloads to Downloads folder
+   • Success message shown with file location
+5. Customer extracts ZIP, replaces Relist Agent.exe with new version
+6. Done!
+
+If no update available:
+   • Shows message: "You have the latest version!"
+
+RELEASING AN UPDATE
+===================
+
+Step 1: Update the App Version
+------
+Edit: update_checker.py
+Find: CURRENT_VERSION = "1.0.0"
+Change to: CURRENT_VERSION = "1.1.0" (or whatever new version)
+
+Step 2: Build New EXE
+-----
+Follow BUILD_INSTRUCTIONS.md to rebuild the EXE with new version.
+
+Step 3: Update Version File
+---
+Edit: version.json
+
+Current content:
+{
+  "latest_version": "1.0.0",
+  "info": "Bug fixes and improvements. Download the latest version from the website.",
+  "download_url": "https://www.thetrashedpanda.com/relist-agent",
+  "release_date": "2026-06-06"
+}
+
+Update to:
+{
+  "latest_version": "1.1.0",
+  "info": "Fixed bug with duplicate detection. Download the latest version from the website.",
+  "download_url": "https://www.thetrashedpanda.com/relist-agent",
+  "release_date": "2026-06-10"
+}
+
+KEY FIELDS:
+  latest_version - NEW VERSION NUMBER (must match CURRENT_VERSION in update_checker.py)
+  info - WHAT'S NEW (shown in update dialog to customer)
+  download_url - WHERE TO GET IT (should point to your website/store)
+  release_date - WHEN RELEASED (YYYY-MM-DD format)
+
+Step 4: Update Private Download URL
+-----
+Edit: update_checker.py
+Find: UPDATE_DOWNLOAD_URL = "https://www.thetrashedpanda.com/updates/relist-agent-latest.zip"
+
+Change to point to your private download location where you'll host the ZIP.
+This should NOT be public - only for customers who purchased.
+
+Examples:
+  • Private folder on your web server: https://www.thetrashedpanda.com/private/updates/relist-agent-beta-1.0.1.zip
+  • Password-protected download: https://downloads.thetrashedpanda.com/updates/key123/relist-agent.zip
+  • Dropbox shared link (private): https://www.dropbox.com/...
+
+Step 5: Create Distribution ZIP
+-----
+Follow normal process:
+  • Rebuild EXE with new version
+  • Update DISTRIBUTION folder with new EXE
+  • Create new ZIP: Relist-Agent-Beta-1.1.0.zip
+  • Upload to WooCommerce product downloads
+
+Step 6: Upload Update to Private Location
+---
+Once you have the new ZIP:
+
+1. Upload Relist-Agent-Beta-{version}.zip to your private download location
+2. Update UPDATE_DOWNLOAD_URL in update_checker.py to point to it
+3. Rebuild the EXE
+4. When customers click "Check Update" and download, it fetches from your private URL
+
+Step 7: Make Version.json Available to Customers
+---
+The version.json file is bundled in the ZIP that customers download.
+When they extract the ZIP, version.json is available locally.
+
+Two options for updates:
+
+OPTION A: Local File (Current - Simplest)
+  Keep version.json in DISTRIBUTION folder
+  Gets bundled in every ZIP customers download
+  Update checker reads local file
+  (Current setup - easiest for you)
+
+OPTION B: Online Version (Future Enhancement)
+  Upload version.json to your website:
+  https://www.thetrashedpanda.com/relist-agent/version.json
+
+  This allows you to push update notifications even if customer has old version.
+  Would require modifying update_checker.py to fetch from URL instead of local file.
+
+CUSTOMER NOTIFICATION
+=====================
+
+When you release an update, optionally:
+  1. Email customers: "New version available - bug fixes and improvements!"
+  2. Post on website/blog about what's new
+  3. Next time they run the app and click "Check Update", they'll be notified
+
+EXAMPLE CHANGELOG FOR CUSTOMERS
+================================
+
+"Version 1.1.0 - June 10, 2026
+
+✓ Fixed bug with duplicate detection not working on large inventories
+✓ Improved performance for accounts with 1000+ items
+✓ Added new search filter options
+✓ Better error messages for API connection issues
+
+Check for updates in the app Settings to download!"
+
+VERSION NUMBERING SCHEME
+========================
+
+Use semantic versioning: MAJOR.MINOR.PATCH
+
+1.0.0 = Initial release
+1.0.1 = Bug fix
+1.1.0 = New feature
+2.0.0 = Major rewrite/breaking change
+
+Examples:
+  1.0.0 → 1.0.1 (small bug fix)
+  1.0.1 → 1.1.0 (new feature added)
+  1.1.0 → 2.0.0 (complete rewrite)
+
+TESTING UPDATES
+===============
+
+Before releasing:
+
+1. Update CURRENT_VERSION in update_checker.py to new version
+2. Update version.json with new version and info
+3. Rebuild EXE locally
+4. Test: Run app and click "Check Update" button
+5. Verify update dialog appears with correct version
+6. Test download by clicking "Yes" (will download to Downloads folder)
+7. Verify ZIP downloads successfully
+8. Once tested, update production files and upload to private URL
+
+TROUBLESHOOTING
+===============
+
+Q: Update notification not showing when I click Check Update?
+A: 1. Check CURRENT_VERSION in update_checker.py
+   2. Check version.json has higher version number
+   3. Verify version.json is in DISTRIBUTION folder
+   4. Verify version.json is bundled in EXE with --add-data flag
+
+Q: Update dialog shows wrong version?
+A: Edit version.json and check latest_version field matches actual version
+
+Q: Want to disable updates temporarily?
+A: Edit version.json and set latest_version to same version as CURRENT_VERSION
+   This will show "You have the latest version!" message
+
+Q: Download button not working?
+A: Check UPDATE_DOWNLOAD_URL in update_checker.py points to valid ZIP location
+   Verify the ZIP file exists at that URL
+   Try accessing the URL in a browser to test
+
+Q: Customer can't extract the ZIP?
+A: Ensure ZIP is created properly using Compress-Archive
+   Test the ZIP locally by extracting it before uploading
+
+QUICK REFERENCE
+===============
+
+Files to update when releasing new version:
+
+1. update_checker.py
+   Change: CURRENT_VERSION = "X.X.X"
+   Change: UPDATE_DOWNLOAD_URL = "https://your-url/relist-agent-beta-X.X.X.zip"
+
+2. version.json (in DISTRIBUTION folder)
+   Change: "latest_version": "X.X.X"
+   Change: "info": "What's new..."
+   Change: "release_date": "YYYY-MM-DD"
+
+3. Rebuild EXE
+   Follow BUILD_INSTRUCTIONS.md
+
+4. Create new ZIP
+   Relist-Agent-Beta-X.X.X.zip
+
+5. Upload ZIP to private URL location
+   Update UPDATE_DOWNLOAD_URL to point to it
+
+6. Upload Relist-Agent-Beta-X.X.X.zip to WooCommerce
+   Add to product downloads section
+
+7. Email customers (optional)
+   Announce new version with changelog
+
+WORKFLOW EXAMPLE: RELEASING VERSION 1.0.1
+==========================================
+
+1. Edit update_checker.py:
+   CURRENT_VERSION = "1.0.1"
+   UPDATE_DOWNLOAD_URL = "https://www.thetrashedpanda.com/private/updates/relist-agent-beta-1.0.1.zip"
+
+2. Edit DISTRIBUTION/version.json:
+   "latest_version": "1.0.1"
+   "info": "Fixed critical bug with API authentication"
+   "release_date": "2026-06-15"
+
+3. Rebuild EXE:
+   pyinstaller [flags] gui_app.py
+
+4. Create ZIP:
+   Compress-Archive -Path DISTRIBUTION/* -DestinationPath Relist-Agent-Beta-1.0.1.zip
+
+5. Upload ZIP:
+   Upload Relist-Agent-Beta-1.0.1.zip to https://www.thetrashedpanda.com/private/updates/
+
+6. Upload to WooCommerce:
+   Add Relist-Agent-Beta-1.0.1.zip to product downloads
+
+7. Customers see update:
+   They run app → Click "Check Update" → See "Download version 1.0.1?" → Click Yes → Auto-downloads
+
+---
+
+Created: 2026-06-06
+Updated: 2026-06-06 (Added manual "Check Update" button instructions)
+For: Relist Agent Update Management
