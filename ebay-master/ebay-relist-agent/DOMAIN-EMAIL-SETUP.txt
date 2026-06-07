@@ -1,0 +1,89 @@
+RELIST AGENT - DOMAIN EMAIL SETUP
+How to Configure Email Notifications
+
+OVERVIEW
+========
+Relist Agent now uses your domain email for all notifications.
+This provides professional, branded communications.
+
+EMAIL CONFIGURATION
+===================
+
+Email Address:    support@thetrashedpanda.com
+                  (Or use your custom domain email)
+
+SMTP Server:      mail.thetrashedpanda.com
+SMTP Port:        465
+Security:         TLS (required)
+
+Authentication:   Username = full email address
+                  Password = email account password
+
+IMP (optional):   mail.thetrashedpanda.com:993
+POP3 (optional):  mail.thetrashedpanda.com:995
+
+SETTING UP IN RELIST AGENT
+==========================
+
+1. Launch Relist Agent
+2. Click "Settings"
+3. Under "Email Configuration":
+   - Email Address: support@thetrashedpanda.com
+   - App Password: [your email password]
+   - (SMTP server is pre-configured)
+4. Click "Save"
+5. Test by running "Run Now" - should receive email notification
+
+IMPORTANT NOTES
+===============
+
+• Use your email password (NOT a separate app password)
+• TLS on port 465 is required (not STARTTLS on 587)
+• Verify firewall/antivirus doesn't block outgoing SMTP
+• If authentication fails, check password and email address
+• Error messages appear in Activity Log and Windows toast notifications
+
+EXAMPLE SETUP
+=============
+
+Settings Window:
+  Email Address: support@thetrashedpanda.com
+  App Password: [your-email-password]
+  SMTP Server: mail.thetrashedpanda.com (automatic)
+  SMTP Port: 465 (automatic)
+
+TROUBLESHOOTING
+===============
+
+Q: "Authentication failed" error?
+A: Check that you're using:
+   - Full email address (support@thetrashedpanda.com)
+   - Correct password (email account password)
+   - Server hasn't changed (should be pre-filled)
+
+Q: Email not being sent?
+A: 1. Verify Settings > Email Configuration is saved
+   2. Check Activity Log for error messages
+   3. Run "Run Now" to test
+   4. Verify internet connection
+   5. Check firewall allows port 465 outgoing
+
+Q: Want to use Gmail instead?
+A: Contact support - Relist Agent is configured for domain email only
+
+NOTIFICATIONS SENT
+==================
+
+Relist Agent sends emails for:
+• Successful daily relists (customizable schedule)
+• Zero-quantity items ended
+• Relist failures with error details
+• Activity summary with timestamps
+
+Recipients configured in Settings window.
+
+---
+
+Created: 2026-06-07
+For: Relist Agent v1.0.0+
+Status: Production
