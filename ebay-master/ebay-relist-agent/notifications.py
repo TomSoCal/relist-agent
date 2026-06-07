@@ -5,8 +5,12 @@ import subprocess
 import sys
 from email.mime.text import MIMEText
 
-SMTP_HOST = "mail.thetrashedpanda.com"
-SMTP_PORT = 465
+# Users configure their own SMTP server in Settings
+# Common options:
+#   Gmail: smtp.gmail.com:465
+#   Outlook: smtp-mail.outlook.com:587 (STARTTLS)
+#   Domain: mail.thetrashedpanda.com:465
+# SMTP_HOST and SMTP_PORT are read from config.json
 
 
 def format_subject(date_str: str) -> str:
@@ -38,14 +42,30 @@ def format_report(relisted: list[dict], ended_zero_qty: list[dict], failures: li
     return "\n".join(lines)
 
 
-def send_email(gmail_app_password: str, subject: str, body: str, sender: str, recipient: str) -> None:
+def send_email(password: str, subject: str, body: str, sender: str, recipient: str, smtp_host: str = None, smtp_port: int = None) -> None:
+    """
+    Send email using user-configured SMTP server
+
+    Args:
+        password: Email account password
+        subject: Email subject line
+        body: Email message body
+        sender: From address (user's email)
+        recipient: To address (can be same as sender)
+        smtp_host: SMTP server (e.g. smtp.gmail.com). Defaults to config or SMTP_HOST
+        smtp_port: SMTP port (e.g. 465). Defaults to config or SMTP_PORT
+    """
+    # Use provided values or fall back to defaults
+    host = smtp_host or SMTP_HOST or "smtp.gmail.com"
+    port = smtp_port or SMTP_PORT or 465
+
     msg = MIMEText(body, "plain")
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = recipient
     ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx) as server:
-        server.login(sender, gmail_app_password)
+    with smtplib.SMTP_SSL(host, port, context=ctx) as server:
+        server.login(sender, password)
         server.sendmail(sender, [recipient], msg.as_string())
 
 
