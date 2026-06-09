@@ -10,7 +10,8 @@ import webbrowser
 import sys
 from theme import *
 from PIL import Image, ImageTk
-from license_check import validate_license_key
+from license_check import validate_license_key, get_license_key_from_config
+import json as json_lib
 
 # Handle PyInstaller bundled paths
 if getattr(sys, 'frozen', False):
@@ -867,26 +868,35 @@ class MainApp(tk.Tk):
 
         # Check license key - REQUIRED
         license_key = self.app_config.get("license_key", "")
-        if not license_key:
-            messagebox.showerror(
-                "License Required",
-                "No license key found in configuration.\n\n"
-                "Please add a valid license key to config.json:\n"
-                '  "license_key": "RA-XX-XXXXXXXX-XXXXXXXX"\n\n'
-                "Contact support for a license key."
-            )
-            sys.exit(1)
 
+        # If no license, prompt user to enter one
+        if not license_key:
+            license_key = self.prompt_for_license()
+            if not license_key:  # User cancelled
+                sys.exit(0)
+
+        # Validate the license
         is_valid, message = validate_license_key(license_key)
-        if not is_valid:
+        while not is_valid:
             messagebox.showerror(
-                "Invalid License",
-                f"{message}\n\n"
-                f"Key: {license_key}\n"
-                f"Expected format: RA-XX-XXXXXXXX-XXXXXXXX\n\n"
-                f"Please contact support."
+                "Invalid License Key",
+                f"Invalid license key.\n\n"
+                f"Please retry the key.\n\n"
+                f"If you are having issues with the key,\n"
+                f"email support@thetrashedpanda.com"
             )
-            sys.exit(1)
+            license_key = self.prompt_for_license()
+            if not license_key:  # User cancelled
+                sys.exit(0)
+            is_valid, message = validate_license_key(license_key)
+
+        # Valid license - save to config.json
+        self.app_config["license_key"] = license_key
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json_lib.dump(self.app_config, f, indent=2)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save license: {e}")
 
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
@@ -1119,6 +1129,81 @@ class MainApp(tk.Tk):
 
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
+
+    def prompt_for_license(self) -> str:
+        """Prompt user to enter license key"""
+        dialog = tk.Toplevel(self)
+        dialog.title("Enter License Key")
+        dialog.geometry("400x150")
+        dialog.resizable(False, False)
+        dialog.config(bg=BG_PRIMARY)
+
+        # Center on screen
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Label
+        label = tk.Label(
+            dialog,
+            text="Enter your license key:",
+            bg=BG_PRIMARY,
+            fg=TEXT_PRIMARY,
+            font=("Arial", 10)
+        )
+        label.pack(pady=10)
+
+        # Input field
+        entry = tk.Entry(
+            dialog,
+            font=("Arial", 11),
+            bg=BG_SECONDARY,
+            fg=TEXT_PRIMARY,
+            borderwidth=1,
+            width=35
+        )
+        entry.pack(pady=5, padx=20)
+        entry.focus()
+
+        # Result holder
+        result = [None]
+
+        def on_ok():
+            result[0] = entry.get().strip()
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        # Buttons frame
+        btn_frame = tk.Frame(dialog, bg=BG_PRIMARY)
+        btn_frame.pack(pady=10)
+
+        ok_btn = tk.Button(
+            btn_frame,
+            text="Activate",
+            command=on_ok,
+            bg=BLUE_PRIMARY,
+            fg=TEXT_PRIMARY,
+            padx=20,
+            pady=5,
+            borderwidth=1
+        )
+        ok_btn.pack(side=tk.LEFT, padx=5)
+
+        cancel_btn = tk.Button(
+            btn_frame,
+            text="Cancel",
+            command=on_cancel,
+            bg=BG_SECONDARY,
+            fg=TEXT_PRIMARY,
+            padx=20,
+            pady=5,
+            borderwidth=1
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+
+        dialog.wait_window()
+        return result[0]
 
     def bring_to_front(self):
         """Bring window to foreground after admin dialog"""
