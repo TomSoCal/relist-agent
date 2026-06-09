@@ -3,24 +3,28 @@ License key validation for Relist Agent with checksum verification + one-time us
 Format: RA-{ORDER_ID}-{RANDOM_8_CHAR}-{CHECKSUM}
 Example: RA-50-7872742F-X7K9M2W4
 
-One-time use: Each key can only be activated once. Used keys are tracked in used_keys.json
+One-time use: Each key can only be activated once. Used keys are tracked in GitHub.
 """
 
 import hashlib
 import json
+import socket
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
 LICENSE_SECRET = 'relist-agent-secret'  # Must match website
+GITHUB_REPO = 'TomSoCal/relist-agent'
+GITHUB_FILE_PATH = 'used_keys.json'
 
 
 def get_used_keys_file() -> Path:
-    """Get path to used_keys.json tracking file"""
+    """Get path to local used_keys.json cache"""
     return Path(__file__).parent / "used_keys.json"
 
 
-def load_used_keys() -> dict:
-    """Load tracking of used keys"""
+def load_used_keys_local() -> dict:
+    """Load used keys from local cache"""
     used_file = get_used_keys_file()
     if used_file.exists():
         try:
@@ -31,6 +35,29 @@ def load_used_keys() -> dict:
     return {}
 
 
+def load_used_keys_from_github() -> dict:
+    """Fetch used_keys.json from GitHub"""
+    try:
+        cmd = [
+            'git', 'show',
+            f'origin/master:{GITHUB_FILE_PATH}'
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+    except Exception as e:
+        print(f"[DEBUG] Could not fetch from GitHub: {e}")
+    return {}
+
+
+def load_used_keys() -> dict:
+    """Load used keys from GitHub, fallback to local"""
+    try:
+        return load_used_keys_from_github()
+    except:
+        return load_used_keys_local()
+
+
 def is_key_already_used(license_key: str) -> bool:
     """Check if key has already been activated"""
     used_keys = load_used_keys()
@@ -38,24 +65,66 @@ def is_key_already_used(license_key: str) -> bool:
 
 
 def mark_key_as_used(license_key: str) -> None:
-    """Mark a key as used with activation timestamp"""
+    """Mark a key as used and push to GitHub"""
     used_keys = load_used_keys()
     used_keys[license_key] = {
         'activated_at': datetime.now().isoformat(),
         'machine_id': _get_machine_id()
     }
 
+    # Save locally first
     used_file = get_used_keys_file()
     with open(used_file, 'w', encoding='utf-8') as f:
         json.dump(used_keys, f, indent=2)
 
+    # Push to GitHub (non-blocking, don't fail if can't push)
+    try:
+        _push_to_github(used_keys)
+    except Exception as e:
+        print(f"[DEBUG] Could not push to GitHub: {e}")
+
 
 def _get_machine_id() -> str:
     """Get unique machine identifier"""
-    import socket
-    import hashlib
     hostname = socket.gethostname()
     return hashlib.md5(hostname.encode()).hexdigest()[:8]
+
+
+def _push_to_github(used_keys: dict) -> None:
+    """Push used_keys.json to GitHub"""
+    import tempfile
+    import os
+
+    # Create temp file with content
+    temp_file = Path(tempfile.gettempdir()) / "used_keys_temp.json"
+    with open(temp_file, 'w', encoding='utf-8') as f:
+        json.dump(used_keys, f, indent=2)
+
+    # Git commands to push
+    try:
+        # Configure git if needed
+        subprocess.run(['git', 'config', 'user.email', 'relist-agent@thetrashedpanda.com'],
+                       capture_output=True, timeout=5)
+        subprocess.run(['git', 'config', 'user.name', 'Relist Agent'],
+                       capture_output=True, timeout=5)
+
+        # Copy to repo root
+        repo_file = Path(__file__).parent.parent.parent / GITHUB_FILE_PATH
+        repo_file.parent.mkdir(parents=True, exist_ok=True)
+
+        import shutil
+        shutil.copy(temp_file, repo_file)
+
+        # Git operations
+        subprocess.run(['git', 'add', GITHUB_FILE_PATH],
+                       cwd=repo_file.parent, timeout=5)
+        subprocess.run(['git', 'commit', '-m', 'chore: update used license keys'],
+                       cwd=repo_file.parent, timeout=5)
+        subprocess.run(['git', 'push', 'origin', 'master'],
+                       cwd=repo_file.parent, timeout=10)
+    finally:
+        if temp_file.exists():
+            os.remove(temp_file)
 
 
 def validate_license_key(license_key: str) -> tuple:
@@ -104,8 +173,8 @@ def validate_license_key(license_key: str) -> tuple:
     # Key is valid - mark as used
     try:
         mark_key_as_used(license_key)
-    except:
-        pass  # Non-fatal - key still activates even if tracking fails
+    except Exception as e:
+        print(f"[DEBUG] Error marking key as used: {e}")
 
     return True, "License key is valid"
 
