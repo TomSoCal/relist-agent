@@ -920,8 +920,7 @@ class MainApp(tk.Tk):
                 '  "license_key": "RA-XX-XXXXXXXX-XXXXXXXX"\n\n'
                 "Contact support for a license key."
             )
-            self.destroy()
-            return
+            sys.exit(1)
 
         is_valid, message = validate_license_key(license_key)
         if not is_valid:
@@ -932,8 +931,7 @@ class MainApp(tk.Tk):
                 f"Expected format: RA-XX-XXXXXXXX-XXXXXXXX\n\n"
                 f"Please contact support."
             )
-            self.destroy()
-            return
+            sys.exit(1)
 
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
