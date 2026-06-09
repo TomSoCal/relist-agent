@@ -77,6 +77,7 @@ class KeygenApp:
         ttk.Button(button_frame, text="Copy to Clipboard", command=self.copy_key).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Generate 10 Keys", command=self.generate_batch).pack(side="left", padx=5)
         ttk.Button(button_frame, text="View Used Keys", command=self.show_used_keys).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="View Log", command=self.show_activation_log).pack(side="left", padx=5)
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
@@ -156,6 +157,35 @@ class KeygenApp:
             messagebox.showinfo("Used Keys", msg)
         except Exception as e:
             messagebox.showerror("Error", f"Could not read tracking file: {e}")
+
+    def show_activation_log(self):
+        """Display activation attempt log (success and failure)"""
+        try:
+            from license_check import get_activation_log
+            log = get_activation_log()
+
+            if not log:
+                messagebox.showinfo("Activation Log", "No activation attempts recorded yet")
+                return
+
+            msg = "ACTIVATION LOG:\n\n"
+            for entry in reversed(log[-50:]):  # Show last 50 entries
+                status = "SUCCESS" if entry.get('success') else "FAILED"
+                key = entry.get('key', '(empty)')
+                timestamp = entry.get('timestamp', 'Unknown')
+                machine = entry.get('machine_id', 'Unknown')
+                reason = entry.get('message', '')
+
+                msg += f"[{status}] {key}\n"
+                msg += f"  Time: {timestamp}\n"
+                msg += f"  Machine: {machine}\n"
+                if reason:
+                    msg += f"  Reason: {reason}\n"
+                msg += "\n"
+
+            messagebox.showinfo("Activation Log", msg)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not read log: {e}")
 
 
 if __name__ == "__main__":
