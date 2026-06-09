@@ -84,11 +84,42 @@ def mark_key_as_used(license_key: str) -> None:
     with open(used_file, 'w', encoding='utf-8') as f:
         json.dump(used_keys, f, indent=2)
 
+    # Log activation
+    log_activation(license_key, True, "Key activated successfully")
+
     # Push to GitHub (non-blocking, don't fail if can't push)
     try:
         _push_to_github(used_keys)
     except Exception as e:
         print(f"[DEBUG] Could not push to GitHub: {e}")
+
+
+def log_activation(license_key: str, success: bool, message: str) -> None:
+    """Log key activation attempt (success or failure)"""
+    log_file = Path(__file__).parent / "key_activation_log.json"
+
+    # Load existing log
+    if log_file.exists():
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+        except:
+            log_data = {'activations': []}
+    else:
+        log_data = {'activations': []}
+
+    # Add entry
+    log_data['activations'].append({
+        'key': license_key,
+        'success': success,
+        'message': message,
+        'timestamp': datetime.now().isoformat(),
+        'machine_id': _get_machine_id()
+    })
+
+    # Save log
+    with open(log_file, 'w', encoding='utf-8') as f:
+        json.dump(log_data, f, indent=2)
 
 
 def _get_machine_id() -> str:
@@ -145,16 +176,22 @@ def validate_license_key(license_key: str) -> tuple:
         (is_valid: bool, message: str)
     """
     if not license_key:
-        return False, "No license key provided"
+        msg = "No license key provided"
+        log_activation("", False, msg)
+        return False, msg
 
     # Check if already used
     if is_key_already_used(license_key):
-        return False, "This license key has already been activated"
+        msg = "This license key has already been activated"
+        log_activation(license_key, False, msg)
+        return False, msg
 
     # Check format
     parts = license_key.split('-')
     if len(parts) != 4:
-        return False, "Invalid key format (expected RA-XX-XXXXXXXX-XXXXXXXX)"
+        msg = "Invalid key format (expected RA-XX-XXXXXXXX-XXXXXXXX)"
+        log_activation(license_key, False, msg)
+        return False, msg
 
     # Extract parts
     prefix = parts[0]  # RA
@@ -164,7 +201,9 @@ def validate_license_key(license_key: str) -> tuple:
 
     # Validate prefix
     if prefix != 'RA':
-        return False, "Invalid key prefix (must be RA)"
+        msg = "Invalid key prefix (must be RA)"
+        log_activation(license_key, False, msg)
+        return False, msg
 
     # Reconstruct base key for checksum calculation
     base_key = f"{prefix}-{order_id}-{random_part}"
@@ -175,12 +214,16 @@ def validate_license_key(license_key: str) -> tuple:
 
     # Compare checksums
     if provided_checksum.upper() != calculated_checksum:
-        return False, "Invalid key (checksum verification failed)"
+        msg = "Invalid key (checksum verification failed)"
+        log_activation(license_key, False, msg)
+        return False, msg
 
     # Key is valid - mark as used
     try:
         mark_key_as_used(license_key)
     except Exception as e:
+        msg = f"Error activating key: {str(e)}"
+        log_activation(license_key, False, msg)
         print(f"[DEBUG] Error marking key as used: {e}")
 
     return True, "License key is valid"
@@ -225,3 +268,21 @@ def check_license() -> bool:
 
     is_valid, _ = validate_license_key(license_key)
     return is_valid
+
+
+def get_activation_log() -> list:
+    """
+    Get all activation attempts (success and failure)
+
+    Returns:
+        List of activation records
+    """
+    log_file = Path(__file__).parent / "key_activation_log.json"
+    if log_file.exists():
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+                return log_data.get('activations', [])
+        except:
+            pass
+    return []
