@@ -51,11 +51,18 @@ def load_used_keys_from_github() -> dict:
 
 
 def load_used_keys() -> dict:
-    """Load used keys from GitHub, fallback to local"""
+    """Load used keys from local cache, sync with GitHub"""
+    local_keys = load_used_keys_local()
+
+    # Try to fetch from GitHub and merge
     try:
-        return load_used_keys_from_github()
+        github_keys = load_used_keys_from_github()
+        # Merge: local takes precedence (we just updated it)
+        github_keys.update(local_keys)
+        return github_keys
     except:
-        return load_used_keys_local()
+        # If GitHub unavailable, use local
+        return local_keys
 
 
 def is_key_already_used(license_key: str) -> bool:
