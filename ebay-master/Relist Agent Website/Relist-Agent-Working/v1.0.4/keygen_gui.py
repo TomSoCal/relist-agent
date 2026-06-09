@@ -76,6 +76,7 @@ class KeygenApp:
 
         ttk.Button(button_frame, text="Copy to Clipboard", command=self.copy_key).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Generate 10 Keys", command=self.generate_batch).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="View Used Keys", command=self.show_used_keys).pack(side="left", padx=5)
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
@@ -129,6 +130,32 @@ class KeygenApp:
 
         messagebox.showinfo("Success", f"Generated 10 keys\nSaved to: {output_file}")
         self.status_var.set(f"✓ 10 keys saved to beta_keys.txt")
+
+    def show_used_keys(self):
+        """Display which keys have been activated"""
+        try:
+            used_file = Path(__file__).parent / "used_keys.json"
+            if not used_file.exists():
+                messagebox.showinfo("Used Keys", "No keys have been activated yet")
+                return
+
+            import json
+            with open(used_file, 'r') as f:
+                used_keys = json.load(f)
+
+            if not used_keys:
+                messagebox.showinfo("Used Keys", "No keys have been activated yet")
+                return
+
+            msg = "ACTIVATED KEYS:\n\n"
+            for key, info in sorted(used_keys.items()):
+                msg += f"Key: {key}\n"
+                msg += f"  Activated: {info.get('activated_at', 'Unknown')}\n"
+                msg += f"  Machine: {info.get('machine_id', 'Unknown')}\n\n"
+
+            messagebox.showinfo("Used Keys", msg)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not read tracking file: {e}")
 
 
 if __name__ == "__main__":
