@@ -10,6 +10,7 @@ import webbrowser
 import sys
 from theme import *
 from PIL import Image, ImageTk
+from license_check import validate_license_key
 
 # Handle PyInstaller bundled paths
 if getattr(sys, 'frozen', False):
@@ -863,6 +864,16 @@ class MainApp(tk.Tk):
         self.after(1500, self.bring_to_front)
         self.geometry("700x500")
         self.app_config = load_config()
+
+        # Check license key
+        license_key = self.app_config.get("license_key", "")
+        if license_key and not validate_license_key(license_key):
+            messagebox.showerror(
+                "Invalid License",
+                f"License key is invalid: {license_key}\n\n"
+                f"Expected format: RA-XX-XXXXXXXX\n\n"
+                f"Please contact support or update your license key in Configure."
+            )
 
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
