@@ -1183,7 +1183,11 @@ class MainApp(tk.Tk):
         dialog.geometry("400x150")
         dialog.resizable(False, False)
         dialog.config(bg=BG_PRIMARY)
-        dialog.attributes('-topmost', True)  # Always on top
+
+        # Force dialog to stay on top
+        dialog.attributes('-topmost', True)
+        dialog.lift()
+        dialog.focus_set()
 
         # Center on screen
         dialog.transient(self)
@@ -1209,7 +1213,7 @@ class MainApp(tk.Tk):
             width=35
         )
         entry.pack(pady=5, padx=20)
-        entry.focus()
+        entry.focus_set()
 
         # Result holder
         result = [None]
