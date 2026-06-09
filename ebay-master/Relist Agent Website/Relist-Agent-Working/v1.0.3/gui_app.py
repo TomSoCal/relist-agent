@@ -865,18 +865,30 @@ class MainApp(tk.Tk):
         self.geometry("700x500")
         self.app_config = load_config()
 
-        # Check license key
+        # Check license key - REQUIRED
         license_key = self.app_config.get("license_key", "")
-        if license_key:
-            is_valid, message = validate_license_key(license_key)
-            if not is_valid:
-                messagebox.showerror(
-                    "Invalid License",
-                    f"{message}\n\n"
-                    f"Key: {license_key}\n"
-                    f"Expected format: RA-XX-XXXXXXXX-XXXXXXXX\n\n"
-                    f"Please contact support or update your license key in Configure."
-                )
+        if not license_key:
+            messagebox.showerror(
+                "License Required",
+                "No license key found in configuration.\n\n"
+                "Please add a valid license key to config.json:\n"
+                '  "license_key": "RA-XX-XXXXXXXX-XXXXXXXX"\n\n'
+                "Contact support for a license key."
+            )
+            self.destroy()
+            return
+
+        is_valid, message = validate_license_key(license_key)
+        if not is_valid:
+            messagebox.showerror(
+                "Invalid License",
+                f"{message}\n\n"
+                f"Key: {license_key}\n"
+                f"Expected format: RA-XX-XXXXXXXX-XXXXXXXX\n\n"
+                f"Please contact support."
+            )
+            self.destroy()
+            return
 
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
