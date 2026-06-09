@@ -912,13 +912,16 @@ class MainApp(tk.Tk):
 
         # Check license key
         license_key = self.app_config.get("license_key", "")
-        if license_key and not validate_license_key(license_key):
-            messagebox.showerror(
-                "Invalid License",
-                f"License key is invalid: {license_key}\n\n"
-                f"Expected format: RA-XX-XXXXXXXX\n\n"
-                f"Please contact support or update your license key in Configure."
-            )
+        if license_key:
+            is_valid, message = validate_license_key(license_key)
+            if not is_valid:
+                messagebox.showerror(
+                    "Invalid License",
+                    f"{message}\n\n"
+                    f"Key: {license_key}\n"
+                    f"Expected format: RA-XX-XXXXXXXX-XXXXXXXX\n\n"
+                    f"Please contact support or update your license key in Configure."
+                )
 
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
