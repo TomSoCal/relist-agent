@@ -1183,6 +1183,7 @@ class MainApp(tk.Tk):
         dialog.geometry("400x150")
         dialog.resizable(False, False)
         dialog.config(bg=BG_PRIMARY)
+        dialog.attributes('-topmost', True)  # Always on top
 
         # Center on screen
         dialog.transient(self)
@@ -1214,7 +1215,11 @@ class MainApp(tk.Tk):
         result = [None]
 
         def on_ok():
-            result[0] = entry.get().strip()
+            key = entry.get().strip()
+            if not key:
+                messagebox.showwarning("Empty Key", "Please enter a license key.")
+                return
+            result[0] = key
             dialog.destroy()
 
         def on_cancel():
