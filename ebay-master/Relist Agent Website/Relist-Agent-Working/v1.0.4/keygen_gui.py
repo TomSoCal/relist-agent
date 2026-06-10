@@ -13,12 +13,12 @@ from pathlib import Path
 LICENSE_SECRET = 'relist-agent-secret'
 
 
-def generate_license_key(order_id: str = None) -> str:
+def generate_license_key(order_id = None) -> str:
     """Generate a valid license key"""
     if order_id is None:
         order_id = f"{secrets.randbelow(100):02d}"
     else:
-        order_id = order_id.strip()
+        order_id = str(order_id).strip()
         if not order_id.isdigit() or len(order_id) > 2:
             order_id = f"{int(order_id):02d}" if order_id.isdigit() else f"{secrets.randbelow(100):02d}"
 
