@@ -133,22 +133,23 @@ class KeygenApp:
         self.status_var.set(f"✓ 10 keys saved to beta_keys.txt")
 
     def show_used_keys(self):
-        """Display which keys have been activated"""
+        """Display which keys have been activated (synced from GitHub)"""
         try:
-            used_file = Path(__file__).parent / "used_keys.json"
-            if not used_file.exists():
-                messagebox.showinfo("Used Keys", "No keys have been activated yet")
-                return
-
+            from license_check import load_used_keys_from_github, load_used_keys_local
             import json
-            with open(used_file, 'r') as f:
-                used_keys = json.load(f)
+
+            # Try to fetch from GitHub first, fallback to local
+            used_keys = None
+            try:
+                used_keys = load_used_keys_from_github()
+            except:
+                used_keys = load_used_keys_local()
 
             if not used_keys:
                 messagebox.showinfo("Used Keys", "No keys have been activated yet")
                 return
 
-            msg = "ACTIVATED KEYS:\n\n"
+            msg = "ACTIVATED KEYS (from GitHub):\n\n"
             for key, info in sorted(used_keys.items()):
                 msg += f"Key: {key}\n"
                 msg += f"  Activated: {info.get('activated_at', 'Unknown')}\n"
@@ -159,7 +160,7 @@ class KeygenApp:
             messagebox.showerror("Error", f"Could not read tracking file: {e}")
 
     def show_activation_log(self):
-        """Display activation attempt log (success and failure)"""
+        """Display activation attempt log (success and failure) - Local only"""
         try:
             from license_check import get_activation_log
             log = get_activation_log()
@@ -168,7 +169,7 @@ class KeygenApp:
                 messagebox.showinfo("Activation Log", "No activation attempts recorded yet")
                 return
 
-            msg = "ACTIVATION LOG:\n\n"
+            msg = "ACTIVATION LOG (Local Machine):\n\n"
             for entry in reversed(log[-50:]):  # Show last 50 entries
                 status = "SUCCESS" if entry.get('success') else "FAILED"
                 key = entry.get('key', '(empty)')
@@ -176,7 +177,7 @@ class KeygenApp:
                 machine = entry.get('machine_id', 'Unknown')
                 reason = entry.get('message', '')
 
-                msg += f"[{status}] {key}\n"
+                msg += f"[{status}] {key[:20]}...\n"
                 msg += f"  Time: {timestamp}\n"
                 msg += f"  Machine: {machine}\n"
                 if reason:
