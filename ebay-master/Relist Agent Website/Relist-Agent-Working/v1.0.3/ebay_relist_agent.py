@@ -29,11 +29,7 @@ except ImportError:
     def kff_check(*args, **kwargs):
         return {"status": "approve", "suggestion": ""}
 
-# Handle PyInstaller bundled paths
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
-else:
-    BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent
 LOG_FILE = BASE_DIR / "relist_log.json"
 
 
@@ -200,15 +196,7 @@ def run() -> None:
     body = format_report(relisted_report, ended_zero_qty_report, failures_report)
     subject = format_subject(today)
     try:
-        send_email(
-            password=cfg["gmail_app_password"],
-            subject=subject,
-            body=body,
-            sender=cfg["gmail_email"],
-            recipient=cfg["report_email"],
-            smtp_host=cfg.get("smtp_server", "smtp.gmail.com"),
-            smtp_port=cfg.get("smtp_port", 465)
-        )
+        send_email(cfg["gmail_app_password"], subject, body)
         log("Email report sent.")
     except Exception as e:
         log(f"WARNING: Email failed: {e}")

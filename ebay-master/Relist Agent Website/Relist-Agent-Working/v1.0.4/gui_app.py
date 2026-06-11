@@ -2,23 +2,23 @@
 import json
 import subprocess
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from tkinter import scrolledtext
 from pathlib import Path
 import threading
 import webbrowser
 import sys
+import os
 from theme import *
 from PIL import Image, ImageTk
-from license_check import validate_license_key, get_license_key_from_config
-import json as json_lib
 
-# Handle PyInstaller bundled paths
+# Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
+    # Running as compiled EXE - use directory of the running executable
+    BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
+    # Running as .py script - use script directory
     BASE_DIR = Path(__file__).parent
-
 CONFIG_FILE = BASE_DIR / "config.json"
 LOG_FILE = BASE_DIR / "relist_log.json"
 
@@ -50,10 +50,7 @@ def load_config():
         "app_id": "",
         "dev_id": "",
         "cert_id": "",
-        "email_address": "",
-        "email_password": "",
-        "smtp_server": "smtp.gmail.com",
-        "smtp_port": 465,
+        "gmail_app_password": "",
         "store_name": "",
     }
 
@@ -182,53 +179,48 @@ class SettingsWindow(tk.Toplevel):
         self.cert_id.grid(row=2, column=1, padx=10, pady=5)
         self.cert_id.insert(0, config.get("cert_id", ""))
 
-        # Email Configuration
-        ttk.Label(form_frame, text="Email Address:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
-        self.email_address = ttk.Entry(form_frame, width=40)
-        self.email_address.grid(row=3, column=1, padx=10, pady=5)
-        self.email_address.insert(0, config.get("email_address", config.get("gmail_email", "")))
+        ttk.Label(form_frame, text="RU Name:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        self.ru_name = ttk.Entry(form_frame, width=40)
+        self.ru_name.grid(row=3, column=1, padx=10, pady=5)
+        self.ru_name.insert(0, config.get("ru_name", ""))
 
-        ttk.Label(form_frame, text="Email Password:").grid(row=4, column=0, sticky="w", padx=10, pady=5)
-        self.email_password = ttk.Entry(form_frame, width=40, show="*")
-        self.email_password.grid(row=4, column=1, padx=10, pady=5)
-        self.email_password.insert(0, config.get("email_password", config.get("gmail_app_password", "")))
+        # Gmail
+        ttk.Label(form_frame, text="Gmail Email:").grid(row=4, column=0, sticky="w", padx=10, pady=5)
+        self.gmail_email = ttk.Entry(form_frame, width=40)
+        self.gmail_email.grid(row=4, column=1, padx=10, pady=5)
+        self.gmail_email.insert(0, config.get("gmail_email", ""))
 
-        ttk.Label(form_frame, text="SMTP Server:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
-        self.smtp_server = ttk.Entry(form_frame, width=40)
-        self.smtp_server.grid(row=5, column=1, padx=10, pady=5)
-        self.smtp_server.insert(0, config.get("smtp_server", "smtp.gmail.com"))
+        ttk.Label(form_frame, text="Gmail App Password:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
+        self.gmail_pass = ttk.Entry(form_frame, width=40, show="*")
+        self.gmail_pass.grid(row=5, column=1, padx=10, pady=5)
+        self.gmail_pass.insert(0, config.get("gmail_app_password", ""))
 
-        ttk.Label(form_frame, text="SMTP Port:").grid(row=6, column=0, sticky="w", padx=10, pady=5)
-        self.smtp_port = ttk.Spinbox(form_frame, from_=1, to=65535, width=10)
-        self.smtp_port.grid(row=6, column=1, sticky="w", padx=10, pady=5)
-        self.smtp_port.set(config.get("smtp_port", 465))
-
-        ttk.Label(form_frame, text="Report Sent To:").grid(row=7, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Report Sent To:").grid(row=6, column=0, sticky="w", padx=10, pady=5)
         self.report_email = ttk.Entry(form_frame, width=40)
-        self.report_email.grid(row=7, column=1, padx=10, pady=5)
+        self.report_email.grid(row=6, column=1, padx=10, pady=5)
         self.report_email.insert(0, config.get("report_email", ""))
 
         # Store Name
-        ttk.Label(form_frame, text="Store Name:").grid(row=8, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Store Name:").grid(row=7, column=0, sticky="w", padx=10, pady=5)
         self.store_name = ttk.Entry(form_frame, width=40)
-        self.store_name.grid(row=8, column=1, padx=10, pady=5)
+        self.store_name.grid(row=7, column=1, padx=10, pady=5)
         self.store_name.insert(0, config.get("store_name", ""))
 
         # Log Days
-        ttk.Label(form_frame, text="Log Days to Display:").grid(row=9, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Log Days to Display:").grid(row=8, column=0, sticky="w", padx=10, pady=5)
         self.log_days = ttk.Spinbox(form_frame, from_=1, to=30, width=10)
-        self.log_days.grid(row=9, column=1, sticky="w", padx=10, pady=5)
+        self.log_days.grid(row=8, column=1, sticky="w", padx=10, pady=5)
         self.log_days.set(config.get("log_days", 3))
 
         # Listings to Execute
-        ttk.Label(form_frame, text="Listings to Execute Per Run:").grid(row=10, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Listings to Execute Per Run:").grid(row=9, column=0, sticky="w", padx=10, pady=5)
         self.listings_per_run = ttk.Spinbox(form_frame, from_=1, to=50, width=10)
-        self.listings_per_run.grid(row=10, column=1, sticky="w", padx=10, pady=5)
+        self.listings_per_run.grid(row=9, column=1, sticky="w", padx=10, pady=5)
         self.listings_per_run.set(config.get("listings_per_run", 10))
 
         # Schedule Frame
         schedule_frame = tk.LabelFrame(form_frame, text="Schedule", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
-        schedule_frame.grid(row=11, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        schedule_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
         # Time
         ttk.Label(schedule_frame, text="Run Time (HH:MM):").grid(row=0, column=0, sticky="w")
@@ -267,6 +259,7 @@ class SettingsWindow(tk.Toplevel):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=20)
         ttk.Button(btn_frame, text="Save", command=self.save_settings).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="Authorize Now", command=self.do_oauth_auth).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Clear Cache", command=self.clear_progress_cache).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side="left", padx=5)
 
@@ -283,10 +276,9 @@ class SettingsWindow(tk.Toplevel):
             "app_id": self.app_id.get(),
             "dev_id": self.dev_id.get(),
             "cert_id": self.cert_id.get(),
-            "email_address": self.email_address.get(),
-            "email_password": self.email_password.get(),
-            "smtp_server": self.smtp_server.get(),
-            "smtp_port": int(self.smtp_port.get()),
+            "ru_name": self.ru_name.get(),
+            "gmail_email": self.gmail_email.get(),
+            "gmail_app_password": self.gmail_pass.get(),
             "report_email": self.report_email.get(),
             "store_name": self.store_name.get(),
             "log_days": int(self.log_days.get()),
@@ -304,10 +296,10 @@ class SettingsWindow(tk.Toplevel):
         self.destroy()
 
     def apply_schedule(self, run_time, run_days):
-        """Apply the schedule to Windows Task Scheduler"""
+        """Apply the schedule to Windows Task Scheduler via inline PowerShell"""
         import subprocess
+        import sys
 
-        # Show confirmation (informational, not asking for permission since we're admin)
         messagebox.showinfo(
             "Schedule Updated",
             f"✓ Schedule configured:\n\n"
@@ -317,14 +309,23 @@ class SettingsWindow(tk.Toplevel):
         )
 
         try:
-            script_path = BASE_DIR / "setup_task.ps1"
-            if not script_path.exists():
-                # Scheduling script not available - this is okay, just skip scheduling
-                return
+            script_path = str(BASE_DIR / "ebay_relist_agent.py")
+            script_dir = str(BASE_DIR)
+            python_exe = sys.executable
 
-            # Call update_schedule.ps1 directly (we're running as admin)
-            days_str = "', '".join(run_days)
-            ps_cmd = f"& '{script_path}' -Time '{run_time}' -Days @('{days_str}')"
+            # Build PowerShell command inline (no external files)
+            ps_cmd = f"""
+$taskName = 'eBayRelistAgent'
+$pythonExe = '{python_exe}'
+$script = '{script_path}'
+$scriptDir = '{script_dir}'
+
+$action = New-ScheduledTaskAction -Execute $pythonExe -Argument $script -WorkingDirectory $scriptDir
+$trigger = New-ScheduledTaskTrigger -Daily -At '{run_time}'
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+"""
 
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
@@ -419,6 +420,87 @@ Windows Task Scheduler with your new schedule.
 """
         QuickGuideWindow(self, "Settings", guide_text)
 
+    def do_oauth_auth(self):
+        """OAuth authorization - exactly mirrors interactive_setup() flow from auth.py"""
+        try:
+            from tkinter import simpledialog as sd
+            import webbrowser
+            import urllib.parse
+            import requests
+            import base64
+            from datetime import datetime, timezone, timedelta
+            from auth import save_tokens, OAUTH_AUTH_URL, OAUTH_TOKEN_URL, SCOPES
+
+            # Verify all required credentials are present
+            required = ["app_id", "cert_id", "dev_id", "ru_name"]
+            missing = [f for f in required if not self.config_dict.get(f)]
+            if missing:
+                messagebox.showerror("Missing Credentials", f"Please fill in all required fields:\n{', '.join(missing)}")
+                return
+
+            # Build OAuth URL (exactly as _do_oauth() does in auth.py)
+            auth_url = (
+                f"{OAUTH_AUTH_URL}?client_id={urllib.parse.quote(self.config_dict['app_id'])}"
+                f"&response_type=code"
+                f"&redirect_uri={urllib.parse.quote(self.config_dict['ru_name'])}"
+                f"&scope={urllib.parse.quote(SCOPES)}"
+            )
+
+            # Open browser
+            messagebox.showinfo(
+                "OAuth Authorization",
+                "A browser window will open for eBay authorization.\n\n"
+                "After you authorize the app, your browser will redirect to a page that fails to load.\n"
+                "Copy the full URL from the address bar and paste it in the next dialog."
+            )
+            webbrowser.open(auth_url)
+
+            # Ask user to paste redirect URL
+            raw = sd.askstring(
+                "Paste Authorization URL",
+                "Copy the full URL from your browser's address bar and paste it below:"
+            )
+            if not raw:
+                messagebox.showwarning("Cancelled", "OAuth authorization was cancelled.")
+                return
+
+            # Extract authorization code
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+            if "code" not in params:
+                messagebox.showerror("Error", "No 'code' found in the URL.\nMake sure you copied the entire URL from the address bar.")
+                return
+            code = params["code"][0]
+
+            # Exchange code for tokens (exactly as _do_oauth() does)
+            creds = base64.b64encode(f"{self.config_dict['app_id']}:{self.config_dict['cert_id']}".encode()).decode()
+            resp = requests.post(
+                OAUTH_TOKEN_URL,
+                headers={"Authorization": f"Basic {creds}", "Content-Type": "application/x-www-form-urlencoded"},
+                data={"grant_type": "authorization_code", "code": code, "redirect_uri": self.config_dict["ru_name"]},
+                timeout=30,
+            )
+            if not resp.ok:
+                messagebox.showerror("Error", f"Token exchange failed ({resp.status_code}):\n{resp.text}")
+                return
+
+            data = resp.json()
+            if not data.get("refresh_token"):
+                messagebox.showerror("Error", "eBay did not return a refresh token.\nCheck your app credentials and OAuth scopes are correct.")
+                return
+
+            # Save tokens (exactly as _do_oauth() does)
+            now = datetime.now(timezone.utc)
+            save_tokens({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "expires_at": (now + timedelta(seconds=data["expires_in"])).isoformat(),
+            })
+
+            messagebox.showinfo("Success", "✓ Authorization complete!\n\nTokens saved. You're ready to use the app.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"OAuth failed: {str(e)}")
+
 
 class ExclusionsWindow(tk.Toplevel):
     def __init__(self, parent, config_dict, on_save=None, refresh_inventory_callback=None):
@@ -435,6 +517,7 @@ class ExclusionsWindow(tk.Toplevel):
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Exclude from Relist", font=("Arial", 12, "bold")).pack(side="left")
+        ttk.Button(header, text="Refresh Data from Store", command=self.refresh_data).pack(side="right", padx=5)
 
         # Description
         desc = tk.Label(self, text="Select categories and SKUs to exclude from relisting. Excluded items will be skipped when the agent runs.",
@@ -458,10 +541,6 @@ class ExclusionsWindow(tk.Toplevel):
                                     font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
                                     highlightthickness=0)
         cat_section.pack(fill="both", expand=True, pady=(0, 20))
-
-        btn_frame_cat = ttk.Frame(cat_section)
-        btn_frame_cat.pack(fill="x", pady=(0, 10))
-        ttk.Button(btn_frame_cat, text="Load from Store", command=self.refresh_categories_cache).pack(side="left", padx=2)
 
         cat_frame = ttk.Frame(cat_section)
         cat_frame.pack(fill="both", expand=True)
@@ -509,10 +588,6 @@ class ExclusionsWindow(tk.Toplevel):
                                     font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
                                     highlightthickness=0)
         sku_section.pack(fill="both", expand=True)
-
-        btn_frame_sku = ttk.Frame(sku_section)
-        btn_frame_sku.pack(fill="x", pady=(0, 10))
-        ttk.Button(btn_frame_sku, text="Load from Store", command=self.refresh_skus_cache).pack(side="left", padx=2)
 
         sku_frame = ttk.Frame(sku_section)
         sku_frame.pack(fill="both", expand=True)
@@ -565,77 +640,43 @@ class ExclusionsWindow(tk.Toplevel):
         self.load_categories_from_store()
         self.load_skus_from_store()
 
-        # Category list with scrollbar
-        cat_scroll_frame = ttk.Frame(left_frame)
-        cat_scroll_frame.pack(fill="both", expand=True)
+    def refresh_data(self):
+        """Refresh data from store (with or without Inventory window)"""
+        self.progress_bar.config(value=0)
+        self.progress_text.config(text="Refreshing...")
+        self.update_idletasks()
+        try:
+            if self.refresh_inventory_callback:
+                # Use callback if Inventory window is open (for efficiency)
+                self.refresh_inventory_callback(force_refresh=True)
+            else:
+                # Fetch inventory directly if Inventory window not open
+                from auth import get_access_token, load_config
+                from ebay_api import fetch_all_active_listings, get_store_categories
+                cfg = load_config()
+                token = get_access_token(cfg)
+                items = fetch_all_active_listings(cfg, token)
+                categories = get_store_categories(cfg, token)
+                # Extract SKUs from items
+                skus = sorted(set(item.get("sku") for item in items if item.get("sku")))
+                cache_file = self._get_cache_file()
+                cache_data = {
+                    "categories": sorted(categories),
+                    "skus": skus
+                }
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(cache_data, f, indent=2)
 
-        cat_scrollbar = ttk.Scrollbar(cat_scroll_frame)
-        cat_scrollbar.pack(side="right", fill="y")
-
-        self.category_canvas = tk.Canvas(cat_scroll_frame, bg=BG_PRIMARY, highlightthickness=0,
-                                        yscrollcommand=cat_scrollbar.set)
-        self.category_canvas.pack(side="left", fill="both", expand=True)
-        cat_scrollbar.config(command=self.category_canvas.yview)
-
-        self.category_frame = tk.Frame(self.category_canvas, bg=BG_PRIMARY)
-        self.category_window = self.category_canvas.create_window((0, 0), window=self.category_frame, anchor="nw")
-
-        def on_cat_frame_configure(event):
-            self.category_canvas.configure(scrollregion=self.category_canvas.bbox("all"))
-            self.category_canvas.itemconfig(self.category_window, width=event.width)
-
-        self.category_frame.bind("<Configure>", on_cat_frame_configure)
-
-        self.category_vars = {}
-        excluded_cats = config_dict.get("excluded_categories", [])
-        self.load_categories(excluded_cats)
-
-        # RIGHT COLUMN - SKU EXCLUSIONS
-        right_frame = tk.LabelFrame(content_frame, text="Exclude SKUs", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
-                                    font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
-                                    highlightthickness=0)
-        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
-
-        # Manual SKU input
-        ttk.Label(right_frame, text="Add SKU manually:").pack(anchor="w", pady=(0, 5))
-        sku_input_frame = ttk.Frame(right_frame)
-        sku_input_frame.pack(fill="x", pady=(0, 10))
-
-        self.sku_input = ttk.Entry(sku_input_frame, width=25)
-        self.sku_input.pack(side="left", padx=(0, 5))
-        ttk.Button(sku_input_frame, text="Add", command=self.add_sku).pack(side="left")
-
-        # CSV upload button
-        ttk.Button(right_frame, text="Import SKUs from CSV", command=self.import_csv).pack(anchor="w", pady=(0, 10))
-
-        # Excluded SKUs list
-        ttk.Label(right_frame, text="Excluded SKUs:").pack(anchor="w", pady=(0, 5))
-
-        list_frame = ttk.Frame(right_frame)
-        list_frame.pack(fill="both", expand=True)
-
-        scrollbar2 = ttk.Scrollbar(list_frame)
-        scrollbar2.pack(side="right", fill="y")
-
-        self.sku_listbox = tk.Listbox(list_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
-                                      yscrollcommand=scrollbar2.set, height=15)
-        self.sku_listbox.pack(side="left", fill="both", expand=True)
-        scrollbar2.config(command=self.sku_listbox.yview)
-
-        # Remove button
-        btn_frame = ttk.Frame(right_frame)
-        btn_frame.pack(fill="x", pady=(5, 0))
-        ttk.Button(btn_frame, text="Remove Selected", command=self.remove_sku).pack(side="left", padx=5)
-
-        # Load excluded SKUs
-        self.load_skus(config_dict.get("excluded_skus", []))
-
-        # Bottom buttons
-        btn_frame_bottom = ttk.Frame(self)
-        btn_frame_bottom.pack(fill="x", padx=10, pady=10)
-        ttk.Button(btn_frame_bottom, text="Save", command=self.save_exclusions).pack(side="left", padx=5)
-        ttk.Button(btn_frame_bottom, text="Cancel", command=self.destroy).pack(side="left", padx=5)
-        ttk.Label(btn_frame_bottom, text="v1.0.4", font=("Arial", 9), foreground=TEXT_PRIMARY).pack(side="right", padx=5)
+            # Reload from cache after refresh
+            self.load_categories_from_store()
+            self.load_skus_from_store()
+            self.progress_bar.config(value=100)
+            self.progress_text.config(text="Done")
+            messagebox.showinfo("Success", "Data refreshed from store")
+        except Exception as e:
+            self.progress_bar.config(value=0)
+            self.progress_text.config(text="Ready")
+            messagebox.showerror("Error", f"Refresh failed: {str(e)}")
 
     def _get_cache_file(self):
         return BASE_DIR / "exclusions_cache.json"
@@ -911,38 +952,6 @@ class MainApp(tk.Tk):
         self.geometry("700x500")
         self.app_config = load_config()
 
-        # Check license key - REQUIRED
-        license_key = self.app_config.get("license_key", "")
-
-        # If no license, prompt user to enter one
-        if not license_key:
-            license_key = self.prompt_for_license()
-            if not license_key:  # User cancelled
-                sys.exit(0)
-
-        # Validate the license
-        is_valid, message = validate_license_key(license_key)
-        while not is_valid:
-            messagebox.showerror(
-                "Invalid License Key",
-                f"Invalid license key.\n\n"
-                f"Please retry the key.\n\n"
-                f"If you are having issues with the key,\n"
-                f"email support@thetrashedpanda.com"
-            )
-            license_key = self.prompt_for_license()
-            if not license_key:  # User cancelled
-                sys.exit(0)
-            is_valid, message = validate_license_key(license_key)
-
-        # Valid license - save to config.json
-        self.app_config["license_key"] = license_key
-        try:
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json_lib.dump(self.app_config, f, indent=2)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save license: {e}")
-
         # Configure window background
         tk.Tk.config(self, bg=BG_PRIMARY)
 
@@ -1154,16 +1163,8 @@ class MainApp(tk.Tk):
         ttk.Button(right_frame, text="Configure", command=self.open_settings, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Exclude from Relist", command=self.open_exclusions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Check for Update", command=self.check_for_update, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
-
-        # Divider
-        divider3 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
-        divider3.pack(fill="x", pady=10)
-
-        # Version number
-        ttk.Label(right_frame, text="v1.0.4", font=("Arial", 9), foreground=TEXT_PRIMARY).pack(anchor="e", padx=5, pady=(0, 5))
 
         # Bottom action buttons
         bottom_frame = ttk.Frame(self)
@@ -1175,90 +1176,6 @@ class MainApp(tk.Tk):
 
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
-
-    def prompt_for_license(self) -> str:
-        """Prompt user to enter license key"""
-        dialog = tk.Toplevel(self)
-        dialog.title("Enter License Key")
-        dialog.geometry("400x150")
-        dialog.resizable(False, False)
-        dialog.config(bg=BG_PRIMARY)
-
-        # Force dialog to stay on top
-        dialog.attributes('-topmost', True)
-        dialog.lift()
-        dialog.focus_set()
-
-        # Center on screen
-        dialog.transient(self)
-        dialog.grab_set()
-
-        # Label
-        label = tk.Label(
-            dialog,
-            text="Enter your license key:",
-            bg=BG_PRIMARY,
-            fg=TEXT_PRIMARY,
-            font=("Arial", 10)
-        )
-        label.pack(pady=10)
-
-        # Input field
-        entry = tk.Entry(
-            dialog,
-            font=("Arial", 11),
-            bg=BG_SECONDARY,
-            fg=TEXT_PRIMARY,
-            borderwidth=1,
-            width=35
-        )
-        entry.pack(pady=5, padx=20)
-        entry.focus_set()
-
-        # Result holder
-        result = [None]
-
-        def on_ok():
-            key = entry.get().strip()
-            if not key:
-                messagebox.showwarning("Empty Key", "Please enter a license key.")
-                return
-            result[0] = key
-            dialog.destroy()
-
-        def on_cancel():
-            dialog.destroy()
-
-        # Buttons frame
-        btn_frame = tk.Frame(dialog, bg=BG_PRIMARY)
-        btn_frame.pack(pady=10)
-
-        ok_btn = tk.Button(
-            btn_frame,
-            text="Activate",
-            command=on_ok,
-            bg=BLUE_PRIMARY,
-            fg=TEXT_PRIMARY,
-            padx=20,
-            pady=5,
-            borderwidth=1
-        )
-        ok_btn.pack(side=tk.LEFT, padx=5)
-
-        cancel_btn = tk.Button(
-            btn_frame,
-            text="Cancel",
-            command=on_cancel,
-            bg=BG_SECONDARY,
-            fg=TEXT_PRIMARY,
-            padx=20,
-            pady=5,
-            borderwidth=1
-        )
-        cancel_btn.pack(side=tk.LEFT, padx=5)
-
-        dialog.wait_window()
-        return result[0]
 
     def bring_to_front(self):
         """Bring window to foreground after admin dialog"""
@@ -1596,15 +1513,18 @@ class MainApp(tk.Tk):
         SettingsWindow(self, self.app_config, self.refresh_after_settings_save)
 
     def open_exclusions(self):
-        # Find the InventoryWindow instance and pass its refresh method
-        inventory_window = None
-        for widget in self.winfo_children():
-            if isinstance(widget, InventoryWindow):
-                inventory_window = widget
-                break
+        try:
+            # Only pass callback if Inventory window is already open
+            inventory_window = None
+            for widget in self.winfo_children():
+                if isinstance(widget, InventoryWindow):
+                    inventory_window = widget
+                    break
 
-        refresh_callback = inventory_window.load_items_background if inventory_window else None
-        ExclusionsWindow(self, self.app_config, refresh_inventory_callback=refresh_callback)
+            refresh_callback = inventory_window.load_items if inventory_window else None
+            ExclusionsWindow(self, self.app_config, on_save=self.refresh_after_settings_save, refresh_inventory_callback=refresh_callback)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Exclude window:\n{str(e)}")
 
     def refresh_after_settings_save(self):
         """Refresh UI after settings are saved"""
@@ -1638,73 +1558,23 @@ class MainApp(tk.Tk):
             self.stage_label.config(text="")
             self.stage_dots.config(text="")
             self.current_item_label.config(text="")
-            self.monitor_progress()
+            self.monitor_progress()  # Start monitoring
             self.update_log("Running agent...\n")
 
-            # If running as bundled EXE, run agent directly; otherwise spawn subprocess
-            if getattr(sys, 'frozen', False):
-                # Running as bundled EXE - import and run directly
-                self.update_log("Running agent...\n")
-                try:
-                    from ebay_relist_agent import run as agent_run
-                    agent_run()
-                    result_returncode = 0
-                    result_stdout = "Agent completed successfully!\n"
-                    result_stderr = ""
-                except SystemExit as e:
-                    result_returncode = e.code or 0
-                    result_stdout = "Agent completed.\n"
-                    result_stderr = ""
-                except Exception as e:
-                    result_returncode = 1
-                    result_stdout = ""
-                    result_stderr = f"{type(e).__name__}: {str(e)}"
-            else:
-                # Running as script - spawn subprocess
-                import subprocess
-                import shutil
+            # Import and call agent directly
+            from ebay_relist_agent import run
+            run()
 
-                python_exe = shutil.which("python") or shutil.which("python3")
-                if not python_exe:
-                    python_exe = sys.executable
-
-                self.update_log(f"Using Python: {python_exe}\nRunning agent...\n")
-
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-
-                result = subprocess.run(
-                    [python_exe, str(BASE_DIR / "ebay_relist_agent.py")],
-                    cwd=str(BASE_DIR),
-                    capture_output=True,
-                    text=True,
-                    timeout=600,
-                    startupinfo=startupinfo
-                )
-                result_returncode = result.returncode
-                result_stdout = result.stdout
-                result_stderr = result.stderr
-
-            if result_returncode == 0:
-                self.progress_bar.config(value=100)
-                self.overall_progress_bar.config(value=100)
-                self.status_text.config(text="Complete\n✓", fg="#00DD00")
-                if result_stdout:
-                    self.update_log(result_stdout)
-                self.update_log("Agent completed successfully!\n\nRefreshing log...")
-                self.after(1000, self.refresh_log)
-            else:
-                self.status_text.config(text="Failed\n✗", fg="#FF4444")
-                self.update_log(f"Agent failed (return code {result_returncode}):\n{result_stderr}\n{result_stdout}")
-                self.progress_bar.config(value=0)
-                self.overall_progress_bar.config(value=0)
-
+            self.progress_bar.config(value=100)
+            self.overall_progress_bar.config(value=100)
+            self.status_text.config(text="Complete\n✓", fg="#00DD00")
+            self.update_log("Agent completed successfully!\n\nRefreshing log...")
+            self.after(1000, self.refresh_log)
         except Exception as e:
-            self.status_text.config(text="Error ✗", fg="#FF4444")
+            self.status_text.config(text="Failed\n✗", fg="#FF4444")
+            self.update_log(f"Agent failed:\n{str(e)}")
             self.progress_bar.config(value=0)
-            import traceback
-            self.update_log(f"\nAgent error: {e}\n\n{traceback.format_exc()}")
+            self.overall_progress_bar.config(value=0)
 
     def update_progress_display(self):
         """Update progress bar and current item display"""
@@ -1797,58 +1667,7 @@ class MainApp(tk.Tk):
         LogViewerWindow(self)
 
     def show_about(self):
-        messagebox.showinfo("About Relist Agent", "Relist Agent v1.0 Beta\n\n© 2026 The Trashed Panda. All rights reserved.\n\nAutomated eBay relisting and inventory management.\n\nhttps://www.thetrashedpanda.com/relist-agent\nsupport@thetrashedpanda.com")
-
-    def check_for_update(self):
-        """Check for updates from GitHub"""
-        import requests
-        import os
-        from pathlib import Path
-
-        current_version = "1.0.4"
-        github_api = "https://api.github.com/repos/TomSoCal/relist-agent/releases/latest"
-
-        try:
-            response = requests.get(github_api, timeout=5)
-            response.raise_for_status()
-            release_data = response.json()
-
-            latest_version = release_data.get("tag_name", "").lstrip("v")
-            download_url = None
-
-            # Find the zip file asset
-            for asset in release_data.get("assets", []):
-                if asset["name"].endswith(".zip"):
-                    download_url = asset["browser_download_url"]
-                    break
-
-            # Compare versions
-            if latest_version > current_version:
-                msg = f"Update available!\n\nCurrent: v{current_version}\nLatest: v{latest_version}\n\nDownload now?"
-                if messagebox.askyesno("Update Available", msg):
-                    # Download the file
-                    if download_url:
-                        downloads_folder = str(Path.home() / "Downloads")
-                        zip_filename = f"Relist-Agent-v{latest_version}.zip"
-                        zip_path = os.path.join(downloads_folder, zip_filename)
-
-                        # Show progress
-                        messagebox.showinfo("Downloading", f"Downloading to:\n{zip_path}")
-
-                        # Download file
-                        response = requests.get(download_url, timeout=30)
-                        response.raise_for_status()
-
-                        with open(zip_path, "wb") as f:
-                            f.write(response.content)
-
-                        messagebox.showinfo("Download Complete", f"Update downloaded to:\n{downloads_folder}")
-                    else:
-                        messagebox.showerror("Error", "Could not find download link")
-            else:
-                messagebox.showinfo("Check for Update", f"You are running v{current_version}\n\nYou're up to date!")
-        except Exception as e:
-            messagebox.showerror("Update Check Failed", f"Could not check for updates:\n{str(e)}")
+        messagebox.showinfo("About", "Relist Agent\n\nAutomatically relist your items daily.\n\nVersion 1.0 Beta\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
 
     def show_instructions(self):
         instructions_text = """RELIST AGENT - COMPLETE INSTRUCTIONS
@@ -2118,48 +1937,6 @@ Inventory Window:
 • ❌ Delist → End listing
 • ♻️ Relist → Delist & create new
 • Refresh Data → Reload items
-
-Exclude from Relist Window:
-• Load from Store → Fetch categories & SKUs from your store
-• Search → Find items to exclude (real-time filtering)
-• → Exclude → Move item to excluded list
-• ← Include → Move item back to available list
-• Save → Confirm and save exclusions
-
-═══════════════════════════════════════════════════════════════
-
-EXCLUDE FROM RELIST
-
-Selectively skip items during agent runs by excluding specific categories
-or SKUs.
-
-WHY EXCLUDE ITEMS:
-• Cross-listers: Don't relist items sold on other platforms
-• Special inventory: Keep certain products off auto-relist
-• Testing: Exclude test items from scheduled runs
-• Seasonal items: Pause relisting for out-of-season products
-
-HOW IT WORKS:
-1. Click "Exclude from Relist" button
-2. Click "Load from Store" to fetch your categories and SKUs
-3. Use Search to find items quickly
-4. Select items from Available list
-5. Click "→ Exclude" to move them to Excluded list
-6. Click "Save" to confirm exclusions
-
-DATA CACHING:
-Categories and SKUs are cached when you refresh Inventory.
-Click "Load from Store" again to update the list if you add new items.
-
-EXCLUSION BEHAVIOR:
-• Excluded categories: Items in those store categories won't relist
-• Excluded SKUs: Items with those SKU codes won't relist
-• Items can match either category OR SKU to be excluded
-
-CLEARING EXCLUSIONS:
-• Select items from Excluded list
-• Click "← Include" to move them back to Available
-• Click "Save" to confirm
 
 ═══════════════════════════════════════════════════════════════
 """
@@ -2668,9 +2445,6 @@ class InventoryWindow(tk.Toplevel):
                search_term in item.get("sku", "").lower()
         ]
 
-        # Sort by start_time (newest first)
-        filtered = sorted(filtered, key=lambda x: x.get("start_time", ""), reverse=True)
-
         for idx, item in enumerate(filtered):
             # Use pre-formatted date
             formatted_date = item.get("_formatted_date", "")
@@ -2738,7 +2512,8 @@ class InventoryWindow(tk.Toplevel):
         """Refresh inventory from eBay (force fresh fetch)"""
         result = messagebox.askyesno(
             "Refresh Data",
-            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories."
+            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories.",
+            parent=self
         )
         if result:
             print("[DEBUG] Refreshing inventory from eBay...")

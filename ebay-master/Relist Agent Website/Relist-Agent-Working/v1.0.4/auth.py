@@ -2,16 +2,19 @@ import base64
 import json
 import urllib.parse
 import webbrowser
+import sys
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import sys
 
 import requests
 
-# Handle PyInstaller bundled paths
+# Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
+    # Running as compiled EXE - use directory of the running executable
+    BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
+    # Running as .py script - use script directory
     BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
 TOKEN_FILE = BASE_DIR / "tokens.json"

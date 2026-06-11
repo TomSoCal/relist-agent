@@ -4,15 +4,10 @@ import urllib.parse
 import webbrowser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import sys
 
 import requests
 
-# Handle PyInstaller bundled paths
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
-else:
-    BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
 TOKEN_FILE = BASE_DIR / "tokens.json"
 
@@ -64,8 +59,7 @@ def get_access_token(cfg: dict) -> str:
     if not tokens.get("refresh_token"):
         raise RuntimeError(
             "No refresh token — token expired. "
-            "Go to developer.ebay.com > User Tokens > Sign in to Production, "
-            "copy the new token, and re-run: python ebay_relist_agent.py --setup"
+            "Re-run setup: python ebay_relist_agent.py --setup"
         )
 
     creds = base64.b64encode(f"{cfg['app_id']}:{cfg['cert_id']}".encode()).decode()
@@ -130,6 +124,9 @@ def _do_oauth(cfg: dict) -> None:
 
 
 def _paste_portal_token() -> None:
+    # DEPRECATED: This function is no longer used in normal setup.
+    # It exists only for backwards compatibility. Portal tokens expire after 18 months.
+    # Use OAuth instead: _do_oauth()
     print("\nPaste the token from the developer portal (User Tokens > Sign in to Production):")
     token = input("Token: ").strip()
     if not token:
@@ -173,12 +170,8 @@ And a Gmail App Password from myaccount.google.com > Security > App Passwords.
     }
     save_config(cfg)
     print(f"\nConfig saved to {CONFIG_FILE}")
-    print("\nHow would you like to authenticate?")
-    print("  1) Paste token from developer portal (recommended)")
-    print("  2) OAuth redirect flow (browser-based)")
-    choice = input("Choice [1/2]: ").strip()
-    if choice == "2":
-        _do_oauth(cfg)
-    else:
-        _paste_portal_token()
+    print("\nAuthenticating with eBay via OAuth...")
+    print("This opens your browser for secure authorization.")
+    print("Your tokens will auto-refresh forever — no expiry.")
+    _do_oauth(cfg)
     print("\nSetup complete! Run setup_task.ps1 (as admin) to schedule daily runs.")
