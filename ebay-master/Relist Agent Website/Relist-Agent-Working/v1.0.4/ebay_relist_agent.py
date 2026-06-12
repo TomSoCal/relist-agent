@@ -34,10 +34,16 @@ if getattr(sys, 'frozen', False):
     BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
     BASE_DIR = Path(__file__).parent
-LOG_FILE = BASE_DIR / "relist_log.json"
-BACKUP_FILE = BASE_DIR / "item_backups.json"
-ERROR_LOG_FILE = BASE_DIR / "error_log.txt"
-PROGRESS_FILE = BASE_DIR / "progress.json"
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
+# Make folder hidden on Windows
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+LOG_FILE = DATA_DIR / "relist_log.json"
+BACKUP_FILE = DATA_DIR / "item_backups.json"
+ERROR_LOG_FILE = DATA_DIR / "error_log.txt"
+PROGRESS_FILE = DATA_DIR / "progress.json"
 
 
 def update_progress(stage: str, item_id: str = "", title: str = "", completed: int = 0, total: int = 0) -> None:
@@ -71,7 +77,7 @@ def log(msg: str) -> None:
         pass
 
     try:
-        with open(BASE_DIR / "run.log", "a", encoding="utf-8") as f:
+        with open(DATA_DIR / "run.log", "a", encoding="utf-8") as f:
             f.write(formatted + "\n")
     except:
         pass

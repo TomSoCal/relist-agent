@@ -20,7 +20,13 @@ else:
     # Running as .py script - use script directory
     BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
-LOG_FILE = BASE_DIR / "relist_log.json"
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
+# Make folder hidden on Windows
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+LOG_FILE = DATA_DIR / "relist_log.json"
 
 # Cache for info icon
 _info_icon_cache = None
@@ -679,7 +685,7 @@ class ExclusionsWindow(tk.Toplevel):
             messagebox.showerror("Error", f"Refresh failed: {str(e)}")
 
     def _get_cache_file(self):
-        return BASE_DIR / "exclusions_cache.json"
+        return DATA_DIR / "exclusions_cache.json"
 
     def _load_cache(self):
         """Load cached categories and SKUs"""
@@ -1166,6 +1172,9 @@ class MainApp(tk.Tk):
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
 
+        # Version label
+        ttk.Label(right_frame, text="v1.0.4", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
+
         # Bottom action buttons
         bottom_frame = ttk.Frame(self)
         bottom_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
@@ -1228,7 +1237,7 @@ class MainApp(tk.Tk):
             from datetime import datetime, timedelta
             from pathlib import Path
 
-            PROGRESS_FILE = BASE_DIR / "progress.json"
+            PROGRESS_FILE = DATA_DIR / "progress.json"
             all_entries = []
 
             # Check for current running item from progress.json
@@ -1582,7 +1591,7 @@ class MainApp(tk.Tk):
             from datetime import datetime, timedelta
             from pathlib import Path
 
-            PROGRESS_FILE = BASE_DIR / "progress.json"
+            PROGRESS_FILE = DATA_DIR / "progress.json"
 
             # Get total items to process from config
             total_items = self.app_config.get("listings_per_run", 10)
@@ -2307,7 +2316,7 @@ class InventoryWindow(tk.Toplevel):
             from ebay_api import fetch_all_active_listings
 
             print("[DEBUG] Imports successful")
-            cache_file = BASE_DIR / "inventory_cache.json"
+            cache_file = DATA_DIR / "inventory_cache.json"
             cache_valid_hours = 6
 
             # Try to load from cache first (unless force refresh)
@@ -2384,7 +2393,7 @@ class InventoryWindow(tk.Toplevel):
                         skus.add(sku)
 
                 # Save to exclusions cache
-                exclusions_cache_file = BASE_DIR / "exclusions_cache.json"
+                exclusions_cache_file = DATA_DIR / "exclusions_cache.json"
                 with open(exclusions_cache_file, "w", encoding="utf-8") as f:
                     json.dump({"categories": sorted(categories), "skus": sorted(skus)}, f, indent=2)
                 print(f"[INVENTORY] Updated exclusions cache: {len(categories)} cats, {len(skus)} skus")

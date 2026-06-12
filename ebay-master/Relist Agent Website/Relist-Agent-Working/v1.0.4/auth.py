@@ -17,7 +17,13 @@ else:
     # Running as .py script - use script directory
     BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
-TOKEN_FILE = BASE_DIR / "tokens.json"
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
+# Make folder hidden on Windows
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+TOKEN_FILE = DATA_DIR / "tokens.json"
 
 OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 OAUTH_AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
