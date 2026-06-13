@@ -1125,16 +1125,22 @@ class MainApp(tk.Tk):
 
         self.logo_photo = None
         logo_path = BASE_DIR / "ERA_Logo.png"
-        if logo_path.exists():
-            try:
+        try:
+            if logo_path.exists():
                 logo_img = Image.open(str(logo_path))
-                # Scale to reasonable size for sidebar
-                logo_img.thumbnail((200, 100), Image.Resampling.LANCZOS)
+                # Scale to reasonable size for sidebar (keep aspect ratio)
+                logo_img.thumbnail((180, 90), Image.Resampling.LANCZOS)
                 self.logo_photo = ImageTk.PhotoImage(logo_img)
                 logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
-                logo_label.pack(anchor="center", pady=(5, 0))
-            except Exception as e:
-                pass  # Logo optional, continue without it
+                logo_label.pack(anchor="center", pady=(5, 5))
+            else:
+                # Logo file not found - show placeholder text
+                tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                        bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
+        except Exception as e:
+            # If image loading fails, show text instead
+            tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                    bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
 
         # Store info
         self.store_label = None
