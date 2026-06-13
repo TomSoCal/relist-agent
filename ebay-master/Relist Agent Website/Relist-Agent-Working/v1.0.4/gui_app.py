@@ -14,6 +14,13 @@ from theme import *
 from PIL import Image, ImageTk
 from update_checker import check_for_updates
 
+# Try to use curl_cffi for WAF bypass (TLS fingerprint spoofing)
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
 # Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
     # Running as compiled EXE - use directory of the running executable
@@ -1838,6 +1845,26 @@ support@thetrashedpanda.com
         try:
             url = f"https://thetrashedpanda.com/updates/{version}/Relist-Agent-{version}.zip"
             messagebox.showinfo("Downloading", f"Downloading {version}...\n\nSaving to:\n{filepath}")
+
+            # Try curl_cffi first (WAF bypass via TLS fingerprint)
+            if HAS_CURL_CFFI:
+                try:
+                    response = cffi_requests.get(url, impersonate="chrome", timeout=30)
+                    if response.status_code == 200:
+                        with open(filepath, 'wb') as f:
+                            f.write(response.content)
+                        messagebox.showinfo("Downloaded", f"Update downloaded successfully!\n\n{filepath}\n\nExtract and run the new version.")
+                        return
+                except Exception as e:
+                    pass  # Fall back to urllib
+
+            # Fallback: urllib with browser headers
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
             urllib.request.urlretrieve(url, filepath)
             messagebox.showinfo("Downloaded", f"Update downloaded successfully!\n\n{filepath}\n\nExtract and run the new version.")
         except Exception as e:
