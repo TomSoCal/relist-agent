@@ -3150,12 +3150,6 @@ Logs are always sorted by newest first (most recent at the top).
 
 def main():
     """Main entry point for the application"""
-    try:
-        # Write to file to confirm main() was called
-        with open("main_called.log", "w") as f:
-            f.write("Main called\n")
-    except:
-        pass
 
     try:
         # Check license key FIRST (before admin check)

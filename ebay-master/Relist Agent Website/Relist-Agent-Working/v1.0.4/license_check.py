@@ -21,7 +21,13 @@ else:
     BASE_DIR = Path(__file__).parent
 
 CONFIG_FILE = BASE_DIR / "config.json"
-LOG_FILE = BASE_DIR / "license_debug.log"
+# Store logs in hidden folder (not in root)
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+LOG_FILE = DATA_DIR / "license_debug.log"
 LICENSE_DB_URL = "https://thetrashedpanda.com/license/used_keys.json"
 LICENSE_UPDATE_URL = "https://thetrashedpanda.com/license/api/update-key.php"
 LICENSE_API_KEY = "8RT39EA0IT4XCAXYRY0T9QDT1155P10I"

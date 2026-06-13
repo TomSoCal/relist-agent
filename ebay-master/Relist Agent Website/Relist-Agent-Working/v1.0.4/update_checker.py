@@ -21,12 +21,18 @@ except ImportError:
 CURRENT_VERSION = "1.5.0"
 VERSIONS_JSON_URL = "https://thetrashedpanda.com/updates/versions.json"
 
-# Get log file path (same as EXE location)
+# Get log file path
 if getattr(sys, 'frozen', False):
     BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
     BASE_DIR = Path(__file__).parent
-LOG_FILE = BASE_DIR / "update_checker_debug.log"
+# Store logs in hidden folder (not in root)
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+LOG_FILE = DATA_DIR / "update_checker_debug.log"
 
 def log_debug(msg):
     """Write debug message to file and console"""
