@@ -1789,7 +1789,31 @@ class MainApp(tk.Tk):
         LogViewerWindow(self)
 
     def show_about(self):
-        messagebox.showinfo("About", "Relist Agent\n\nAutomatically relist your items daily.\n\nVersion 1.0 Beta\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
+        store_name = self.app_config.get("store_name", "")
+        licensed_to = f"Licensed to: {store_name}" if store_name else ""
+
+        about_text = """eBay Relist Agent v1.0.4
+
+Automatically relist your items daily from your eBay store.
+
+KEY FEATURES:
+• Schedule automatic relisting (daily or custom days)
+• Track relisted items in activity log
+• Manage inventory with exclusions
+• License-protected (one key per computer)
+• OAuth 2.0 for secure eBay authentication
+
+QUICK START:
+1. Configure your eBay API credentials
+2. Set schedule and run time
+3. Click "Run Now" to test or let it run automatically
+
+SUPPORT:
+For issues or feature requests:
+support@thetrashedpanda.com
+
+""" + licensed_to
+        messagebox.showinfo("About Relist Agent", about_text)
 
     def stop_service(self):
         """Remove the scheduled task from Windows Task Scheduler"""
