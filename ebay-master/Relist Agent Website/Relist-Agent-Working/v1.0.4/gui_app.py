@@ -1240,10 +1240,6 @@ class MainApp(tk.Tk):
         # Legacy reference for compatibility
         self.log_text = None
 
-        # Store selected error item for retry
-        self.selected_error_item_id = None
-        self.selected_error_item_data = None
-
         # Prevent concurrent refresh calls
         self.refresh_lock = False
 
@@ -1267,10 +1263,6 @@ class MainApp(tk.Tk):
         self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
         self.refresh_btn.pack(fill="x", pady=3)
         ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
-
-        # Retry button (only for error items)
-        self.retry_button = ttk.Button(right_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
-        self.retry_button.pack(fill="x", pady=3)
 
         # Divider
         divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
@@ -2085,7 +2077,6 @@ Dashboard Right Panel:
 • Inventory → Browse items
 • Refresh → Reload log
 • View Log → Detailed viewer
-• Retry Relist → Retry failed error items (active when error row selected)
 • Configure → Settings
 • Instructions → This page
 • About → App info
@@ -2128,11 +2119,10 @@ COMPLETED ITEMS (Logged in Activity Log)
   relisted (Green) - Successfully relisted item
   error (Red) - Failed to relist (duplicate policy, API error, etc)
 
-RECOVERING FAILED ITEMS
-  • Click an error row (red text)
-  • Click "Retry Relist" button → attempt to relist
-  • View popup with success/failure message
-  • Log automatically updates on success
+FAILED ITEMS
+  • Failed items are logged with error details
+  • Check email report for detailed error messages
+  • Manually relist using the Inventory window if needed
 
 PROGRESS BARS
   Current: Shows progress through current item (4 stages = 100%)
@@ -2166,157 +2156,6 @@ TYPICAL WORKFLOW
 5. Use Inventory to browse your store
 """
         QuickGuideWindow(self, "Dashboard", guide_text)
-
-    def on_log_row_selected(self, event):
-        print("[DEBUG] Row clicked in log tree")
-        selection = self.log_tree.selection()
-        print(f"[DEBUG] Selection: {selection}")
-
-        if not selection:
-            print("[DEBUG] No selection, disabling button")
-            self.retry_button.config(state="disabled")
-            self.selected_error_item_id = None
-            return
-
-        selected_item = selection[0]
-        values = self.log_tree.item(selected_item, "values")
-        tags = self.log_tree.item(selected_item, "tags")
-
-        print(f"[DEBUG] Selected item: {selected_item}")
-        print(f"[DEBUG] Values: {values}")
-        print(f"[DEBUG] Tags: {tags}")
-
-        # Only enable retry for main error rows (not error detail rows)
-        if tags and "error" in tags and "error_detail" not in tags:
-            if len(values) >= 4 and values[3]:  # Ensure item_id exists and is not empty
-                self.selected_error_item_id = values[3]
-                self.retry_button.config(state="normal")
-                print(f"[DEBUG] [OK] Error row enabled - Item ID: {self.selected_error_item_id}")
-                return
-
-        print(f"[DEBUG] Disabling button - not a valid error row")
-        self.retry_button.config(state="disabled")
-        self.selected_error_item_id = None
-
-    def retry_selected_error(self):
-        if not self.selected_error_item_id:
-            messagebox.showerror("Error", "No error item selected. Click an error row first.")
-            return
-
-        # Check if already running
-        if self.is_running:
-            messagebox.showwarning("Warning", "Agent is already running")
-            return
-
-        print(f"[DEBUG] Starting retry for item: {self.selected_error_item_id}")
-        self.is_running = True
-        self.run_button.config(state="disabled")
-        self.retry_button.config(state="disabled")
-        self.retry_button.config(text="Retrying...")
-
-        def run_retry():
-            try:
-                from ebay_api import get_item, end_item, add_item
-                from auth import get_access_token, load_config
-                import threading
-                import time
-                from datetime import datetime, date
-
-                config = load_config()
-                token = get_access_token(config)
-                item_id = self.selected_error_item_id
-
-                result = {
-                    "success": False,
-                    "error": None,
-                    "new_id": None,
-                    "title": None
-                }
-
-                try:
-                    # Stage 1: Get item details
-                    fields = get_item(config, token, item_id)
-                    result["title"] = fields.get("title", "Unknown")
-
-                    # Stage 2: End old listing
-                    end_item(config, token, item_id)
-                    time.sleep(2)
-
-                    # Stage 3: Create new listing
-                    new_id = add_item(config, token, fields)
-                    result["success"] = True
-                    result["new_id"] = new_id
-
-                    # Log the successful retry
-                    LOG_FILE = BASE_DIR / "relist_log.json"
-                    existing = []
-                    if LOG_FILE.exists():
-                        with open(LOG_FILE, "r", encoding="utf-8") as f:
-                            try:
-                                existing = json.load(f)
-                            except json.JSONDecodeError:
-                                pass
-
-                    today = date.today().isoformat()
-                    start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-                    new_entry = {
-                        "date": today,
-                        "start_time": start_time,
-                        "end_time": end_time,
-                        "old_item_id": item_id,
-                        "new_item_id": new_id,
-                        "title": result["title"],
-                        "status": "relisted",
-                        "note": "manual retry - error item relisted successfully"
-                    }
-                    existing.append(new_entry)
-
-                    with open(LOG_FILE, "w", encoding="utf-8") as f:
-                        json.dump(existing, f, indent=2)
-
-                except Exception as e:
-                    result["error"] = str(e)
-                    print(f"[DEBUG] Retry error: {e}")
-                    import traceback
-                    traceback.print_exc()
-
-                # Show result in main thread
-                self.after(0, lambda: self.show_retry_result(result))
-
-            except Exception as e:
-                print(f"[DEBUG] Unexpected error in retry: {e}")
-                import traceback
-                traceback.print_exc()
-                self.after(0, lambda: messagebox.showerror("Retry Failed", f"Unexpected error: {e}"))
-            finally:
-                self.is_running = False
-                self.run_button.config(state="normal")
-                self.retry_button.config(state="normal")
-                self.retry_button.config(text="Retry Relist")
-                self.after(0, self.refresh_log)
-
-        threading.Thread(target=run_retry, daemon=True).start()
-
-    def show_retry_result(self, result):
-        if result["success"]:
-            messagebox.showinfo(
-                "Relist Success",
-                f"Item successfully relisted!\n\n"
-                f"Old ID: {self.selected_error_item_id}\n"
-                f"New ID: {result['new_id']}\n"
-                f"Title: {result['title']}\n\n"
-                f"The activity log has been updated."
-            )
-        else:
-            messagebox.showerror(
-                "Relist Failed",
-                f"Failed to relist item {self.selected_error_item_id}\n\n"
-                f"Error: {result['error']}\n\n"
-                f"This item may still be blocked by eBay's duplicate listing policy. "
-                f"Try again in 24-48 hours or modify the item's SKU before retrying."
-            )
 
     def open_inventory(self):
         InventoryWindow(self, self.app_config)
