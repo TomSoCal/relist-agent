@@ -898,9 +898,7 @@ class ExclusionsWindow(tk.Toplevel):
 
             # If excluded_items.json doesn't exist, fall back to config (SKU only)
             if not excluded_display_texts:
-                from auth import load_config
-                cfg = load_config()
-                excluded_skus_list = cfg.get("excluded_skus", [])
+                excluded_skus_list = self.config_dict.get("excluded_skus", [])
                 excluded_display_texts = excluded_skus_list
                 debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} SKUs from config (no titles)")
 
