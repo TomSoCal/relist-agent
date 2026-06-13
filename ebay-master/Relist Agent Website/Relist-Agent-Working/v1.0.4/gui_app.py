@@ -1247,7 +1247,7 @@ class MainApp(tk.Tk):
         self.is_running = False
 
         # Bind row selection to detect errors
-        self.log_tree.bind("<ButtonRelease-1>", self.on_log_row_selected)
+        # log_tree selection binding removed (retry feature removed)
 
         # ===== RIGHT COLUMN =====
         right_frame = ttk.Frame(self)
