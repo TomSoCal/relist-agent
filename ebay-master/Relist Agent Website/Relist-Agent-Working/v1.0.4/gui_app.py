@@ -1817,13 +1817,30 @@ support@thetrashedpanda.com
         messagebox.showinfo("About Relist Agent", about_text)
 
     def check_updates_manual(self):
-        """Check for updates and show result"""
+        """Check for updates and download if available"""
+        from tkinter import filedialog
         has_update, latest_version = check_for_updates()
         if has_update:
-            result = messagebox.showinfo("Update Available", f"Version {latest_version} is available!\n\nOpening download page...")
-            webbrowser.open(f"https://thetrashedpanda.com/updates/{latest_version}/")
+            # Ask user where to save the file
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".zip",
+                filetypes=[("ZIP files", "*.zip"), ("All files", "*.*")],
+                initialfile=f"Relist-Agent-{latest_version}.zip"
+            )
+            if filename:
+                self._download_update(latest_version, filename)
         else:
             messagebox.showinfo("No Update", "You are using the latest version.")
+
+    def _download_update(self, version, filepath):
+        """Download update file"""
+        try:
+            url = f"https://thetrashedpanda.com/updates/{version}/Relist-Agent-{version}.zip"
+            messagebox.showinfo("Downloading", f"Downloading {version}...\n\nSaving to:\n{filepath}")
+            urllib.request.urlretrieve(url, filepath)
+            messagebox.showinfo("Downloaded", f"Update downloaded successfully!\n\n{filepath}\n\nExtract and run the new version.")
+        except Exception as e:
+            messagebox.showerror("Download Failed", f"Failed to download update:\n{str(e)}")
 
     def check_updates_startup(self):
         """Check for updates on startup in background"""

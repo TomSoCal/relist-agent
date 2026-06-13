@@ -6,9 +6,28 @@ Reads versions.json from https://thetrashedpanda.com/updates/
 import urllib.request
 import urllib.error
 import json
+import sys
+import os
+from pathlib import Path
 
 CURRENT_VERSION = "1.0.4"
 VERSIONS_JSON_URL = "https://thetrashedpanda.com/updates/versions.json"
+
+# Get log file path (same as EXE location)
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
+else:
+    BASE_DIR = Path(__file__).parent
+LOG_FILE = BASE_DIR / "update_checker_debug.log"
+
+def log_debug(msg):
+    """Write debug message to file and console"""
+    print(msg)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except:
+        pass
 
 
 def parse_version(version_string):
@@ -23,25 +42,30 @@ def parse_version(version_string):
 def get_available_versions():
     """Fetch available versions from versions.json"""
     try:
-        print(f"[UPDATE] Fetching from: {VERSIONS_JSON_URL}")
+        log_debug(f"[UPDATE] Fetching from: {VERSIONS_JSON_URL}")
         req = urllib.request.Request(
             VERSIONS_JSON_URL,
-            headers={'User-Agent': 'Relist-Agent/1.0.4'}
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Connection': 'close'
+            }
         )
         with urllib.request.urlopen(req, timeout=5) as response:
             raw_data = response.read().decode('utf-8')
-            print(f"[UPDATE] Raw response: {raw_data}")
+            log_debug(f"[UPDATE] Raw response: {raw_data}")
             data = json.loads(raw_data)
-            print(f"[UPDATE] Parsed JSON: {data}")
+            log_debug(f"[UPDATE] Parsed JSON: {data}")
             versions = data.get('versions', [])
-            print(f"[UPDATE] Versions list: {versions}")
+            log_debug(f"[UPDATE] Versions list: {versions}")
             sorted_versions = sorted(versions, key=parse_version, reverse=True)
-            print(f"[UPDATE] Sorted versions: {sorted_versions}")
+            log_debug(f"[UPDATE] Sorted versions: {sorted_versions}")
             return sorted_versions
     except Exception as e:
-        print(f"[UPDATE] Failed to fetch versions: {e}")
+        log_debug(f"[UPDATE] Failed to fetch versions: {e}")
         import traceback
-        traceback.print_exc()
+        log_debug(traceback.format_exc())
         return []
 
 
@@ -59,9 +83,10 @@ def check_for_updates():
     current = parse_version(CURRENT_VERSION)
     remote = parse_version(latest)
 
+    log_debug(f"[UPDATE] Current: {current}, Latest: {remote}")
     if remote > current:
-        print(f"[UPDATE] New version available: {latest}")
+        log_debug(f"[UPDATE] New version available: {latest}")
         return True, latest
 
-    print(f"[UPDATE] No update available (latest: {latest})")
+    log_debug(f"[UPDATE] No update available (latest: {latest})")
     return False, None
