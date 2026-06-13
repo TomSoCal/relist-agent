@@ -18,12 +18,20 @@
 - **Why:** listbox.get(0, END) returns display text strings, not raw SKU values. In-memory set has correct SKU values.
 - **Verified by:** Search no longer shows excluded items
 
-### Fix #2: Exclusions Not Loading
+### Fix #2: Store Name Not Updating
+**Commit:** `fix: create store_label always, not conditionally`
+- **File:** gui_app.py lines 1153-1162
+- **Root cause:** store_label was set to None if store_name was empty at startup. Later when user saved settings, refresh_after_settings_save() checked `if self.store_label:` which was None, so update never happened.
+- **What changed:** Always create store_label widget (don't conditionally), initialize with empty text, populate if store_name exists
+- **Why:** Label widget must exist to be updated later. Can't update a None object.
+- **Verified by:** store_label can now be updated when config changes
+
+### Fix #3: Exclusions Not Loading
 **Commit:** `fix: load_excluded_from_config uses config_dict parameter, not fresh import`
 - **File:** gui_app.py lines 901-903
 - **Root cause:** load_excluded_from_config() was doing `from auth import load_config` and getting a fresh config instead of using self.config_dict passed to constructor
 - **What changed:** Removed fresh import, now uses `self.config_dict.get("excluded_skus", [])`
-- **Why:** ExclusionsWindow receives config_dict in constructor (line 591) with all excluded_skus already loaded, should use that instead of reimporting
+- **Why:** ExclusionsWindow receives config_dict in constructor with all excluded_skus already loaded, should use that instead of reimporting
 - **Verified by:** exclusions_debug.log now shows "Loaded 552 SKUs" instead of "Loaded 0 SKUs"
 
 ## STRICT RULES FOR FUTURE CHANGES
