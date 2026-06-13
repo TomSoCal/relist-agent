@@ -1,0 +1,77 @@
+Refresh Your eBay Store Daily — Automatically
+
+Relist Agent automatically relists your oldest fixed-price listings every day,
+helping keep your store fresh and active in eBay's search results. You decide how many listings to relist each day—whether that's 1, 10, 100, or more.
+Relist Agent handles the process automatically.
+
+Simple Example
+
+If your store has 600 listings and you relist 10 items per day,
+you'll have approximately 60 days of continuous listing rotation. As you add more
+inventory, the rotation period grows.
+
+Key Features
+Automatic Daily Relisting
+Increase Listing Visibility
+Exclude Items — Skip specific items from relisting (great for cross-listers)
+Save Hours of Manual Work Every Month
+Runs Automatically While You're Away
+App does not need to be open to run daily
+Safe & Compliant Operation
+Easy Setup — No Technical Knowledge Required
+
+Why Use Relist Agent?
+
+Many eBay sellers believe that maintaining fresh inventory can improve listing exposure and attract
+more buyer attention. Instead of manually ending and relisting items every day, Relist Agent automates
+the process so you can focus on sourcing, shipping, and growing your business.
+
+Important Cross-Listing Notice
+
+Relist Agent is not designed to work alongside most cross-listing tools.
+
+When an item is relisted, eBay generates a new Item ID and listing URL. Because of this,
+cross-listing software that relies on the original Item ID or listing link may lose synchronization
+with the newly relisted item.
+
+SOLUTION FOR CROSS-LISTERS:
+Relist Agent includes an Exclude feature that lets you select specific items to skip from relisting.
+If you use cross-listing software, you can exclude those items from Relist Agent's rotation. This way,
+items managed by your cross-lister stay untouched, while your exclusive eBay inventory rotates automatically.
+This hybrid approach lets you use both tools together safely.
+
+The Trashed Panda has not tested or researched compatibility with any cross-listing software.
+We make no claims regarding compatibility or incompatibility with any specific cross-listing platform.
+It is the buyer's responsibility to determine whether Relist Agent will work with their existing
+workflow and software tools.
+
+If you actively use cross-listing software, you can test the Exclude feature first—add just a few
+items to the exclusion list to verify the workflow works for you before relisting your entire inventory.
+
+System Requirements
+Windows PC
+Active eBay Seller Account
+Internet Connection
+No Coding Experience Required
+
+What's Included
+Lifetime License — One-Time Purchase
+Unlimited Daily Automatic Relisting
+Exclude Feature — Control which items relist
+Free Future Software Updates
+Email Support
+Simple Installation & Setup Guide
+
+Frequently Asked Questions
+
+Have questions about installation, setup, licensing, account requirements, or how Relist Agent works?
+
+Visit our FAQ page:
+
+https://thetrashedpanda.com/relist-agent-faq/
+
+
+Disclaimer
+
+Relist Agent is an independent software tool and is not affiliated with, endorsed by, sponsored by,
+or associated with eBay Inc. All trademarks and brand names are the property of their respective owners.
