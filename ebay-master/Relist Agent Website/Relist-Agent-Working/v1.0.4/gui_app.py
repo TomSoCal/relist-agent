@@ -1149,17 +1149,13 @@ class MainApp(tk.Tk):
             tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
                     bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
 
-        # Store info
-        self.store_label = None
+        # Store info - CREATE ALWAYS so it can be updated later
+        self.store_label = tk.Label(left_frame, text="",
+                              font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
         store_name = self.app_config.get("store_name", "")
-        print(f"[DEBUG] Store name from config: '{store_name}'")
         if store_name:
-            self.store_label = tk.Label(left_frame, text=store_name,
-                                  font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
+            self.store_label.config(text=store_name)
             self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
-            print(f"[DEBUG] Store label created and packed")
-        else:
-            print(f"[DEBUG] Store name is empty, skipping label")
 
         # Divider
         divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
