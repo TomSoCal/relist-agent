@@ -1292,7 +1292,7 @@ class MainApp(tk.Tk):
         ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
 
         # Version label
-        ttk.Label(right_frame, text="v1.0.4", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
+        ttk.Label(right_frame, text="v1.5.0", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
 
         # Bottom action buttons
         bottom_frame = ttk.Frame(self)
@@ -1801,7 +1801,7 @@ class MainApp(tk.Tk):
         store_name = self.app_config.get("store_name", "")
         licensed_to = f"Licensed to: {store_name}" if store_name else ""
 
-        about_text = """eBay Relist Agent v1.0.4
+        about_text = """eBay Relist Agent v1.5.0
 
 Automatically relist your items daily from your eBay store.
 

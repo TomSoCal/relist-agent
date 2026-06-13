@@ -18,7 +18,7 @@ except ImportError:
     import urllib.request
     import urllib.error
 
-CURRENT_VERSION = "1.0.4"
+CURRENT_VERSION = "1.5.0"
 VERSIONS_JSON_URL = "https://thetrashedpanda.com/updates/versions.json"
 
 # Get log file path (same as EXE location)
