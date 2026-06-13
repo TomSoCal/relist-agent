@@ -23,11 +23,18 @@ except ImportError:
 
 # Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
-    # Running as compiled EXE - use directory of the running executable
+    # Running as compiled EXE (PyInstaller)
+    # Bundled files (like ERA_Logo.png) are in sys._MEIPASS
+    if hasattr(sys, '_MEIPASS'):
+        ASSETS_DIR = Path(sys._MEIPASS)
+    else:
+        ASSETS_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
+    # User config and data go in actual EXE directory
     BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
-    # Running as .py script - use script directory
+    # Running as .py script - both are in script directory
     BASE_DIR = Path(__file__).parent
+    ASSETS_DIR = BASE_DIR
 CONFIG_FILE = BASE_DIR / "config.json"
 DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
 DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
@@ -1124,21 +1131,21 @@ class MainApp(tk.Tk):
         logo_frame.pack(fill="x", pady=(0, 10))
 
         self.logo_photo = None
-        logo_path = BASE_DIR / "ERA_Logo.png"
-        try:
-            if logo_path.exists():
+        logo_path = ASSETS_DIR / "ERA_Logo.png"
+        if logo_path.exists():
+            try:
                 logo_img = Image.open(str(logo_path))
                 # Scale to reasonable size for sidebar (keep aspect ratio)
                 logo_img.thumbnail((180, 90), Image.Resampling.LANCZOS)
                 self.logo_photo = ImageTk.PhotoImage(logo_img)
                 logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
                 logo_label.pack(anchor="center", pady=(5, 5))
-            else:
-                # Logo file not found - show placeholder text
+            except Exception as e:
+                # Fallback if image loading fails
                 tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
                         bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
-        except Exception as e:
-            # If image loading fails, show text instead
+        else:
+            # Logo file not found - show placeholder text
             tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
                     bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
 
