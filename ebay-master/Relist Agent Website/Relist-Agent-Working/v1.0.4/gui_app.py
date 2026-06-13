@@ -1820,7 +1820,8 @@ support@thetrashedpanda.com
         """Check for updates and show result"""
         has_update, latest_version = check_for_updates()
         if has_update:
-            messagebox.showinfo("Update Available", f"Version {latest_version} is available!\n\nDownload from: https://thetrashpanda/updates/")
+            result = messagebox.showinfo("Update Available", f"Version {latest_version} is available!\n\nOpening download page...")
+            webbrowser.open(f"https://thetrashedpanda.com/updates/{latest_version}/")
         else:
             messagebox.showinfo("No Update", "You are using the latest version.")
 

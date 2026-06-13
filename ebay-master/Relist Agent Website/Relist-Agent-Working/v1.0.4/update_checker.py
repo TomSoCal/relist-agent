@@ -1,43 +1,47 @@
 """
 Update Checker for Relist Agent
-Checks https://thetrashpanda/updates/ for newer versions
+Reads versions.json from https://thetrashedpanda.com/updates/
 """
 
 import urllib.request
 import urllib.error
-import re
-from pathlib import Path
+import json
 
 CURRENT_VERSION = "1.0.4"
-UPDATES_URL = "https://thetrashpanda/updates/"
+VERSIONS_JSON_URL = "https://thetrashedpanda.com/updates/versions.json"
 
 
 def parse_version(version_string):
     """Parse version string like 'v1.0.5' to tuple (1, 0, 5)"""
     try:
-        # Extract numbers from version string like 'v1.0.4'
-        match = re.search(r'v?(\d+)\.(\d+)\.(\d+)', version_string)
-        if match:
-            return tuple(map(int, match.groups()))
+        version_string = str(version_string).lstrip('v')
+        return tuple(map(int, version_string.split('.')))
     except:
-        pass
-    return (0, 0, 0)
+        return (0, 0, 0)
 
 
 def get_available_versions():
-    """Fetch list of available versions from updates directory"""
+    """Fetch available versions from versions.json"""
     try:
+        print(f"[UPDATE] Fetching from: {VERSIONS_JSON_URL}")
         req = urllib.request.Request(
-            UPDATES_URL,
+            VERSIONS_JSON_URL,
             headers={'User-Agent': 'Relist-Agent/1.0.4'}
         )
         with urllib.request.urlopen(req, timeout=5) as response:
-            html = response.read().decode('utf-8')
-            # Extract version folders (v1.0.4, v1.0.5, etc)
-            versions = re.findall(r'v\d+\.\d+\.\d+', html)
-            return sorted(set(versions), key=parse_version, reverse=True)
+            raw_data = response.read().decode('utf-8')
+            print(f"[UPDATE] Raw response: {raw_data}")
+            data = json.loads(raw_data)
+            print(f"[UPDATE] Parsed JSON: {data}")
+            versions = data.get('versions', [])
+            print(f"[UPDATE] Versions list: {versions}")
+            sorted_versions = sorted(versions, key=parse_version, reverse=True)
+            print(f"[UPDATE] Sorted versions: {sorted_versions}")
+            return sorted_versions
     except Exception as e:
         print(f"[UPDATE] Failed to fetch versions: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
