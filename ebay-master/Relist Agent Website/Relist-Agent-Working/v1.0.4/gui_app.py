@@ -9,6 +9,7 @@ import threading
 import webbrowser
 import sys
 import os
+import urllib.request
 from theme import *
 from PIL import Image, ImageTk
 from update_checker import check_for_updates
