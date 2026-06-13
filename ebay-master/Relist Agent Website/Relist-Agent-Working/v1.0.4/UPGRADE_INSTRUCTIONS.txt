@@ -13,8 +13,8 @@ WHAT'S NEW IN v1.5.0
   from the app.
 
 ✓ License System — Protect your purchase with unique license keys. Each key
-  locks to one computer to prevent sharing. Get your key from:
-  https://thetrashedpanda.com/license/
+  locks to one computer to prevent sharing. Get your key from your order
+  confirmation email or account orders page at https://thetrashedpanda.com/
 
 ✓ Window Management — The app prevents duplicate windows from opening. Click
   a button twice and it brings up the existing window instead of creating a
@@ -84,8 +84,6 @@ From the extracted ZIP file:
 3. Rename the old "Relist Agent.exe" to "Relist Agent v1.0.3.exe" (optional,
    for safety)
 4. Copy the new "Relist Agent.exe" into that folder
-5. (Optional) Copy gui_app.py and ebay_relist_agent.py if you want the latest
-   source code
 
 Your config.json and existing settings will remain intact.
 
@@ -96,9 +94,10 @@ STEP 5: GET A LICENSE KEY
 v1.5.0 requires a license key to run. Each key is unique to your computer
 and prevents unauthorized sharing.
 
-1. Visit: https://thetrashedpanda.com/license/
-2. Generate a new key (or use an existing one if you purchased previously)
-3. Copy your license key (format: RA-XX-XXXXXXXX-XXXXXXXX)
+1. Check your email for your order confirmation email, or visit
+   https://thetrashedpanda.com/ and click My Account > Orders > View
+2. Locate your Relist Agent license key (format: RA-XX-XXXXXXXX-XXXXXXXX)
+3. Copy your license key
 4. Keep this key safe — you'll need it below
 
 
@@ -195,7 +194,8 @@ A: Common causes and fixes:
 Problem: "Invalid License Key"
 • Double-check the key format (RA-XX-XXXXXXXX-XXXXXXXX, 24 characters with dashes)
 • Make sure you copied the entire key correctly
-• Regenerate a new key at https://thetrashedpanda.com/license/
+• Check your email confirmation or account orders page (see Step 5)
+• Contact support@thetrashedpanda.com with your name and order number
 
 Problem: "License already in use on another computer"
 • Each key locks to one computer on first use
@@ -218,9 +218,11 @@ A: This usually means:
 2. An error occurred during startup (check logs below)
 
 To get more details:
-• Look for "license_debug.log" in the same folder as Relist Agent.exe
-• Look for "update_checker_debug.log" for update-checking issues
-• Share these logs with support@thetrashedpanda.com
+• Take a screenshot of any error message that appeared
+• Email support@thetrashedpanda.com with:
+  - Your name and order number
+  - A screenshot of the error (if any)
+  - What you were trying to do when the error occurred
 
 
 Q4: Can I Use the Same Key on Multiple Computers?
@@ -230,8 +232,8 @@ A: No. Each license key is locked to a single computer on first use to
 prevent unauthorized sharing.
 
 If you own multiple computers and want to run the Relist Agent on each:
-• Generate a separate key for each computer
-• Visit https://thetrashedpanda.com/license/ to generate new keys
+• Purchase a separate license key for each computer
+• Contact support@thetrashedpanda.com with your name and order number
 
 
 Q5: Where Are My Settings Stored?
@@ -286,17 +288,17 @@ GETTING HELP
 If you encounter any issues:
 
 1. Check the FAQ above
-2. Review the Activity Log in the app (Settings > Activity Log)
-3. Look at license_debug.log or update_checker_debug.log for error details
-4. Contact support:
+2. Take a screenshot of any error message
+3. Contact support:
 
    Email: support@thetrashedpanda.com
    Subject: "Relist Agent v1.5.0 [Your Issue]"
 
    Please include:
-   • Your error message (if any)
+   • Your name and order number
+   • A screenshot of any error message
    • Steps you took when the problem occurred
-   • The relevant log file (license_debug.log, etc.)
+   • Your operating system (Windows 10 or 11)
 
 
 THANKS FOR UPGRADING!
