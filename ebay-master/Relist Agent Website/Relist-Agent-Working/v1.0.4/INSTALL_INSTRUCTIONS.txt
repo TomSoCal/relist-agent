@@ -38,8 +38,9 @@ BEFORE YOU START: GET YOUR LICENSE KEY
 Relist Agent requires a license key to run. Each key is unique to your
 computer and prevents unauthorized sharing.
 
-1. Visit: https://thetrashedpanda.com/license/
-2. Generate a new license key
+1. Visit: https://thetrashedpanda.com/ or Check your email for the Order details Email
+2. If visiting the website click My Account > Orders > View. Your License Key will be here
+   If checking your email the order details email will contain your license key
 3. Copy your key (format: RA-XX-XXXXXXXX-XXXXXXXX)
 4. Keep it safe — you'll need it during installation
 
@@ -47,17 +48,21 @@ computer and prevents unauthorized sharing.
 STEP 1: DOWNLOAD RELIST AGENT v1.5.0
 ================================================================================
 
-Method A: From the Updates Folder
+Your download link was provided in the email confirmation when you purchased
+Relist Agent. Check your email for "Order Details" or similar subject line.
 
-1. Go to: https://thetrashedpanda.com/updates/
-2. Look for the latest version (v1.5.0 or higher)
-3. Download the ZIP file: "Relist-Agent-v1.5.0.zip"
+The email contains a direct download link to your copy of Relist Agent v1.5.0.
 
-Method B: From GitHub
+If you lost or deleted the email:
+1. Go to: https://thetrashedpanda.com/
+2. Click My Account > Orders > View
+3. Find your Relist Agent purchase
+4. Click the download link provided there
 
-1. Visit: https://github.com/your-username/relist-agent
-2. Go to Releases
-3. Download the v1.5.0 release ZIP file
+If you still cannot find the download link, contact support:
+Email: support@thetrashedpanda.com
+Include: Your name and order number
+Response: A download link will be provided within 24 hours
 
 
 STEP 2: EXTRACT THE ZIP FILE
@@ -87,8 +92,6 @@ For simplicity, we'll use: C:\Relist Agent\
 3. You should see these files:
    ✓ Relist Agent.exe
    ✓ config.json (empty template)
-   ✓ gui_app.py
-   ✓ ebay_relist_agent.py
 
 
 STEP 4: WINDOWS SMARTSCREEN WARNING
@@ -157,18 +160,24 @@ To get your eBay credentials:
 If you don't have API credentials:
 1. Go to: Account > API Access > Create an Application
 2. Follow eBay's setup wizard
-3. Copy your credentials once generated
+3. When asked for:
+   • "Your privacy policy URL" → use: https://thetrashedpanda.com/oauth/oauth.html
+   • "Your auth accepted URL" → use: https://thetrashedpanda.com/oauth/oauth.html
+4. Complete the wizard and copy your credentials
 
 
 To enter credentials in Relist Agent:
 
 1. Click Settings (gear icon)
 2. Click "Configure"
-3. Enter your eBay API credentials:
-   ✓ App ID
-   ✓ Certificate ID
-   ✓ Developer ID
-   ✓ RU Name
+3. Enter your eBay API credentials exactly as shown on eBay:
+   ✓ App ID (also called "Client ID")
+   ✓ Certificate ID (copy the entire value)
+   ✓ Developer ID (copy the entire value)
+   ✓ RU Name (OAuth return URL - copy exactly as provided by eBay)
+
+   IMPORTANT: Do not add spaces or modify these values
+
 4. Click "Next" or "Continue"
 
 
@@ -232,8 +241,9 @@ Problem: "Invalid License Key"
 
 • Check the key format: RA-XX-XXXXXXXX-XXXXXXXX (24 characters)
 • Verify you copied the entire key correctly (including dashes)
-• Regenerate a new key at https://thetrashedpanda.com/license/
+• Check your email confirmation or order details (see Step 1)
 • Ensure your computer has internet access
+• Contact support: support@thetrashedpanda.com with your name and order number
 
 
 Problem: "License already in use on another computer"
@@ -274,10 +284,11 @@ Problem: The App Won't Start / Keeps Closing
 
 • Check that you have Windows 10 or Windows 11
 • Verify you have administrator rights
-• Look for error logs:
-  • license_debug.log (in the app folder)
-  • update_checker_debug.log (in the app folder)
-• Share these logs with: support@thetrashedpanda.com
+• Take a screenshot of any error message
+• Contact support@thetrashedpanda.com with:
+  • Your name and order number
+  • The screenshot of the error
+  • What you were trying to do
 
 
 Problem: Windows SmartScreen Warning
@@ -294,18 +305,19 @@ GETTING HELP
 If you encounter issues:
 
 1. Check the Troubleshooting section above
-2. Look at error logs (license_debug.log, update_checker_debug.log)
-3. Review the Activity Log in the app
-4. Contact support:
+2. Take a screenshot of the error message
+3. Contact support:
 
    Email: support@thetrashedpanda.com
    Subject: "Relist Agent v1.5.0 [Your Issue]"
 
    Please include:
    • What you were trying to do
-   • Any error messages
-   • Relevant log files
-   • Your operating system (Windows 10/11)
+   • A screenshot of the error message
+   • Your name and order number
+   • Your operating system (Windows 10 or Windows 11)
+
+   We'll respond within 24 hours with a solution
 
 
 NEXT STEPS
