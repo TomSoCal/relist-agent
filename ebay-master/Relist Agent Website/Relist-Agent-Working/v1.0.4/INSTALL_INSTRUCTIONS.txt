@@ -1,8 +1,8 @@
 ================================================================================
-RELIST AGENT v1.0.4 — INSTALLATION GUIDE
+RELIST AGENT v1.5.0 — INSTALLATION GUIDE
 ================================================================================
 
-Welcome! This guide will help you install Relist Agent v1.0.4 on your Windows
+Welcome! This guide will help you install Relist Agent v1.5.0 on your Windows
 computer for the first time.
 
 
@@ -44,20 +44,20 @@ computer and prevents unauthorized sharing.
 4. Keep it safe — you'll need it during installation
 
 
-STEP 1: DOWNLOAD RELIST AGENT v1.0.4
+STEP 1: DOWNLOAD RELIST AGENT v1.5.0
 ================================================================================
 
 Method A: From the Updates Folder
 
 1. Go to: https://thetrashedpanda.com/updates/
-2. Look for the latest version (v1.0.4 or higher)
-3. Download the ZIP file: "Relist-Agent-v1.0.4.zip"
+2. Look for the latest version (v1.5.0 or higher)
+3. Download the ZIP file: "Relist-Agent-v1.5.0.zip"
 
 Method B: From GitHub
 
 1. Visit: https://github.com/your-username/relist-agent
 2. Go to Releases
-3. Download the v1.0.4 release ZIP file
+3. Download the v1.5.0 release ZIP file
 
 
 STEP 2: EXTRACT THE ZIP FILE
@@ -299,7 +299,7 @@ If you encounter issues:
 4. Contact support:
 
    Email: support@thetrashedpanda.com
-   Subject: "Relist Agent v1.0.4 [Your Issue]"
+   Subject: "Relist Agent v1.5.0 [Your Issue]"
 
    Please include:
    • What you were trying to do

@@ -1,11 +1,11 @@
 ================================================================================
-RELIST AGENT v1.0.4 — UPGRADE INSTRUCTIONS
+RELIST AGENT v1.5.0 — UPGRADE INSTRUCTIONS
 ================================================================================
 
-Welcome to the Relist Agent v1.0.4 upgrade! This document guides you through
-updating from v1.0.3 to v1.0.4.
+Welcome to the Relist Agent v1.5.0 upgrade! This document guides you through
+updating from v1.0.3 (or any earlier version) to v1.5.0.
 
-WHAT'S NEW IN v1.0.4
+WHAT'S NEW IN v1.5.0
 ================================================================================
 
 ✓ Auto-Update Checker — The app now checks for new versions on startup and
@@ -49,20 +49,20 @@ to roll back.
 4. Keep this backup safe
 
 
-STEP 2: DOWNLOAD v1.0.4
+STEP 2: DOWNLOAD v1.5.0
 ================================================================================
 
 Option A: Using the App Update Checker (Recommended for v1.0.3+)
 
 1. Open your current Relist Agent
 2. Click "Check for Updates" button (if available)
-3. If v1.0.4 is available, you'll see a download option
+3. If v1.5.0 is available, you'll see a download option
 4. Click to download and save the ZIP file
 
 Option B: Manual Download
 
 1. Visit: https://thetrashedpanda.com/updates/
-2. Download "Relist-Agent-v1.0.4.zip"
+2. Download "Relist-Agent-v1.5.0.zip"
 3. Extract the ZIP file to a temporary location
 
 
@@ -74,7 +74,7 @@ STEP 3: PREPARE FOR INSTALLATION
 3. You may see a Windows SmartScreen warning during next step — see FAQ below
 
 
-STEP 4: INSTALL v1.0.4
+STEP 4: INSTALL v1.5.0
 ================================================================================
 
 From the extracted ZIP file:
@@ -93,7 +93,7 @@ Your config.json and existing settings will remain intact.
 STEP 5: GET A LICENSE KEY
 ================================================================================
 
-v1.0.4 requires a license key to run. Each key is unique to your computer
+v1.5.0 requires a license key to run. Each key is unique to your computer
 and prevents unauthorized sharing.
 
 1. Visit: https://thetrashedpanda.com/license/
@@ -102,7 +102,7 @@ and prevents unauthorized sharing.
 4. Keep this key safe — you'll need it below
 
 
-STEP 6: RUN v1.0.4 FOR THE FIRST TIME
+STEP 6: RUN v1.5.0 FOR THE FIRST TIME
 ================================================================================
 
 1. Double-click "Relist Agent.exe"
@@ -121,7 +121,7 @@ If validation fails:
 STEP 7: RECONFIGURE YOUR eBay CREDENTIALS (If Needed)
 ================================================================================
 
-In v1.0.4, your eBay API credentials (App ID, Cert ID, Dev ID, etc.) are
+In v1.5.0, your eBay API credentials (App ID, Cert ID, Dev ID, etc.) are
 encrypted and stored in config.json locally on your computer.
 
 If the app asks for your credentials:
@@ -253,7 +253,7 @@ To reset everything, you can delete config.json and the app will ask you to
 set up again on next run.
 
 
-Q6: How Do I Uninstall v1.0.4?
+Q6: How Do I Uninstall v1.5.0?
 ───────────────────────────────
 
 A: To remove the app:
@@ -272,8 +272,8 @@ Q7: Can I Downgrade to v1.0.3?
 
 A: Yes. If you created a backup (Step 1):
 
-1. Close v1.0.4
-2. Delete the config.json and license_debug.log from the v1.0.4 folder
+1. Close v1.5.0
+2. Delete the config.json and license_debug.log from the v1.5.0 folder
 3. Copy your v1.0.3 backup folder contents back
 4. Run v1.0.3 again
 
@@ -291,7 +291,7 @@ If you encounter any issues:
 4. Contact support:
 
    Email: support@thetrashedpanda.com
-   Subject: "Relist Agent v1.0.4 [Your Issue]"
+   Subject: "Relist Agent v1.5.0 [Your Issue]"
 
    Please include:
    • Your error message (if any)
@@ -302,7 +302,7 @@ If you encounter any issues:
 THANKS FOR UPGRADING!
 ================================================================================
 
-v1.0.4 brings important improvements for reliability, security, and ease of
+v1.5.0 brings important improvements for reliability, security, and ease of
 use. If you have feedback or feature requests, please reach out to:
 
 support@thetrashedpanda.com
