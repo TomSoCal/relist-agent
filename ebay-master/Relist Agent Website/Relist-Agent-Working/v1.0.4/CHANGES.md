@@ -1,8 +1,8 @@
 # v1.5.0 Change Log
 
 ## VERIFIED WORKING FEATURES
-- ✅ Logo displays (220x110)
-- ✅ Store name populates from config
+- ✅ Logo displays (220x110) in left sidebar
+- ✅ Store name displays under logo, loaded from config
 - ✅ Exclusions load from config (552 items)
 - ✅ Excluded items listbox shows all items
 - ✅ Search filter respects exclusions
@@ -18,13 +18,17 @@
 - **Why:** listbox.get(0, END) returns display text strings, not raw SKU values. In-memory set has correct SKU values.
 - **Verified by:** Search no longer shows excluded items
 
-### Fix #2: Store Name Not Updating
-**Commit:** `fix: create store_label always, not conditionally`
+### Fix #2: Store Name Display & Position
+**Commit #1:** `fix: create store_label always, not conditionally`
 - **File:** gui_app.py lines 1153-1162
-- **Root cause:** store_label was set to None if store_name was empty at startup. Later when user saved settings, refresh_after_settings_save() checked `if self.store_label:` which was None, so update never happened.
-- **What changed:** Always create store_label widget (don't conditionally), initialize with empty text, populate if store_name exists
-- **Why:** Label widget must exist to be updated later. Can't update a None object.
-- **Verified by:** store_label can now be updated when config changes
+- **Root cause:** store_label was set to None if store_name was empty at startup, preventing updates later
+- **What changed:** Always create store_label widget, initialize with text from config
+
+**Commit #2:** `fix: pack store_label unconditionally for consistent layout`
+- **File:** gui_app.py lines 1152-1158
+- **Root cause:** Label only packed if store_name existed, causing layout issues
+- **What changed:** Pack label unconditionally, always directly under logo
+- **Verified by:** Store name now displays in correct position
 
 ### Fix #3: Exclusions Not Loading
 **Commit:** `fix: load_excluded_from_config uses config_dict parameter, not fresh import`
