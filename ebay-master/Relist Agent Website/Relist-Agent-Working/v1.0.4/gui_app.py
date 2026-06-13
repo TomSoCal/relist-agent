@@ -1135,8 +1135,9 @@ class MainApp(tk.Tk):
         if logo_path.exists():
             try:
                 logo_img = Image.open(str(logo_path))
-                # Scale to reasonable size for sidebar (keep aspect ratio)
-                logo_img.thumbnail((180, 90), Image.Resampling.LANCZOS)
+                # Scale to larger size for sidebar (keep aspect ratio)
+                logo_img.thumbnail((220, 110), Image.Resampling.LANCZOS)
+                print(f"[DEBUG] Logo loaded from {logo_path}, size: {logo_img.size}")
                 self.logo_photo = ImageTk.PhotoImage(logo_img)
                 logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
                 logo_label.pack(anchor="center", pady=(5, 5))
@@ -1151,10 +1152,15 @@ class MainApp(tk.Tk):
 
         # Store info
         self.store_label = None
-        if self.app_config.get("store_name"):
-            self.store_label = tk.Label(left_frame, text=self.app_config['store_name'],
-                                  font=("Arial", 11, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
+        store_name = self.app_config.get("store_name", "")
+        print(f"[DEBUG] Store name from config: '{store_name}'")
+        if store_name:
+            self.store_label = tk.Label(left_frame, text=store_name,
+                                  font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
             self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
+            print(f"[DEBUG] Store label created and packed")
+        else:
+            print(f"[DEBUG] Store name is empty, skipping label")
 
         # Divider
         divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
