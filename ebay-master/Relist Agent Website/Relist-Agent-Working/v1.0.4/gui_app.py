@@ -1120,27 +1120,28 @@ class MainApp(tk.Tk):
         left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
 
         # Logo section
-        logo_frame = ttk.Frame(left_frame)
+        logo_frame = tk.Frame(left_frame, bg=BG_PRIMARY)
         logo_frame.pack(fill="x", pady=(0, 10))
 
-        logo_path = BASE_DIR / "ERA_Logo.png"
         self.logo_photo = None
+        logo_path = BASE_DIR / "ERA_Logo.png"
         if logo_path.exists():
             try:
-                from PIL import Image, ImageTk
                 logo_img = Image.open(str(logo_path))
-                logo_img.thumbnail((250, 125), Image.Resampling.LANCZOS)
+                # Scale to reasonable size for sidebar
+                logo_img.thumbnail((200, 100), Image.Resampling.LANCZOS)
                 self.logo_photo = ImageTk.PhotoImage(logo_img)
-                ttk.Label(logo_frame, image=self.logo_photo).pack()
-            except Exception:
-                pass
+                logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
+                logo_label.pack(anchor="center", pady=(5, 0))
+            except Exception as e:
+                pass  # Logo optional, continue without it
 
         # Store info
         self.store_label = None
         if self.app_config.get("store_name"):
             self.store_label = tk.Label(left_frame, text=self.app_config['store_name'],
-                                  font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=150, justify="left")
-            self.store_label.pack(anchor="w", fill="x", pady=(0, 10))
+                                  font=("Arial", 11, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
+            self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
 
         # Divider
         divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
