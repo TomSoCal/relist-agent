@@ -118,8 +118,20 @@ def check_admin_on_startup():
 
 
 class QuickGuideWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, title, guide_text):
+        if QuickGuideWindow.instance is not None:
+            try:
+                QuickGuideWindow.instance.lift()
+                QuickGuideWindow.instance.focus()
+                return
+            except:
+                QuickGuideWindow.instance = None
+
         super().__init__(parent)
+        QuickGuideWindow.instance = self
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title(f"Quick Guide - {title}")
         self.geometry("600x500")
         self.config(bg=BG_PRIMARY)
@@ -130,10 +142,26 @@ class QuickGuideWindow(tk.Toplevel):
         text_widget.insert("end", guide_text)
         text_widget.config(state="disabled")
 
+    def _on_close(self):
+        QuickGuideWindow.instance = None
+        self.destroy()
+
 
 class SettingsWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, config, on_save):
+        if SettingsWindow.instance is not None:
+            try:
+                SettingsWindow.instance.lift()
+                SettingsWindow.instance.focus()
+                return
+            except:
+                SettingsWindow.instance = None
+
         super().__init__(parent)
+        SettingsWindow.instance = self
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Settings")
         self.geometry("550x700")
         self.config_dict = config
@@ -299,7 +327,7 @@ class SettingsWindow(tk.Toplevel):
 
         messagebox.showinfo("Success", "Settings saved and schedule updated!")
         self.on_save()
-        self.destroy()
+        self._on_close()
 
     def apply_schedule(self, run_time, run_days):
         """Apply the schedule to Windows Task Scheduler via inline PowerShell"""
@@ -507,10 +535,25 @@ Windows Task Scheduler with your new schedule.
         except Exception as e:
             messagebox.showerror("Error", f"OAuth failed: {str(e)}")
 
+    def _on_close(self):
+        SettingsWindow.instance = None
+        self.destroy()
+
 
 class ExclusionsWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, config_dict, on_save=None, refresh_inventory_callback=None):
+        if ExclusionsWindow.instance is not None:
+            try:
+                ExclusionsWindow.instance.lift()
+                ExclusionsWindow.instance.focus()
+                return
+            except:
+                ExclusionsWindow.instance = None
+
         super().__init__(parent)
+        ExclusionsWindow.instance = self
         self.title("Exclude from Relist")
         self.geometry("1000x700")
         self.config_dict = config_dict
@@ -518,15 +561,23 @@ class ExclusionsWindow(tk.Toplevel):
         self.refresh_inventory_callback = refresh_inventory_callback
         self.resizable(False, False)
         self.config(bg=BG_PRIMARY)
+        self.sku_display_map = {}  # Map display text to SKU
+        self.excluded_skus_set = set()  # Keep a reliable set of excluded SKUs in memory
+        self.has_unsaved_changes = False
+
+        # Warn if closing with unsaved changes
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
         # Header
         header = ttk.Frame(self)
         header.pack(fill="x", padx=10, pady=10)
         ttk.Label(header, text="Exclude from Relist", font=("Arial", 12, "bold")).pack(side="left")
-        ttk.Button(header, text="Refresh Data from Store", command=self.refresh_data).pack(side="right", padx=5)
+        ttk.Button(header, text="Save", command=self.save_exclusions).pack(side="right", padx=2)
+        ttk.Button(header, text="Upload CSV/XLS", command=self.upload_exclusion_file).pack(side="right", padx=5)
+        ttk.Button(header, text="Refresh Data", command=self.refresh_data).pack(side="right", padx=5)
 
         # Description
-        desc = tk.Label(self, text="Select categories and SKUs to exclude from relisting. Excluded items will be skipped when the agent runs.",
+        desc = tk.Label(self, text="Upload a CSV/XLS file with SKUs, or manually select from the list below. Excel template: columns 'SKU' and 'Notes (optional)'.",
                        bg="#1a1a1a", fg=TEXT_PRIMARY, font=("Arial", 9), justify="left", wraplength=900)
         desc.pack(anchor="w", padx=20, pady=(0, 10))
 
@@ -538,56 +589,9 @@ class ExclusionsWindow(tk.Toplevel):
         self.progress_text = ttk.Label(progress_frame, text="Ready")
         self.progress_text.pack(side="left", padx=5)
 
-        # Main content - two sections (Categories and SKUs)
+        # Main content - SKUs only
         main_frame = ttk.Frame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        # ===== CATEGORIES SECTION =====
-        cat_section = tk.LabelFrame(main_frame, text="Categories", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
-                                    font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
-                                    highlightthickness=0)
-        cat_section.pack(fill="both", expand=True, pady=(0, 20))
-
-        cat_frame = ttk.Frame(cat_section)
-        cat_frame.pack(fill="both", expand=True)
-
-        # Available categories (left)
-        left_cat_frame = tk.LabelFrame(cat_frame, text="Available", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
-                                       font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
-        left_cat_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
-
-        # Search field
-        ttk.Label(left_cat_frame, text="Search:").pack(anchor="w")
-        self.cat_search = ttk.Entry(left_cat_frame, width=20)
-        self.cat_search.pack(anchor="w", pady=(0, 5))
-        self.cat_search.bind("<KeyRelease>", self.filter_available_cats)
-
-        cat_scrollbar_left = ttk.Scrollbar(left_cat_frame)
-        cat_scrollbar_left.pack(side="right", fill="y")
-
-        self.available_cats = tk.Listbox(left_cat_frame, bg="#1a1a1a", fg=TEXT_PRIMARY,
-                                         yscrollcommand=cat_scrollbar_left.set, height=12, relief="flat", borderwidth=0, highlightthickness=0)
-        self.available_cats.pack(side="left", fill="both", expand=True)
-        cat_scrollbar_left.config(command=self.available_cats.yview)
-
-        # Buttons in middle
-        middle_cat_frame = ttk.Frame(cat_frame)
-        middle_cat_frame.pack(side="left", padx=5)
-        ttk.Button(middle_cat_frame, text="→ Exclude", command=self.exclude_category).pack(fill="x", pady=3)
-        ttk.Button(middle_cat_frame, text="← Include", command=self.include_category).pack(fill="x", pady=3)
-
-        # Excluded categories (right)
-        right_cat_frame = tk.LabelFrame(cat_frame, text="Excluded", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
-                                        font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
-        right_cat_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
-
-        cat_scrollbar_right = ttk.Scrollbar(right_cat_frame)
-        cat_scrollbar_right.pack(side="right", fill="y")
-
-        self.excluded_cats = tk.Listbox(right_cat_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
-                                        yscrollcommand=cat_scrollbar_right.set, height=12)
-        self.excluded_cats.pack(side="left", fill="both", expand=True)
-        cat_scrollbar_right.config(command=self.excluded_cats.yview)
 
         # ===== SKU SECTION =====
         sku_section = tk.LabelFrame(main_frame, text="SKUs", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
@@ -620,8 +624,10 @@ class ExclusionsWindow(tk.Toplevel):
         # Buttons in middle
         middle_sku_frame = ttk.Frame(sku_frame)
         middle_sku_frame.pack(side="left", padx=5)
-        ttk.Button(middle_sku_frame, text="→ Exclude", command=self.exclude_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="Select All\nExcluded", command=self.select_all_excluded, width=10).pack(fill="x", pady=3)
         ttk.Button(middle_sku_frame, text="← Include", command=self.include_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="→ Exclude", command=self.exclude_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="Select All\nAvailable", command=self.select_all_skus, width=10).pack(fill="x", pady=3)
 
         # Excluded SKUs (right)
         right_sku_frame = tk.LabelFrame(sku_frame, text="Excluded", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
@@ -636,15 +642,20 @@ class ExclusionsWindow(tk.Toplevel):
         self.excluded_skus.pack(side="left", fill="both", expand=True)
         sku_scrollbar_right.config(command=self.excluded_skus.yview)
 
-        # Bottom buttons
-        btn_frame_bottom = ttk.Frame(self)
-        btn_frame_bottom.pack(fill="x", padx=10, pady=10)
-        ttk.Button(btn_frame_bottom, text="Save", command=self.save_exclusions).pack(side="left", padx=5)
-        ttk.Button(btn_frame_bottom, text="Cancel", command=self.destroy).pack(side="left", padx=5)
-
-        # Load initial data
-        self.load_categories_from_store()
+        # Load initial data (load excluded first so they're excluded from available list)
+        self.load_excluded_from_config()  # Load previously saved exclusions
         self.load_skus_from_store()
+        self.has_unsaved_changes = False  # Track if user has made changes without saving
+
+    def _on_closing(self):
+        """Handle window close - warn if unsaved changes"""
+        if self.has_unsaved_changes:
+            if messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Close without saving?"):
+                ExclusionsWindow.instance = None
+                self.destroy()
+        else:
+            ExclusionsWindow.instance = None
+            self.destroy()
 
     def refresh_data(self):
         """Refresh data from store (with or without Inventory window)"""
@@ -658,24 +669,21 @@ class ExclusionsWindow(tk.Toplevel):
             else:
                 # Fetch inventory directly if Inventory window not open
                 from auth import get_access_token, load_config
-                from ebay_api import fetch_all_active_listings, get_store_categories
+                from ebay_api import fetch_all_active_listings
                 cfg = load_config()
                 token = get_access_token(cfg)
+                self.progress_text.config(text="Fetching inventory...")
+                self.update_idletasks()
                 items = fetch_all_active_listings(cfg, token)
-                categories = get_store_categories(cfg, token)
-                # Extract SKUs from items
-                skus = sorted(set(item.get("sku") for item in items if item.get("sku")))
+                # Save full items with title for display
                 cache_file = self._get_cache_file()
-                cache_data = {
-                    "categories": sorted(categories),
-                    "skus": skus
-                }
+                cache_data = {"items": items}
                 with open(cache_file, "w", encoding="utf-8") as f:
                     json.dump(cache_data, f, indent=2)
 
             # Reload from cache after refresh
-            self.load_categories_from_store()
             self.load_skus_from_store()
+            self.refresh_excluded_titles()  # Also refresh titles for excluded items
             self.progress_bar.config(value=100)
             self.progress_text.config(text="Done")
             messagebox.showinfo("Success", "Data refreshed from store")
@@ -685,10 +693,59 @@ class ExclusionsWindow(tk.Toplevel):
             messagebox.showerror("Error", f"Refresh failed: {str(e)}")
 
     def _get_cache_file(self):
-        return DATA_DIR / "exclusions_cache.json"
+        return DATA_DIR / "available_for_exclusions.json"
+
+    def refresh_excluded_titles(self):
+        """Update excluded items display with titles from refreshed cache"""
+        try:
+            cache = self._load_cache()
+            items = cache.get("items", [])
+
+            # Build SKU -> Title map from cache
+            sku_to_title = {}
+            for item in items:
+                sku = item.get("sku", "").strip()
+                if sku:
+                    sku_to_title[sku] = item.get("title", "").strip()[:60]
+
+            # Update excluded items display with titles
+            excluded_count = self.excluded_skus.size()
+            new_items = []
+            for idx in range(excluded_count):
+                display_text = self.excluded_skus.get(idx)
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+
+                # Try to get title from cache
+                title = sku_to_title.get(sku, "")
+                if title:
+                    new_display = f"{sku} - {title}"
+                else:
+                    new_display = sku
+
+                new_items.append(new_display)
+                self.sku_display_map[new_display] = sku
+
+            # Rebuild excluded list with new titles
+            self.excluded_skus.delete(0, tk.END)
+            for item in new_items:
+                self.excluded_skus.insert(tk.END, item)
+        except:
+            pass  # Graceful failure if cache doesn't have items
+
+    def _write_debug_log(self, log_lines):
+        """Write debug logs to file"""
+        try:
+            debug_file = DATA_DIR / "exclusions_debug.log"
+            with open(debug_file, "a", encoding="utf-8") as f:
+                import datetime
+                f.write(f"\n=== {datetime.datetime.now().isoformat()} ===\n")
+                for line in log_lines:
+                    f.write(line + "\n")
+        except:
+            pass
 
     def _load_cache(self):
-        """Load cached categories and SKUs"""
+        """Load cached items (SKU + Title)"""
         cache_file = self._get_cache_file()
         if cache_file.exists():
             try:
@@ -696,153 +753,147 @@ class ExclusionsWindow(tk.Toplevel):
                     return json.load(f)
             except:
                 pass
-        return {"categories": [], "skus": []}
+        return {"items": []}
 
-    def _save_cache(self, categories, skus):
-        """Save categories and SKUs to cache"""
-        cache_file = self._get_cache_file()
+    def select_all_skus(self):
+        """Select all available SKUs"""
+        self.available_skus.select_set(0, tk.END)
+
+    def select_all_excluded(self):
+        """Select all excluded SKUs"""
+        self.excluded_skus.select_set(0, tk.END)
+
+    def upload_exclusion_file(self):
+        """Upload CSV or XLS file with SKUs to exclude"""
+        from tkinter import filedialog
+        file = filedialog.askopenfile(
+            title="Select CSV or XLS file with SKUs",
+            filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
+        if not file:
+            return
+
         try:
-            with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump({"categories": sorted(categories), "skus": sorted(skus)}, f, indent=2)
+            skus_to_add = []
+            filename = file.name
+            file.close()
+
+            if filename.endswith('.csv'):
+                import csv
+                with open(filename, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        sku = row.get('SKU', row.get('sku', '')).strip()
+                        title = row.get('Title', row.get('title', '')).strip()
+                        if sku:
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+            else:  # XLS/XLSX
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(filename)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        sku = str(row[0] or '').strip()
+                        title = str(row[1] or '').strip() if len(row) > 1 else ''
+                        if sku and sku.lower() != 'sku':
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+                except ImportError:
+                    messagebox.showerror("Error", "openpyxl not installed. Please use CSV format instead.")
+                    return
+
+            # Add to excluded list
+            for sku, display_text in skus_to_add:
+                if sku not in [s.split(" - ")[0] if " - " in s else s for s in self.excluded_skus.get(0, tk.END)]:
+                    self.excluded_skus.insert(tk.END, display_text)
+
+            messagebox.showinfo("Success", f"Added {len(skus_to_add)} SKUs from file")
         except Exception as e:
-            print(f"[CACHE] Error saving: {e}")
-
-    def load_categories_from_store(self):
-        """Load categories from cache (or fetch if needed)"""
-        cache = self._load_cache()
-        categories = cache.get("categories", [])
-
-        excluded_cats = set(self.excluded_cats.get(0, tk.END))
-        self.available_cats.delete(0, tk.END)
-
-        for cat in categories:
-            if cat not in excluded_cats:
-                self.available_cats.insert(tk.END, cat)
-
-        if not categories:
-            self.available_cats.insert(tk.END, "(No categories found in store)")
-
-    def _fetch_from_store(self):
-        """Fetch categories from GetStore API and SKUs from listings"""
-        from auth import get_access_token, load_config
-        from ebay_api import fetch_all_active_listings, get_store_categories
-
-        cfg = load_config()
-        token = get_access_token(cfg)
-
-        # Fetch store categories via Trading API GetStore
-        self.progress_text.config(text="Loading categories...")
-        self.progress_bar.config(value=25)
-        self.update_idletasks()
-        categories = get_store_categories(cfg, token)
-
-        # Fetch all listings to get SKUs
-        self.progress_text.config(text="Loading listings...")
-        self.progress_bar.config(value=50)
-        self.update_idletasks()
-        all_items = fetch_all_active_listings(cfg, token)
-
-        # Extract unique SKUs from listings
-        self.progress_text.config(text="Processing SKUs...")
-        self.progress_bar.config(value=75)
-        self.update_idletasks()
-        skus = set()
-        for item in all_items:
-            sku = item.get("sku")
-            if sku:
-                skus.add(sku)
-
-        self.progress_bar.config(value=100)
-        self.progress_text.config(text="Done")
-        self.update_idletasks()
-        return categories, sorted(skus)
-
-    def refresh_categories_cache(self):
-        """Trigger complete refresh (inventory + exclusions cache)"""
-        self.progress_bar.config(value=0)
-        self.progress_text.config(text="Loading...")
-        self.update_idletasks()
-
-        if self.refresh_inventory_callback:
-            try:
-                self.refresh_inventory_callback(force_refresh=True)
-                self.load_categories_from_store()
-                self.load_skus_from_store()
-                self.progress_bar.config(value=0)
-                self.progress_text.config(text="Ready")
-                messagebox.showinfo("Success", "Refreshed all data: Inventory, Categories, and SKUs")
-            except Exception as e:
-                self.progress_bar.config(value=0)
-                self.progress_text.config(text="Ready")
-                messagebox.showerror("Error", f"Refresh failed: {str(e)[:100]}")
-        else:
-            # Fallback: fetch directly without updating inventory
-            try:
-                categories, skus = self._fetch_from_store()
-                self._save_cache(categories, skus)
-                self.load_categories_from_store()
-                self.load_skus_from_store()
-                self.progress_bar.config(value=0)
-                self.progress_text.config(text="Ready")
-                messagebox.showinfo("Success", f"Loaded {len(categories)} categories and {len(skus)} SKUs\n(Open Inventory for full sync)")
-            except Exception as e:
-                self.progress_bar.config(value=0)
-                self.progress_text.config(text="Ready")
-                messagebox.showerror("Error", f"Fetch failed: {str(e)[:100]}")
-
-    def filter_available_cats(self, event=None):
-        """Filter categories based on search"""
-        search_term = self.cat_search.get().lower()
-        cache = self._load_cache()
-        excluded_cats = set(self.excluded_cats.get(0, tk.END))
-
-        self.available_cats.delete(0, tk.END)
-
-        for cat in cache.get("categories", []):
-            if cat not in excluded_cats and search_term in cat.lower():
-                self.available_cats.insert(tk.END, cat)
-
-        if not self.available_cats.get(0, tk.END):
-            self.available_cats.insert(tk.END, "(No matches)")
-
-    def exclude_category(self):
-        """Move selected category from available to excluded"""
-        selection = self.available_cats.curselection()
-        if not selection:
-            messagebox.showwarning("Selection Error", "Please select a category to exclude.")
-            return
-        cat = self.available_cats.get(selection[0])
-        if cat.startswith("Error") or cat.startswith("("):
-            return
-        self.available_cats.delete(selection[0])
-        if cat not in self.excluded_cats.get(0, tk.END):
-            self.excluded_cats.insert(tk.END, cat)
-
-    def include_category(self):
-        """Move selected category from excluded to available"""
-        selection = self.excluded_cats.curselection()
-        if not selection:
-            messagebox.showwarning("Selection Error", "Please select a category to include.")
-            return
-        cat = self.excluded_cats.get(selection[0])
-        self.excluded_cats.delete(selection[0])
-        # Re-apply search filter
-        self.filter_available_cats()
+            messagebox.showerror("Error", f"Failed to read file: {str(e)}")
 
     def load_skus_from_store(self):
-        """Load SKUs from cache (or fetch if needed)"""
+        """Load SKUs with titles from cache"""
+        debug_log = []
         cache = self._load_cache()
-        skus = cache.get("skus", [])
+        items = cache.get("items", [])
+        debug_log.append(f"load_skus_from_store: Found {len(items)} items in cache")
 
-        excluded_skus = set(self.excluded_skus.get(0, tk.END))
+        # Use in-memory excluded SKUs set instead of extracting from display text
+        excluded_skus = getattr(self, 'excluded_skus_set', set())
+        debug_log.append(f"load_skus_from_store: Using in-memory excluded set with {len(excluded_skus)} SKUs")
+        debug_log.append(f"  Excluded SKUs in memory: {list(excluded_skus)[:5]}")
+
         self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}  # Map display text back to SKU
 
-        for sku in skus:
-            if sku not in excluded_skus:
-                self.available_skus.insert(tk.END, sku)
+        added_count = 0
+        excluded_count = 0
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]  # Truncate long titles
+            if sku:
+                display_text = f"{sku} - {title}" if title else sku
+                if sku not in excluded_skus:
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+                    added_count += 1
+                else:
+                    excluded_count += 1
 
-        if not skus:
+        debug_log.append(f"load_skus_from_store: Added {added_count} to available, excluded {excluded_count}")
+        self._write_debug_log(debug_log)
+
+        if not items:
             self.available_skus.insert(tk.END, "(No SKUs found in store)")
+
+    def load_excluded_from_config(self):
+        """Load previously saved excluded items from persistent file (with titles)"""
+        debug_log = []
+        try:
+            # First try to load from excluded_items.json (has titles)
+            excluded_items_file = DATA_DIR / "excluded_items.json"
+            excluded_display_texts = []
+
+            if excluded_items_file.exists():
+                try:
+                    with open(excluded_items_file, "r", encoding="utf-8") as f:
+                        excluded_data = json.load(f)
+                        excluded_display_texts = excluded_data.get("items", [])
+                    debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} items from excluded_items.json")
+                except:
+                    debug_log.append("load_excluded_from_config: Failed to load excluded_items.json, falling back to config")
+
+            # If excluded_items.json doesn't exist, fall back to config (SKU only)
+            if not excluded_display_texts:
+                from auth import load_config
+                cfg = load_config()
+                excluded_skus_list = cfg.get("excluded_skus", [])
+                excluded_display_texts = excluded_skus_list
+                debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} SKUs from config (no titles)")
+
+            # Populate excluded_skus listbox with saved exclusions
+            self.excluded_skus.delete(0, tk.END)
+            self.sku_display_map = getattr(self, 'sku_display_map', {})
+            self.excluded_skus_set = set()  # Clear and rebuild the in-memory set
+
+            loaded_count = 0
+            for display_text in excluded_display_texts:
+                self.excluded_skus.insert(tk.END, display_text)
+                # Extract SKU and add to set
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+                self.sku_display_map[display_text] = sku
+                self.excluded_skus_set.add(sku)
+                loaded_count += 1
+            debug_log.append(f"load_excluded_from_config: Loaded {loaded_count} items into UI and memory set")
+
+            # Write logs to file
+            self._write_debug_log(debug_log)
+        except Exception as e:
+            debug_log.append(f"load_excluded_from_config ERROR: {e}")
+            import traceback
+            debug_log.append(traceback.format_exc())
+            self._write_debug_log(debug_log)
 
     def refresh_skus_cache(self):
         """Trigger complete refresh (inventory + exclusions cache)"""
@@ -878,71 +929,115 @@ class ExclusionsWindow(tk.Toplevel):
                 messagebox.showerror("Error", f"Fetch failed: {str(e)[:100]}")
 
     def filter_available_skus(self, event=None):
-        """Filter SKUs based on search"""
+        """Filter SKUs based on search (SKU or title)"""
         search_term = self.sku_search.get().lower()
         cache = self._load_cache()
+        items = cache.get("items", [])
         excluded_skus = set(self.excluded_skus.get(0, tk.END))
 
         self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}
 
-        for sku in cache.get("skus", []):
-            if sku not in excluded_skus and search_term in sku.lower():
-                self.available_skus.insert(tk.END, sku)
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]
+            if sku and sku not in excluded_skus:
+                if search_term in sku.lower() or search_term in title.lower():
+                    display_text = f"{sku} - {title}" if title else sku
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
 
         if not self.available_skus.get(0, tk.END):
             self.available_skus.insert(tk.END, "(No matches)")
 
     def exclude_sku(self):
-        """Move selected SKU from available to excluded"""
+        """Move selected SKUs from available to excluded"""
         selection = self.available_skus.curselection()
         if not selection:
             messagebox.showwarning("Selection Error", "Please select a SKU to exclude.")
             return
-        sku = self.available_skus.get(selection[0])
-        if sku.startswith("Error") or sku.startswith("("):
-            return
-        self.available_skus.delete(selection[0])
-        if sku not in self.excluded_skus.get(0, tk.END):
-            self.excluded_skus.insert(tk.END, sku)
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            display_text = self.available_skus.get(idx)
+            if display_text.startswith("Error") or display_text.startswith("("):
+                continue
+            # Extract actual SKU from display text
+            sku = self.sku_display_map.get(display_text, display_text.split(" - ")[0])
+            self.available_skus.delete(idx)
+            if sku not in self.excluded_skus.get(0, tk.END):
+                # Display with title in excluded list too
+                title_part = display_text.split(" - ", 1)[1] if " - " in display_text else ""
+                excluded_display = f"{sku} - {title_part}" if title_part else sku
+                self.excluded_skus.insert(tk.END, excluded_display)
+                self.excluded_skus_set.add(sku)  # Add to in-memory set
+        self.has_unsaved_changes = True
 
     def include_sku(self):
-        """Move selected SKU from excluded to available"""
+        """Move selected SKUs from excluded to available"""
         selection = self.excluded_skus.curselection()
         if not selection:
             messagebox.showwarning("Selection Error", "Please select a SKU to include.")
             return
-        sku = self.excluded_skus.get(selection[0])
-        self.excluded_skus.delete(selection[0])
-        # Re-apply search filter
-        self.filter_available_skus()
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            excluded_display = self.excluded_skus.get(idx)
+            # Extract SKU from display text
+            sku = excluded_display.split(" - ")[0] if " - " in excluded_display else excluded_display
+            self.excluded_skus.delete(idx)
+            self.excluded_skus_set.discard(sku)  # Remove from in-memory set
+            # Add back to available list with title if present
+            if sku not in self.available_skus.get(0, tk.END):
+                self.available_skus.insert(tk.END, excluded_display)
+                self.sku_display_map[excluded_display] = sku
+        self.has_unsaved_changes = True
 
     def save_exclusions(self):
         """Save exclusions with confirmation"""
-        excluded_cats = list(self.excluded_cats.get(0, tk.END))
-        excluded_skus = list(self.excluded_skus.get(0, tk.END))
+        excluded_displays = list(self.excluded_skus.get(0, tk.END))
+        excluded_displays = [s for s in excluded_displays if not s.startswith("Error") and not s.startswith("(No")]
 
-        # Filter out error messages
-        excluded_cats = [c for c in excluded_cats if not c.startswith("Error") and not c.startswith("(No")]
-        excluded_skus = [s for s in excluded_skus if not s.startswith("Error") and not s.startswith("(No")]
+        # Extract SKUs from display text
+        excluded_skus = []
+        for display in excluded_displays:
+            sku = display.split(" - ")[0] if " - " in display else display
+            excluded_skus.append(sku)
+
+        # DEBUG: Log what we're about to save
+        debug_info = [
+            f"SAVE_EXCLUSIONS - Listbox has {self.excluded_skus.size()} items",
+            f"  Displays to save: {excluded_displays}",
+            f"  SKUs to save: {excluded_skus}",
+            f"  excluded_skus_set in memory: {self.excluded_skus_set}"
+        ]
+        self._write_debug_log(debug_info)
 
         # Show confirmation
         msg = f"""Save these exclusions?
 
-CATEGORIES ({len(excluded_cats)}):
-{', '.join(excluded_cats) if excluded_cats else '(none)'}
-
-SKUs ({len(excluded_skus)}):
+SKUs to exclude ({len(excluded_skus)}):
 {', '.join(excluded_skus[:5])}{'...' if len(excluded_skus) > 5 else ''}
 """
         if messagebox.askyesno("Confirm Exclusions", msg):
             self.config_dict.update({
-                "excluded_categories": excluded_cats,
-                "excluded_skus": excluded_skus,
+                "excluded_skus": sorted(set(excluded_skus)),
             })
             save_config(self.config_dict)
+
+            # Also save the display format (SKU - Title) to persistent file
+            # This way titles load without needing to refresh data from store
+            try:
+                excluded_items_file = DATA_DIR / "excluded_items.json"
+                with open(excluded_items_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": excluded_displays}, f, indent=2)
+                self._write_debug_log([f"  Saved to {excluded_items_file.name}: {len(excluded_displays)} items"])
+            except Exception as e:
+                self._write_debug_log([f"  ERROR saving to {excluded_items_file.name}: {e}"])
+
             messagebox.showinfo("Success", "Exclusion settings saved!")
+            self.has_unsaved_changes = False
             if self.on_save:
                 self.on_save()
+            ExclusionsWindow.instance = None
             self.destroy()
 
 
@@ -1171,6 +1266,7 @@ class MainApp(tk.Tk):
         ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
 
         # Version label
         ttk.Label(right_frame, text="v1.0.4", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
@@ -1678,6 +1774,23 @@ class MainApp(tk.Tk):
     def show_about(self):
         messagebox.showinfo("About", "Relist Agent\n\nAutomatically relist your items daily.\n\nVersion 1.0 Beta\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
 
+    def stop_service(self):
+        """Remove the scheduled task from Windows Task Scheduler"""
+        if not messagebox.askyesno("Stop Service", "Remove the scheduled task? The agent will no longer run automatically."):
+            return
+
+        try:
+            import subprocess
+            # Unregister the scheduled task
+            subprocess.run(
+                ["powershell", "-Command", "Unregister-ScheduledTask -TaskName 'eBayRelistAgent' -Confirm:$false"],
+                check=True,
+                capture_output=True
+            )
+            messagebox.showinfo("Success", "Scheduled task removed. The agent will no longer run automatically.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove task: {str(e)}")
+
     def show_instructions(self):
         instructions_text = """RELIST AGENT - COMPLETE INSTRUCTIONS
 
@@ -2169,9 +2282,21 @@ TYPICAL WORKFLOW
 
 
 class InventoryWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, config):
+        if InventoryWindow.instance is not None:
+            try:
+                InventoryWindow.instance.lift()
+                InventoryWindow.instance.focus()
+                return
+            except:
+                InventoryWindow.instance = None
+
         print("[INVENTORY] InventoryWindow.__init__ starting")
         super().__init__(parent)
+        InventoryWindow.instance = self
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Store Inventory")
         self.geometry("1200x700")
         tk.Toplevel.config(self, bg=BG_PRIMARY)
@@ -2364,11 +2489,8 @@ class InventoryWindow(tk.Toplevel):
                     self.progress_text.config(text=f"Found {len(deleted_item_ids)} deleted items")
                 self.update()
 
-            # Combine: keep cached items (not deleted), add new items
+            # Combine cached and fresh items
             self.all_items = [item for item in fresh_items if item.get("item_id") in fresh_item_ids]
-
-            # Pre-format dates for faster filtering
-            self._preformat_item_dates()
 
             # Save to cache
             cache_data = {
@@ -2383,7 +2505,7 @@ class InventoryWindow(tk.Toplevel):
             # OPTIMIZATION: Also update exclusions cache (avoid redundant API calls)
             try:
                 from ebay_api import get_store_categories
-                categories = get_store_categories(self.app_config, token)
+                categories, category_mapping = get_store_categories(self.app_config, token)
 
                 # Extract SKUs from fresh items
                 skus = set()
@@ -2392,11 +2514,22 @@ class InventoryWindow(tk.Toplevel):
                     if sku:
                         skus.add(sku)
 
-                # Save to exclusions cache
+                # Save to exclusions cache (in hidden folder)
                 exclusions_cache_file = DATA_DIR / "exclusions_cache.json"
                 with open(exclusions_cache_file, "w", encoding="utf-8") as f:
-                    json.dump({"categories": sorted(categories), "skus": sorted(skus)}, f, indent=2)
+                    json.dump({
+                        "categories": sorted(categories),
+                        "skus": sorted(skus),
+                        "category_mapping": category_mapping
+                    }, f, indent=2)
                 print(f"[INVENTORY] Updated exclusions cache: {len(categories)} cats, {len(skus)} skus")
+
+                # ALSO update the Exclude window's separate cache (available_for_exclusions.json)
+                # This keeps the Exclude window's display in sync without losing exclusions
+                available_for_exclusions_file = DATA_DIR / "available_for_exclusions.json"
+                with open(available_for_exclusions_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": fresh_items}, f, indent=2)
+                print(f"[INVENTORY] Updated available_for_exclusions cache: {len(fresh_items)} items")
             except Exception as e:
                 print(f"[INVENTORY] Couldn't update exclusions cache: {e}")
 
@@ -2835,10 +2968,26 @@ WHEN TO USE EACH:
         """Open the activity log viewer"""
         LogViewerWindow(self)
 
+    def _on_close(self):
+        InventoryWindow.instance = None
+        self.destroy()
+
 
 class LogViewerWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent):
+        if LogViewerWindow.instance is not None:
+            try:
+                LogViewerWindow.instance.lift()
+                LogViewerWindow.instance.focus()
+                return
+            except:
+                LogViewerWindow.instance = None
+
         super().__init__(parent)
+        LogViewerWindow.instance = self
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Log Viewer - All Runs")
         self.geometry("900x600")
         tk.Toplevel.config(self, bg=BG_PRIMARY)
@@ -3032,11 +3181,45 @@ Logs are always sorted by newest first (most recent at the top).
 """
         QuickGuideWindow(self, "Log Viewer", guide_text)
 
+    def _on_close(self):
+        LogViewerWindow.instance = None
+        self.destroy()
 
-if __name__ == "__main__":
-    # Check if admin is needed
-    check_admin_on_startup()
 
-    # Create and run the app
-    app = MainApp()
-    app.mainloop()
+def main():
+    """Main entry point for the application"""
+    try:
+        # Write to file to confirm main() was called
+        with open("main_called.log", "w") as f:
+            f.write("Main called\n")
+    except:
+        pass
+
+    try:
+        # Check license key FIRST (before admin check)
+        from license_check import check_license_on_startup
+        if not check_license_on_startup():
+            sys.exit(1)
+
+        # Check if admin is needed
+        check_admin_on_startup()
+
+        # Create and run the app
+        app = MainApp()
+        app.mainloop()
+    except Exception as e:
+        import traceback
+        error_msg = f"STARTUP ERROR: {e}\n{traceback.format_exc()}"
+        print(error_msg)
+        # Try to write to a log file
+        try:
+            with open("startup_error.log", "w") as f:
+                f.write(error_msg)
+        except:
+            pass
+        sys.exit(1)
+
+
+# Call main directly at module level so it always runs (not in __main__ block)
+if __name__ == "__main__" or True:  # Always run, even if imported
+    main()
