@@ -965,7 +965,8 @@ class ExclusionsWindow(tk.Toplevel):
         search_term = self.sku_search.get().lower()
         cache = self._load_cache()
         items = cache.get("items", [])
-        excluded_skus = set(self.excluded_skus.get(0, tk.END))
+        # Use in-memory excluded SKUs set (raw SKU values, not display text)
+        excluded_skus = self.excluded_skus_set
 
         self.available_skus.delete(0, tk.END)
         self.sku_display_map = {}
