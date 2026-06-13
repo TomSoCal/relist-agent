@@ -11,6 +11,7 @@ import sys
 import os
 from theme import *
 from PIL import Image, ImageTk
+from update_checker import check_for_updates
 
 # Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
@@ -1274,6 +1275,11 @@ class MainApp(tk.Tk):
         ttk.Button(right_frame, text="Exclude from Relist", command=self.open_exclusions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
+
+        # Update status button
+        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
+        self.update_button.pack(fill="x", pady=3)
+
         ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
 
@@ -1287,6 +1293,9 @@ class MainApp(tk.Tk):
 
         # Load log and check error items in background thread
         threading.Thread(target=self.startup_check, daemon=True).start()
+
+        # Check for updates on startup
+        self.check_updates_startup()
 
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
@@ -1806,6 +1815,30 @@ support@thetrashedpanda.com
 
 """ + licensed_to
         messagebox.showinfo("About Relist Agent", about_text)
+
+    def check_updates_manual(self):
+        """Check for updates and show result"""
+        has_update, latest_version = check_for_updates()
+        if has_update:
+            messagebox.showinfo("Update Available", f"Version {latest_version} is available!\n\nDownload from: https://thetrashpanda/updates/")
+        else:
+            messagebox.showinfo("No Update", "You are using the latest version.")
+
+    def check_updates_startup(self):
+        """Check for updates on startup in background"""
+        def _check():
+            try:
+                has_update, latest_version = check_for_updates()
+                if has_update:
+                    self.after(0, self._flash_update_button)
+            except Exception as e:
+                print(f"[UPDATE] Startup check failed: {e}")
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _flash_update_button(self):
+        """Flash update button red to indicate new version available"""
+        self.update_button.config(text="⚠ UPDATE AVAILABLE")
+        self.update_button.config(foreground="red")
 
     def stop_service(self):
         """Remove the scheduled task from Windows Task Scheduler"""

@@ -5,7 +5,7 @@ a = Analysis(
     ['gui_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ERA_Icon.png', '.'), ('ERA_Icon.ico', '.'), ('ERA_Logo.png', '.'), ('theme.py', '.')],
+    datas=[('ERA_Icon.png', '.'), ('ERA_Icon.ico', '.'), ('ERA_Logo.png', '.'), ('theme.py', '.'), ('update_checker.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
