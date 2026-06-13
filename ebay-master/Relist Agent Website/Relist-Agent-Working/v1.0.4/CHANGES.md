@@ -30,6 +30,17 @@
 - **What changed:** Pack label unconditionally, always directly under logo
 - **Verified by:** Store name now displays in correct position
 
+### Fix #4: Exclusions Ignored During Relist (CRITICAL)
+**Commit:** `fix: filter excluded items before relisting`
+- **File:** ebay_relist_agent.py lines 166-169
+- **Root cause:** The relist logic was not checking excluded_skus when selecting items to relist
+- **What changed:** 
+  - Load excluded_skus from config
+  - Filter eligible items to remove those in excluded list
+  - Select oldest from filtered list only
+- **Why:** User exclusions in Exclusions window were saved but NOT respected during relist
+- **Verified by:** Excluded items will now be skipped during relist operation
+
 ### Fix #3: Exclusions Not Loading
 **Commit:** `fix: load_excluded_from_config uses config_dict parameter, not fresh import`
 - **File:** gui_app.py lines 901-903
