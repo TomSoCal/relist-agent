@@ -164,9 +164,15 @@ def run() -> None:
     log(f"  {len(all_items)} active listings found")
 
     zero_qty, eligible = partition_listings(all_items)
+
+    # FILTER OUT EXCLUDED ITEMS
+    excluded_skus = set(cfg.get("excluded_skus", []))
+    eligible_after_exclusions = [item for item in eligible if item.get("sku", "") not in excluded_skus]
+    excluded_count = len(eligible) - len(eligible_after_exclusions)
+
     listings_per_run = cfg.get("listings_per_run", 10)
-    to_relist = select_oldest(eligible, n=listings_per_run)
-    log(f"  {len(zero_qty)} zero-qty | {len(eligible)} eligible | {len(to_relist)} to relist")
+    to_relist = select_oldest(eligible_after_exclusions, n=listings_per_run)
+    log(f"  {len(zero_qty)} zero-qty | {len(eligible)} eligible | {excluded_count} excluded | {len(to_relist)} to relist")
 
     log_entries = []
     ended_zero_qty_report = []
