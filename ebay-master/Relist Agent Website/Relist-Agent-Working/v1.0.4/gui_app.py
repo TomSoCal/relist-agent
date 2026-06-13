@@ -117,6 +117,19 @@ def check_admin_on_startup():
             )
 
 
+_icon_photo = None
+
+def set_window_icon(window):
+    """Set ERA icon on window using iconphoto"""
+    global _icon_photo
+    try:
+        ico_path = BASE_DIR / "ERA_Icon.ico"
+        if ico_path.exists():
+            window.iconbitmap(str(ico_path))
+    except Exception as e:
+        pass
+
+
 class QuickGuideWindow(tk.Toplevel):
     instance = None
 
@@ -131,6 +144,7 @@ class QuickGuideWindow(tk.Toplevel):
 
         super().__init__(parent)
         QuickGuideWindow.instance = self
+        set_window_icon(self)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title(f"Quick Guide - {title}")
         self.geometry("600x500")
@@ -161,6 +175,7 @@ class SettingsWindow(tk.Toplevel):
 
         super().__init__(parent)
         SettingsWindow.instance = self
+        set_window_icon(self)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Settings")
         self.geometry("550x700")
@@ -554,6 +569,7 @@ class ExclusionsWindow(tk.Toplevel):
 
         super().__init__(parent)
         ExclusionsWindow.instance = self
+        set_window_icon(self)
         self.title("Exclude from Relist")
         self.geometry("1000x700")
         self.config_dict = config_dict
@@ -1044,6 +1060,7 @@ SKUs to exclude ({len(excluded_skus)}):
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        set_window_icon(self)
         self.title("Relist Agent")
 
         # Bring window to front after admin dialog - call multiple times to overcome UAC
@@ -2296,6 +2313,7 @@ class InventoryWindow(tk.Toplevel):
         print("[INVENTORY] InventoryWindow.__init__ starting")
         super().__init__(parent)
         InventoryWindow.instance = self
+        set_window_icon(self)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Store Inventory")
         self.geometry("1200x700")
@@ -2987,6 +3005,7 @@ class LogViewerWindow(tk.Toplevel):
 
         super().__init__(parent)
         LogViewerWindow.instance = self
+        set_window_icon(self)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Log Viewer - All Runs")
         self.geometry("900x600")

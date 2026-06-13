@@ -5,7 +5,7 @@ a = Analysis(
     ['gui_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ERA_Icon.png', '.'), ('ERA_Logo.png', '.'), ('theme.py', '.')],
+    datas=[('ERA_Icon.png', '.'), ('ERA_Icon.ico', '.'), ('ERA_Logo.png', '.'), ('theme.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,6 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['ERA_Icon.png'],
+    icon=[r'C:\Users\tom\agents\ebay-master\Relist Agent Website\Relist-Agent-Working\v1.0.4\ERA_Icon.ico'],
     onefile=True,
 )
