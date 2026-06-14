@@ -21,7 +21,7 @@ from pathlib import Path
 from auth import get_access_token, interactive_setup, load_config
 from ebay_api import add_item, end_item, fetch_all_active_listings, get_item
 from listing_logic import partition_listings, select_oldest
-from notifications import format_report, format_subject, notify_toast, send_email
+from notifications import format_report, format_report_html, format_subject, notify_toast, send_email
 
 sys.path.insert(0, r"C:\Users\tom\agents")
 try:
@@ -262,7 +262,7 @@ def run() -> None:
 
     append_log(log_entries)
 
-    body = format_report(relisted_report, ended_zero_qty_report, failures_report)
+    body = format_report_html(relisted_report, ended_zero_qty_report, failures_report)
     subject = format_subject(today)
     try:
         send_email(
@@ -270,7 +270,8 @@ def run() -> None:
             subject,
             body,
             sender=cfg.get("gmail_email"),
-            recipient=cfg.get("report_email")
+            recipient=cfg.get("report_email"),
+            is_html=True
         )
         log("Email report sent.")
     except Exception as e:

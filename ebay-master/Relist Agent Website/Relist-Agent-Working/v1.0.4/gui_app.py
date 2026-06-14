@@ -374,18 +374,17 @@ class SettingsWindow(tk.Toplevel):
         )
 
         try:
-            script_path = str(BASE_DIR / "ebay_relist_agent.py")
+            exe_path = str(BASE_DIR / "Relist Agent.exe")
             script_dir = str(BASE_DIR)
-            python_exe = sys.executable
 
             # Build PowerShell command inline (no external files)
+            # Run the EXE with --run flag for headless relisting
             ps_cmd = f"""
 $taskName = 'eBayRelistAgent'
-$pythonExe = '{python_exe}'
-$script = '{script_path}'
+$exe = '"{exe_path}"'
 $scriptDir = '{script_dir}'
 
-$action = New-ScheduledTaskAction -Execute $pythonExe -Argument $script -WorkingDirectory $scriptDir
+$action = New-ScheduledTaskAction -Execute $exe -Argument "--run" -WorkingDirectory $scriptDir
 $trigger = New-ScheduledTaskTrigger -Daily -At '{run_time}'
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable
 
@@ -1219,7 +1218,11 @@ class MainApp(tk.Tk):
         ttk.Label(center_frame, text="⏱ Each listing takes 1–2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", pady=(0, 3))
 
         # Stalled item note
-        ttk.Label(center_frame, text="💡 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 8))
+        ttk.Label(center_frame, text="💡 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 3))
+
+        # Scheduled task note (multi-line)
+        ttk.Label(center_frame, text="⚠️  Scheduled tasks: Log updates AFTER the run completes (not live).", font=("Arial", 8), foreground="#FFAA00").pack(anchor="w", pady=(0, 2))
+        ttk.Label(center_frame, text="Click 'Run Now' to see real-time progress.", font=("Arial", 8), foreground="#FFAA00").pack(anchor="w", pady=(0, 8))
 
         # Log area
         log_frame = tk.LabelFrame(center_frame, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
@@ -1918,6 +1921,16 @@ support@thetrashedpanda.com
 
     def show_instructions(self):
         instructions_text = """RELIST AGENT - COMPLETE INSTRUCTIONS
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT: SCHEDULED TASK BEHAVIOR
+
+When the task runs on a schedule, you will NOT see live data in
+the log. The activity log will update AFTER the scheduled run
+completes. This is normal.
+
+To see real-time progress, click "Run Now" to test manually.
 
 ═══════════════════════════════════════════════════════════════
 
@@ -3163,6 +3176,28 @@ Logs are always sorted by newest first (most recent at the top).
 def main():
     """Main entry point for the application"""
 
+    # Check if running in headless mode for scheduled tasks
+    if "--run" in sys.argv:
+        # Run relisting without GUI (for scheduled task)
+        try:
+            from ebay_relist_agent import run
+            run()
+            sys.exit(0)
+        except Exception as e:
+            import traceback
+            error_msg = f"RELIST ERROR: {e}\n{traceback.format_exc()}"
+            print(error_msg)
+            # Log to error file
+            try:
+                error_log = BASE_DIR / ".ebay_relist_agent_data" / "error_log.txt"
+                error_log.parent.mkdir(exist_ok=True)
+                with open(error_log, "a") as f:
+                    from datetime import datetime
+                    f.write(f"[{datetime.now().isoformat()}] {error_msg}\n")
+            except:
+                pass
+            sys.exit(1)
+
     try:
         # Check license key FIRST (before admin check)
         from license_check import check_license_on_startup
@@ -3172,7 +3207,7 @@ def main():
         # Check if admin is needed
         check_admin_on_startup()
 
-        # Create and run the app
+        # Create and run the app (GUI mode)
         app = MainApp()
         app.mainloop()
     except Exception as e:
