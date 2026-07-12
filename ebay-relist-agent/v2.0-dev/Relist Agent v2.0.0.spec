@@ -4,8 +4,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('C:\Users\tom\agents\ebay-relist-agent\v2.0-dev\config.json', '.'),
-        
         ('ERA_Logo.png', '.'),
         ('ERA_Icon.ico', '.'),
         ('INFO_ICON.png', '.'),
@@ -41,4 +39,3 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
-

@@ -202,16 +202,17 @@ def check_admin_on_startup():
             pass
 
         if result:
-            restart_as_admin()
-        else:
-            # User clicked "No" - mark to not ask again
+            # User clicked "Yes" - save preference before restarting (don't ask again after admin restart)
             admin_prefs["skip_admin_prompt"] = True
             try:
                 with open(debug_file, "a", encoding="utf-8") as f:
-                    f.write(f"[{__import__('datetime').datetime.now()}] Saving prefs: skip_admin_prompt=True\n")
+                    f.write(f"[{__import__('datetime').datetime.now()}] Saving prefs: skip_admin_prompt=True (user chose Yes)\n")
             except:
                 pass
             save_admin_prefs(admin_prefs)
+            restart_as_admin()
+        else:
+            # User clicked "No" - do NOT save preference (will ask again next time)
 
             messagebox.showinfo(
                 "Limited Functionality",
