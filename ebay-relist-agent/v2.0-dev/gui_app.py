@@ -1142,28 +1142,31 @@ class MainApp(tk.Tk):
         self.tabs = ttk.Notebook(self)
         self.tabs.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
 
-        # Create 3 tab frames
+        # Create 4 tab frames
         self.configure_tab = ttk.Frame(self.tabs)
         self.exclusions_tab = ttk.Frame(self.tabs)
         self.logs_tab = ttk.Frame(self.tabs)
+        self.inventory_tab = ttk.Frame(self.tabs)
 
         # Add tabs to notebook
-        self.tabs.add(self.configure_tab, text="Configure")
+        self.tabs.add(self.logs_tab, text="Main")
+        self.tabs.add(self.inventory_tab, text="Inventory")
         self.tabs.add(self.exclusions_tab, text="Exclusions")
-        self.tabs.add(self.logs_tab, text="Logs")
+        self.tabs.add(self.configure_tab, text="Configure")
 
         # ===== RIGHT SIDEBAR CONTENT: Tab Navigation (replaces the notebook tab bar) =====
         self.tab_frames = {
             "configure": self.configure_tab,
             "exclusions": self.exclusions_tab,
             "logs": self.logs_tab,
+            "inventory": self.inventory_tab,
         }
         self.nav_buttons = {}
 
         ttk.Label(right_frame, text="Navigate", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
-        for key, label in (("configure", "Configure"), ("exclusions", "Exclusions"),
-                            ("logs", "Logs")):
+        for key, label in (("logs", "Main"), ("inventory", "Inventory"),
+                            ("exclusions", "Exclusions"), ("configure", "Configure")):
             nav_btn = tk.Button(
                 right_frame, text=label, width=14, relief="flat", borderwidth=0,
                 bg=BG_TERTIARY, fg=TEXT_SECONDARY, activebackground=BLUE_HOVER,
@@ -1385,13 +1388,15 @@ class MainApp(tk.Tk):
 
         self.run_button = ttk.Button(right_frame, text="Run Now", command=self.run_agent, width=14)
         self.run_button.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
         self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
         self.refresh_btn.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
-
-        self.retry_button = ttk.Button(right_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
-        self.retry_button.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Test Email", command=self.test_email, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
+        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
+        self.update_button.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
 
         # ===== EXCLUSIONS TAB CONTENT =====
         # (Consolidated from the old ExclusionsWindow popup — same layout, widgets, and methods)
@@ -1479,19 +1484,6 @@ class MainApp(tk.Tk):
         self.load_skus_from_store()
         self.has_unsaved_changes = False  # Track if user has made changes without saving
 
-        # ===== RIGHT SIDEBAR CONTENT: Settings (persistent, visible from all tabs) =====
-        divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
-        divider2.pack(fill="x", pady=10)
-
-        ttk.Label(right_frame, text="Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
-
-        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
-        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
-        self.update_button.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
-
         # Version label
         ttk.Label(right_frame, text="v2.0.0", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
 
@@ -1572,6 +1564,118 @@ class MainApp(tk.Tk):
 
         # Bind row selection to detect errors
         self.log_tree.bind("<ButtonRelease-1>", self.on_log_row_selected)
+
+        # ===== INVENTORY TAB CONTENT =====
+        # (Consolidated from the old InventoryWindow popup — same layout and widgets)
+        self.inv_all_items = []
+
+        # Header with title and guide icon
+        inv_header = ttk.Frame(self.inventory_tab)
+        inv_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(inv_header, text="Store Inventory", font=("Arial", 12, "bold")).pack(side="left")
+        inv_icon = get_info_icon(24)
+        if inv_icon:
+            tk.Button(inv_header, image=inv_icon, command=self.inv_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(inv_header, text="ⓘ", command=self.inv_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+
+        # Button guide
+        inv_guide_frame = tk.Frame(self.inventory_tab, bg=BG_PRIMARY, relief="solid", borderwidth=1)
+        inv_guide_frame.pack(fill="x", padx=0, pady=0)
+
+        tk.Label(inv_guide_frame, text="Action Buttons:", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 9, "bold")).pack(side="left", padx=10, pady=5)
+        tk.Label(inv_guide_frame, text="❌ = End listing  |  ♻️ = Delist & Relist", bg=BG_PRIMARY, fg=TEXT_SECONDARY, font=("Arial", 9)).pack(side="left", padx=10, pady=5)
+
+        # Info note
+        inv_info_frame = ttk.Frame(self.inventory_tab)
+        inv_info_frame.pack(fill="x", padx=10, pady=5)
+        ttk.Label(inv_info_frame, text="[INFO] First load fetches all item details (~1 min per 100 items). Future loads will be much faster thanks to caching.",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+        ttk.Label(inv_info_frame, text="[SEARCH] Find items by product description OR custom SKU",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+        ttk.Label(inv_info_frame, text="[DUPLICATES] 'Find Duplicates' shows all items with same SKU | 'Auto-Delist Dupes' removes true duplicates (matching title+SKU, keeps newest)",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+
+        # Search and controls frame
+        inv_search_frame = ttk.Frame(self.inventory_tab)
+        inv_search_frame.pack(fill="x", padx=10, pady=10)
+
+        ttk.Label(inv_search_frame, text="Search:").pack(side="left", padx=5)
+        self.inv_search_var = tk.StringVar()
+        self.inv_search_var.trace("w", self.inv_debounce_filter)
+        self.inv_search_timer = None
+        inv_search_entry = ttk.Entry(inv_search_frame, textvariable=self.inv_search_var, width=40)
+        inv_search_entry.pack(side="left", padx=5)
+
+        ttk.Button(inv_search_frame, text="Refresh Data", command=self.inv_refresh_data).pack(side="left", padx=5)
+        ttk.Button(inv_search_frame, text="Find Duplicates", command=self.inv_find_duplicate_skus).pack(side="left", padx=5)
+        ttk.Button(inv_search_frame, text="Auto-Delist Dupes", command=self.inv_auto_delist_duplicates).pack(side="left", padx=5)
+
+        ttk.Label(inv_search_frame, text="Items:").pack(side="left", padx=20)
+        self.inv_item_count = ttk.Label(inv_search_frame, text="Loading...")
+        self.inv_item_count.pack(side="left", padx=5)
+
+        # Progress bar
+        inv_progress_frame = ttk.Frame(self.inventory_tab)
+        inv_progress_frame.pack(fill="x", padx=10, pady=5)
+        self.inv_progress = ttk.Progressbar(inv_progress_frame, mode="determinate", length=300)
+        self.inv_progress.pack(side="left", padx=5, fill="x", expand=True)
+        self.inv_progress_text = ttk.Label(inv_progress_frame, text="")
+        self.inv_progress_text.pack(side="left", padx=5)
+
+        # Table frame with custom scrollable list
+        inv_table_frame = tk.Frame(self.inventory_tab, bg=BG_PRIMARY)
+        inv_table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Header + scrollable content container
+        inv_content_frame = tk.Frame(inv_table_frame, bg=BG_PRIMARY)
+        inv_content_frame.pack(fill="both", expand=True)
+        inv_content_frame.columnconfigure(0, weight=1)
+        inv_content_frame.rowconfigure(1, weight=1)
+
+        # Header row using grid
+        inv_header_row = tk.Frame(inv_content_frame, bg=BG_PRIMARY, height=30)
+        inv_header_row.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 5))
+        inv_header_row.columnconfigure(2, weight=1)  # Title column expands
+        inv_header_row.pack_propagate(False)
+
+        tk.Label(inv_header_row, text="Actions", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Item ID", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="SKU", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=2)
+
+        # Set column widths (in pixels)
+        inv_header_row.columnconfigure(0, minsize=90)   # Actions
+        inv_header_row.columnconfigure(1, minsize=100)  # Item ID
+        inv_header_row.columnconfigure(2, minsize=80)   # SKU
+        inv_header_row.columnconfigure(3, weight=1)     # Title (expands)
+        inv_header_row.columnconfigure(4, minsize=160)  # Date Listed
+
+        # Canvas with scrollbar for items (below header)
+        inv_list_container = tk.Frame(inv_content_frame, bg=BG_PRIMARY)
+        inv_list_container.grid(row=1, column=0, sticky="nsew")
+        inv_list_container.columnconfigure(0, weight=1)
+        inv_list_container.rowconfigure(0, weight=1)
+
+        self.inv_canvas = tk.Canvas(inv_list_container, bg=BG_SECONDARY, highlightthickness=0)
+        inv_scrollbar = ttk.Scrollbar(inv_list_container, orient="vertical", command=self.inv_canvas.yview)
+        self.inv_items_frame = tk.Frame(self.inv_canvas, bg=BG_SECONDARY)
+
+        self.inv_items_frame.bind("<Configure>", self.inv_on_frame_configure)
+        self.inv_canvas_window = self.inv_canvas.create_window((0, 0), window=self.inv_items_frame, anchor="nw")
+        self.inv_canvas.configure(yscrollcommand=inv_scrollbar.set)
+        self.inv_canvas.bind("<MouseWheel>", self.inv_on_mousewheel)
+        self.inv_canvas.bind("<Button-4>", self.inv_on_mousewheel)
+        self.inv_canvas.bind("<Button-5>", self.inv_on_mousewheel)
+
+        self.inv_canvas.grid(row=0, column=0, sticky="nsew")
+        inv_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        self.inv_tree = None  # Keep for compatibility
+
+        # Load items in background
+        threading.Thread(target=self.inv_load_items, daemon=True).start()
 
         # Load log and check error items in background thread
         threading.Thread(target=self.startup_check, daemon=True).start()
@@ -2564,12 +2668,544 @@ TYPICAL WORKFLOW
         InventoryWindow(self, self.app_config)
 
     def _get_inventory_refresh_callback(self):
-        """Return InventoryWindow.load_items if an Inventory window is currently open, else None.
-        (Tab equivalent of the refresh_inventory_callback passed into the old ExclusionsWindow constructor.)"""
-        for widget in self.winfo_children():
-            if isinstance(widget, InventoryWindow):
-                return widget.load_items
-        return None
+        """Return the Inventory tab's load_items method. Inventory is now a persistent
+        tab (see 'INVENTORY TAB CONTENT' in __init__) rather than a popup window, so it
+        is always available to refresh."""
+        return self.inv_load_items
+
+    # ===== INVENTORY TAB METHODS =====
+    # (Consolidated from the old InventoryWindow popup — same logic, prefixed with
+    # inv_ to avoid clashing with the Exclusions tab's own refresh_data/etc.)
+
+    def inv_load_items(self, force_refresh=False):
+        print(f"[DEBUG] inv_load_items() called with force_refresh={force_refresh}")
+        try:
+            from datetime import datetime, timedelta
+            from auth import get_access_token
+            from ebay_api import fetch_all_active_listings
+
+            print("[DEBUG] Imports successful")
+            cache_file = DATA_DIR / "inventory_cache.json"
+            cache_valid_hours = 6
+
+            # Try to load from cache first (unless force refresh)
+            cached_items = {}
+            cached_item_ids = set()
+            print(f"[DEBUG] force_refresh={force_refresh}, cache_file={cache_file.exists()}")
+
+            if not force_refresh and cache_file.exists():
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cache_data = json.load(f)
+                        cache_time = datetime.fromisoformat(cache_data.get("timestamp", ""))
+                        if datetime.now() - cache_time < timedelta(hours=cache_valid_hours):
+                            cached_items = {item.get("item_id"): item for item in cache_data.get("items", []) if item.get("item_id")}
+                            cached_item_ids = set(cached_items.keys())
+
+                            self.inv_all_items = list(cached_items.values())
+                            self.inv_progress.config(value=100)
+                            self.inv_progress_text.config(text="Loaded from cache")
+                            self.inv_item_count.config(text=f"Loaded {len(self.inv_all_items)} items (cached)")
+                            self.inv_filter_items()
+                            return
+                except Exception:
+                    pass  # Cache load failed, fetch fresh
+
+            # Fetch fresh data from eBay
+            self.inv_progress.config(maximum=100, value=50)
+            self.inv_progress_text.config(text="Fetching from eBay...")
+            self.inv_item_count.config(text="Loading...")
+            self.update()
+
+            token = get_access_token(self.app_config)
+            fresh_items = fetch_all_active_listings(self.app_config, token)
+            fresh_item_ids = {item.get("item_id") for item in fresh_items if item.get("item_id")}
+
+            # Smart cache: detect new and deleted items
+            new_item_ids = fresh_item_ids - cached_item_ids
+            deleted_item_ids = cached_item_ids - fresh_item_ids
+
+            if new_item_ids or deleted_item_ids:
+                self.inv_progress.config(value=75)
+                if new_item_ids:
+                    self.inv_progress_text.config(text=f"Found {len(new_item_ids)} new items, {len(deleted_item_ids)} deleted")
+                else:
+                    self.inv_progress_text.config(text=f"Found {len(deleted_item_ids)} deleted items")
+                self.update()
+
+            # Combine cached and fresh items
+            self.inv_all_items = [item for item in fresh_items if item.get("item_id") in fresh_item_ids]
+
+            # Save to cache
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "items": self.inv_all_items,
+                "new_count": len(new_item_ids),
+                "deleted_count": len(deleted_item_ids)
+            }
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=2)
+
+            # OPTIMIZATION: Also update exclusions cache (avoid redundant API calls)
+            try:
+                from ebay_api import get_store_categories
+                categories, category_mapping = get_store_categories(self.app_config, token)
+
+                # Extract SKUs from fresh items
+                skus = set()
+                for item in fresh_items:
+                    sku = item.get("sku")
+                    if sku:
+                        skus.add(sku)
+
+                # Save to exclusions cache (in hidden folder)
+                exclusions_cache_file = DATA_DIR / "exclusions_cache.json"
+                with open(exclusions_cache_file, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "categories": sorted(categories),
+                        "skus": sorted(skus),
+                        "category_mapping": category_mapping
+                    }, f, indent=2)
+                print(f"[INVENTORY] Updated exclusions cache: {len(categories)} cats, {len(skus)} skus")
+
+                # ALSO update the Exclude tab's separate cache (available_for_exclusions.json)
+                # This keeps the Exclude tab's display in sync without losing exclusions
+                available_for_exclusions_file = DATA_DIR / "available_for_exclusions.json"
+                with open(available_for_exclusions_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": fresh_items}, f, indent=2)
+                print(f"[INVENTORY] Updated available_for_exclusions cache: {len(fresh_items)} items")
+            except Exception as e:
+                print(f"[INVENTORY] Couldn't update exclusions cache: {e}")
+
+            self.inv_progress.config(value=90)
+            self.inv_progress_text.config(text="Rendering items...")
+            self.update()
+
+            self.inv_filter_items()
+
+            self.inv_progress.config(value=100)
+            self.inv_progress_text.config(text="Done")
+            status_msg = f"Loaded {len(self.inv_all_items)} items"
+            if new_item_ids or deleted_item_ids:
+                status_msg += f" ({len(new_item_ids)} new, {len(deleted_item_ids)} deleted)"
+            self.inv_item_count.config(text=status_msg)
+        except Exception as e:
+            import traceback
+            self.inv_progress.config(value=0)
+            self.inv_progress_text.config(text="")
+            error_msg = f"Error: {str(e)}"
+            self.inv_item_count.config(text=error_msg)
+            print(f"[DEBUG] Load items error: {traceback.format_exc()}")
+
+    def inv_debounce_filter(self, *args):
+        """Debounce search input to avoid lag - wait 300ms after user stops typing"""
+        if self.inv_search_timer:
+            self.after_cancel(self.inv_search_timer)
+        self.inv_search_timer = self.after(300, self.inv_filter_items)
+
+    def inv_preformat_item_dates(self):
+        """Pre-format all item dates once to avoid re-parsing during filtering"""
+        from datetime import datetime
+        for item in self.inv_all_items:
+            date_str = item.get("start_time", "")
+            if date_str:
+                try:
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    item["_formatted_date"] = dt.strftime("%m/%d/%Y %I:%M %p")
+                except:
+                    item["_formatted_date"] = date_str
+            else:
+                item["_formatted_date"] = ""
+
+    def inv_filter_items(self, *args):
+        search_term = self.inv_search_var.get().lower()
+
+        # Clear existing items
+        for widget in self.inv_items_frame.winfo_children():
+            widget.destroy()
+
+        # Filter by title and SKU
+        filtered = [
+            item for item in self.inv_all_items
+            if search_term in item.get("title", "").lower() or
+               search_term in item.get("sku", "").lower()
+        ]
+
+        for idx, item in enumerate(filtered):
+            # Use pre-formatted date
+            formatted_date = item.get("_formatted_date", "")
+
+            item_id = item.get("item_id", "")
+            sku = item.get("sku", "")
+            title = item.get("title", "")
+
+            # Alternate row colors
+            row_bg = BG_SECONDARY if idx % 2 == 0 else BG_TERTIARY
+
+            # Create row frame using grid
+            row = tk.Frame(self.inv_items_frame, bg=row_bg, height=30)
+            row.pack(fill="x", padx=0, pady=0)
+            row.columnconfigure(3, weight=1)  # Title expands
+
+            # Action buttons
+            btn_frame = tk.Frame(row, bg=row_bg)
+            btn_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=2, pady=2)
+            tk.Button(btn_frame, text="❌", width=2, height=1, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.inv_delist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="♻️", width=2, height=1, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.inv_relist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="🔗", width=2, height=1, bg=TEXT_PRIMARY, fg=BG_PRIMARY, command=lambda iid=item_id: webbrowser.open(f"https://www.ebay.com/itm/{iid}"), relief="flat", border=1).pack(side="left", padx=1)
+
+            # Item ID label
+            tk.Label(row, text=item_id, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=0)
+
+            # SKU
+            tk.Label(row, text=sku, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=0)
+
+            # Title (truncate long titles)
+            title_display = (title[:50] + "...") if len(title) > 50 else title
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=0)
+
+            # Date
+            tk.Label(row, text=formatted_date, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=0)
+
+            # Match header column widths
+            row.columnconfigure(0, minsize=90)   # Actions
+            row.columnconfigure(1, minsize=100)  # Item ID
+            row.columnconfigure(2, minsize=80)   # SKU
+            row.columnconfigure(4, minsize=160)  # Date Listed
+
+        # Update canvas scroll region
+        self.inv_items_frame.update_idletasks()
+        self.inv_canvas.configure(scrollregion=self.inv_canvas.bbox("all"))
+
+        self.inv_item_count.config(text=f"{len(filtered)} of {len(self.inv_all_items)} items")
+
+    def inv_on_frame_configure(self, event=None):
+        """Update scroll region and canvas window width"""
+        self.inv_canvas.configure(scrollregion=self.inv_canvas.bbox("all"))
+        # Match canvas window width to canvas width
+        canvas_width = self.inv_canvas.winfo_width()
+        if canvas_width > 1:
+            self.inv_canvas.itemconfig(self.inv_canvas_window, width=canvas_width)
+
+    def inv_on_mousewheel(self, event):
+        """Handle mousewheel scrolling"""
+        if event.num == 5 or event.delta < 0:
+            self.inv_canvas.yview_scroll(3, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.inv_canvas.yview_scroll(-3, "units")
+
+    def inv_refresh_data(self):
+        """Refresh inventory from eBay (force fresh fetch) — Inventory tab"""
+        result = messagebox.askyesno(
+            "Refresh Data",
+            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories."
+        )
+        if result:
+            print("[DEBUG] Refreshing inventory from eBay...")
+
+            # Clear items frame
+            for widget in self.inv_items_frame.winfo_children():
+                widget.destroy()
+
+            # Reload with force_refresh=True
+            self.inv_all_items = []
+            self.inv_progress["value"] = 0
+            self.inv_progress_text.config(text="Connecting to eBay...")
+            self.inv_item_count.config(text="Loading...")
+
+            threading.Thread(target=lambda: self.inv_load_items(force_refresh=True), daemon=True).start()
+
+    def inv_find_duplicate_skus(self):
+        """Find and display all duplicate SKUs in inventory"""
+        if not self.inv_all_items:
+            messagebox.showwarning("No Items", "Load inventory first")
+            return
+
+        # Build SKU -> items map
+        sku_map = {}
+        for item in self.inv_all_items:
+            sku = item.get("sku", "").strip()
+            if sku:
+                if sku not in sku_map:
+                    sku_map[sku] = []
+                sku_map[sku].append(item)
+
+        # Find duplicates
+        duplicates = {sku: items for sku, items in sku_map.items() if len(items) > 1}
+
+        if not duplicates:
+            messagebox.showinfo("No Duplicates", "All SKUs are unique!")
+            return
+
+        # Build report
+        report = f"Found {len(duplicates)} duplicate SKUs:\n\n"
+        for sku, items in sorted(duplicates.items()):
+            report += f"SKU: {sku} ({len(items)} items)\n"
+            for item in items:
+                report += f"  • {item.get('item_id')} - {item.get('title', 'N/A')[:40]}\n"
+            report += "\n"
+
+        # Show in a text window
+        info_window = tk.Toplevel(self)
+        info_window.title("Duplicate SKUs Found")
+        info_window.geometry("600x400")
+        info_window.config(bg=BG_PRIMARY)
+
+        text_widget = tk.Text(info_window, bg=BG_SECONDARY, fg=TEXT_PRIMARY, wrap="word", padx=10, pady=10)
+        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
+        text_widget.insert("1.0", report)
+        text_widget.config(state="disabled")
+
+        scrollbar = ttk.Scrollbar(text_widget, command=text_widget.yview)
+        text_widget.config(yscrollcommand=scrollbar.set)
+
+        close_btn = ttk.Button(info_window, text="Close", command=info_window.destroy)
+        close_btn.pack(pady=10)
+
+    def inv_auto_delist_duplicates(self):
+        """Find true duplicates (matching title+SKU) and delist oldest"""
+        if not self.inv_all_items:
+            messagebox.showwarning("No Items", "Load inventory first")
+            return
+
+        # Normalize titles for comparison (first 50 chars, lowercase)
+        def normalize_title(title):
+            return (title or "")[:50].lower().strip()
+
+        # Build SKU -> items map
+        sku_map = {}
+        for item in self.inv_all_items:
+            sku = item.get("sku", "").strip()
+            if sku:
+                if sku not in sku_map:
+                    sku_map[sku] = []
+                sku_map[sku].append(item)
+
+        # Find true duplicates (matching title + SKU)
+        to_delist = []
+        for sku, items in sku_map.items():
+            if len(items) <= 1:
+                continue
+
+            # Group by normalized title
+            title_groups = {}
+            for item in items:
+                norm_title = normalize_title(item.get("title", ""))
+                if norm_title:
+                    if norm_title not in title_groups:
+                        title_groups[norm_title] = []
+                    title_groups[norm_title].append(item)
+
+            # For each title group, keep newest, mark others for deletion
+            for norm_title, title_items in title_groups.items():
+                if len(title_items) > 1:
+                    # Sort by item ID (ascending = oldest first)
+                    sorted_items = sorted(title_items, key=lambda x: int(x.get("item_id", 0)))
+                    # Keep newest (last), delist rest
+                    for item in sorted_items[:-1]:
+                        to_delist.append(item)
+
+        if not to_delist:
+            messagebox.showinfo("No True Duplicates", "No items found with matching title AND SKU")
+            return
+
+        # Build confirmation message
+        msg = f"Found {len(to_delist)} true duplicates to remove (keeping newest):\n\n"
+        for item in to_delist:
+            msg += f"ID: {item['item_id']} | SKU: {item.get('sku', 'N/A')} | {item.get('title', 'N/A')[:40]}\n"
+
+        confirm = messagebox.askyesno("Confirm Auto-Delist", msg + f"\n\nDelist {len(to_delist)} items?")
+
+        if confirm:
+            self.inv_perform_bulk_delist(to_delist)
+
+    def inv_perform_bulk_delist(self, items_to_delete):
+        """Delist multiple items and show progress"""
+        from auth import get_access_token
+        from ebay_api import end_item
+
+        success_count = 0
+        failed_items = []
+
+        messagebox.showinfo(
+            "Delisting",
+            f"Delisting {len(items_to_delete)} duplicate items...\n\nThis may take a minute."
+        )
+
+        try:
+            token = get_access_token(self.app_config)
+
+            for idx, item in enumerate(items_to_delete):
+                try:
+                    item_id = item['item_id']
+                    end_item(self.app_config, token, item_id)
+                    success_count += 1
+                    print(f"[INFO] Delisted {item_id} ({idx+1}/{len(items_to_delete)})")
+                except Exception as e:
+                    failed_items.append((item['item_id'], str(e)))
+                    print(f"[ERROR] Failed to delist {item['item_id']}: {e}")
+
+            # Show results
+            result_msg = f"Delisted {success_count}/{len(items_to_delete)} items"
+            if failed_items:
+                result_msg += f"\n\nFailed ({len(failed_items)}):\n"
+                for item_id, error in failed_items[:5]:
+                    result_msg += f"  • {item_id}: {error}\n"
+                if len(failed_items) > 5:
+                    result_msg += f"  ... and {len(failed_items)-5} more"
+
+            messagebox.showinfo("Bulk Delist Complete", result_msg)
+
+            # Reload inventory
+            self.inv_all_items = []
+            self.inv_filter_items()
+            threading.Thread(target=self.inv_load_items, daemon=True).start()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Bulk delist failed: {e}")
+
+    def inv_delist_item(self, item_id, title):
+        """Delist a single item by ID"""
+        confirm = messagebox.askyesno(
+            "Confirm Delist",
+            f"End listing: {title}?\n\nItem ID: {item_id}"
+        )
+
+        if confirm:
+            try:
+                from auth import get_access_token
+                from ebay_api import end_item
+
+                token = get_access_token(self.app_config)
+                end_item(self.app_config, token, item_id)
+                messagebox.showinfo("Success", f"Item {item_id} delisted successfully")
+                # Reload inventory
+                self.inv_all_items = []
+                self.inv_filter_items()
+                threading.Thread(target=self.inv_load_items, daemon=True).start()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delist: {e}")
+
+    def inv_relist_item(self, item_id, title):
+        """Relist a single item (delist old, create new)"""
+        confirm = messagebox.askyesno(
+            "Confirm Relist",
+            f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will end the current listing and create a new one with the same details"
+        )
+
+        if confirm:
+            try:
+                from auth import get_access_token
+                from ebay_api import get_item, add_item, end_item
+
+                token = get_access_token(self.app_config)
+
+                # Get full item details FIRST (before delisting)
+                details = get_item(self.app_config, token, item_id)
+
+                # Delist the old item
+                end_item(self.app_config, token, item_id)
+
+                # Create new listing with same details
+                new_item_id = add_item(self.app_config, token, details)
+
+                messagebox.showinfo("Success", f"Listing refreshed!\n\nOld: {item_id}\nNew: {new_item_id}")
+
+                # Reload inventory
+                self.inv_all_items = []
+                self.inv_filter_items()
+                threading.Thread(target=self.inv_load_items, daemon=True).start()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to relist: {e}")
+
+    def inv_show_guide(self):
+        guide_text = """INVENTORY QUICK GUIDE
+
+YOUR STORE ITEMS
+Browse all active listings in your eBay store. Load is instant
+since it uses eBay's basic listing data.
+
+SEARCH
+• Search by product title OR custom SKU
+• Type to filter in real-time
+• Case-insensitive search
+• Examples:
+  - Search "Plant" finds "Plant Pots Set of 3"
+  - Search by product name to find items
+  - Search by SKU code to find items
+
+COLUMNS
+
+Item ID
+• Unique eBay identifier
+• Click the 🔗 button to open the item on eBay.com in your browser
+
+SKU
+• Your custom product SKU/code
+• Use this to quickly find items you're looking for
+
+Title
+• The listing title
+
+Date Listed
+• When the item was originally listed
+• Format: MM/DD/YYYY HH:MM AM/PM
+
+ACTIONS (Row Action Buttons)
+
+Row buttons appear on the left of each item:
+
+❌ DELIST SELECTED
+• Select an item in the list
+• Click the ❌ button to end/delete the listing
+• Requires confirmation before delisting
+
+♻️ RELIST SELECTED
+• Select an item in the list
+• Click the ♻️ button to automatically delist and relist with same details
+• Uses current price, description, condition, shipping, etc.
+• Old listing ends, new listing is created seamlessly
+
+🔗 OPEN ON EBAY
+• Click the 🔗 button next to the Item ID
+• Opens the eBay listing in your web browser
+• Allows you to view, edit, or manage the listing directly on eBay
+• No selection required - button appears for every item
+
+REFRESH DATA
+Click to reload the inventory from eBay.
+
+Item count shows: "X of Y items" where X is currently visible
+after search filtering, and Y is total items in your store.
+
+DUPLICATE SEARCH OPTIONS
+
+FIND DUPLICATES
+Purpose: Review and identify potential duplicates
+• Scans inventory for items with the same SKU
+• Shows ALL items with matching SKU (grouped by SKU)
+• Includes items that may NOT be true duplicates
+• No action taken - this is VIEW ONLY
+• Use this to manually inspect and decide what to remove
+• Good for: Understanding your inventory, finding variations of same product
+
+AUTO-DELIST DUPES
+Purpose: Automatically remove true duplicates
+• Scans for items with BOTH matching title AND SKU
+• Only targets true duplicates (identical product + SKU)
+• Automatically keeps the NEWEST listing
+• Delists OLDER copies of the same item
+• Requires your confirmation before delisting
+• Shows success/failure report
+• Use this when you have exact duplicate listings
+• Good for: Cleaning up accidental duplicate listings from relisting or manual errors
+
+WHEN TO USE EACH:
+1. Use "Find Duplicates" first to review potential issues
+2. Use "Auto-Delist Dupes" to safely remove confirmed true duplicates
+   (matching both title AND SKU)
+"""
+        QuickGuideWindow(self, "Inventory", guide_text)
 
     def refresh_data(self):
         """Refresh data from store (with or without Inventory window) — Exclusions tab"""
