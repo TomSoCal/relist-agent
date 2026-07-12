@@ -1,0 +1,57 @@
+===============================================
+RELIST AGENT v1.0.4 - INSTALLATION NOTES
+===============================================
+
+WINDOWS DEFENDER / SMARTSCREEN WARNING
+======================================
+
+When you download and run Relist Agent.exe on Windows 11, you may see:
+  "Windows Defender SmartScreen prevented an unrecognized app from starting"
+
+This is NORMAL and SAFE. The warning appears because:
+  - The EXE is not signed with a code-signing certificate
+  - Windows SmartScreen flags unsigned executables as a precaution
+  - This does NOT mean the app is malicious
+
+HOW TO PROCEED:
+1. Click "More info" in the warning dialog
+2. Click "Run anyway"
+3. The app will start normally
+4. No further warnings will appear on subsequent runs
+
+THE APP IS SAFE:
+  - Built with PyInstaller from Python source code
+  - All source code is available for review
+  - License key system validates all installations
+  - Each license is locked to one computer
+
+LICENSE KEY REQUIRED:
+  - First run: You will be prompted to enter your license key
+  - Format: RA-XX-XXXXXXXX-XXXXXXXX
+  - License is validated against thetrashedpanda.com/license/
+  - Key is locked to your computer (prevents sharing)
+
+INSTALLATION:
+  1. Download Relist Agent.exe
+  2. Run the EXE
+  3. Accept the Windows SmartScreen warning (click "Run anyway")
+  4. Enter your license key when prompted
+  5. Configure eBay API credentials in Settings
+  6. Start using the app
+
+UPGRADE:
+  1. Download the new Relist Agent.exe
+  2. Replace your old EXE with the new version
+  3. Your license key and settings are stored locally
+  4. Run the new version - no re-configuration needed
+
+UNINSTALL:
+  - Simply delete Relist Agent.exe
+  - Local data stored in: %APPDATA%\.ebay_relist_agent_data\
+  - No system registry changes or dependencies
+
+SUPPORT:
+  - License reset: support@thetrashedpanda.com
+  - Bug reports / feature requests: [contact info]
+
+===============================================

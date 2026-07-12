@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relist Agent - Refresh Your eBay Store Daily</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: clamp(2em, 5vw, 3.5em);
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: clamp(1.5em, 4vw, 2.2em);
+            color: #2c3e50;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            font-size: clamp(1.1em, 3vw, 1.5em);
+            color: #34495e;
+            margin-top: 20px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: clamp(1em, 2.5vw, 1.3em);
+            color: #666;
+            margin-bottom: 40px;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .feature-list li {
+            padding: 12px 0;
+            padding-left: 35px;
+            position: relative;
+            font-size: clamp(0.95em, 2vw, 1.1em);
+            background-color: #f0f7ff;
+            padding: 12px 15px 12px 40px;
+            border-radius: 6px;
+            border-left: 3px solid #3498db;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 12px;
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        .highlight-box {
+            background-color: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 6px;
+        }
+
+        .highlight-box h4 {
+            margin-top: 0;
+            color: #2980b9;
+            margin-bottom: 10px;
+        }
+
+        .section {
+            background-color: white;
+            padding: 30px;
+            margin: 30px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .section p {
+            margin-bottom: 15px;
+            font-size: clamp(0.95em, 1.5vw, 1.05em);
+        }
+
+        .example-box {
+            background-color: #f0f7ff;
+            border: 2px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+
+        .solution-box {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 6px;
+        }
+
+        .solution-box h4 {
+            color: #155724;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.15em;
+        }
+
+        .solution-box p {
+            margin-bottom: 10px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.95em;
+            color: #666;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #ddd;
+        }
+
+        a {
+            color: #3498db;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .faq-link {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .faq-link a {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 14px 40px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: clamp(0.95em, 2vw, 1.1em);
+            transition: background-color 0.3s ease;
+        }
+
+        .faq-link a:hover {
+            background-color: #2980b9;
+            text-decoration: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .feature-list {
+                grid-template-columns: 1fr;
+            }
+
+            h2 {
+                margin-top: 30px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .container {
+                padding: 50px 40px;
+            }
+
+            .section {
+                padding: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Refresh Your eBay Store Daily — Automatically</h1>
+
+<p class="subtitle">Relist Agent automatically relists your oldest fixed-price listings every day,
+helping keep your store fresh and active in eBay's search results. You decide how many listings to relist each day—whether that's 1, 10, 100, or more.
+Relist Agent handles the process automatically.</p>
+
+<div class="section">
+    <h2>Simple Example</h2>
+    <p>If your store has 600 listings and you relist 10 items per day,
+    you'll have approximately 60 days of continuous listing rotation. As you add more
+    inventory, the rotation period grows.</p>
+</div>
+
+<div class="section">
+    <h2>Key Features</h2>
+    <ul class="feature-list">
+        <li>Automatic Daily Relisting</li>
+        <li>Increase Listing Visibility</li>
+        <li>Exclude Items — Skip specific items from relisting (great for cross-listers)</li>
+        <li>Save Hours of Manual Work Every Month</li>
+        <li>Runs Automatically While You're Away</li>
+        <li>App does not need to be open to run daily</li>
+        <li>Safe & Compliant Operation</li>
+        <li>Easy Setup — No Technical Knowledge Required</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>Why Use Relist Agent?</h2>
+    <p>Many eBay sellers believe that maintaining fresh inventory can improve listing exposure and attract
+    more buyer attention. Instead of manually ending and relisting items every day, Relist Agent automates
+    the process so you can focus on sourcing, shipping, and growing your business.</p>
+</div>
+
+<div class="section">
+    <h2>Important Cross-Listing Notice</h2>
+
+    <p>Relist Agent is not designed to work alongside most cross-listing tools.</p>
+
+    <p>When an item is relisted, eBay generates a new Item ID and listing URL. Because of this,
+    cross-listing software that relies on the original Item ID or listing link may lose synchronization
+    with the newly relisted item.</p>
+
+    <div class="solution-box">
+        <h4>SOLUTION FOR CROSS-LISTERS:</h4>
+        <p>Relist Agent includes an <strong>Exclude feature</strong> that lets you select specific items to skip from relisting.
+        If you use cross-listing software, you can exclude those items from Relist Agent's rotation. This way,
+        items managed by your cross-lister stay untouched, while your exclusive eBay inventory rotates automatically.
+        This hybrid approach lets you use both tools together safely.</p>
+    </div>
+
+    <p>The Trashed Panda has not tested or researched compatibility with any cross-listing software.
+    We make no claims regarding compatibility or incompatibility with any specific cross-listing platform.
+    It is the buyer's responsibility to determine whether Relist Agent will work with their existing
+    workflow and software tools.</p>
+
+    <p>If you actively use cross-listing software, you can test the Exclude feature first—add just a few
+    items to the exclusion list to verify the workflow works for you before relisting your entire inventory.</p>
+</div>
+
+<div class="section">
+    <h2>System Requirements</h2>
+    <ul class="feature-list">
+        <li>Windows PC</li>
+        <li>Active eBay Seller Account</li>
+        <li>Internet Connection</li>
+        <li>No Coding Experience Required</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>What's Included</h2>
+    <ul class="feature-list">
+        <li>Lifetime License — One-Time Purchase</li>
+        <li>Unlimited Daily Automatic Relisting</li>
+        <li>Exclude Feature — Control which items relist</li>
+        <li>Free Future Software Updates</li>
+        <li>Email Support</li>
+        <li>Simple Installation & Setup Guide</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>Frequently Asked Questions</h2>
+    <p>Have questions about installation, setup, licensing, account requirements, or how Relist Agent works?</p>
+    <div class="faq-link">
+        <a href="https://thetrashedpanda.com/relist-agent-faq/">Visit our FAQ page</a>
+    </div>
+</div>
+
+<div class="footer">
+    <h3>Disclaimer</h3>
+    <p>Relist Agent is an independent software tool and is not affiliated with, endorsed by, sponsored by,
+    or associated with eBay Inc. All trademarks and brand names are the property of their respective owners.</p>
+</div>
+
+</div>
+
+</body>
+</html>

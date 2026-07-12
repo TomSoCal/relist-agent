@@ -1,0 +1,369 @@
+================================================================================
+RELIST AGENT v1.5.0 — INSTALLATION GUIDE
+================================================================================
+
+Welcome! This guide will help you install Relist Agent v1.5.0 on your Windows
+computer for the first time.
+
+
+WHAT IS RELIST AGENT?
+================================================================================
+
+Relist Agent is a Windows application that automatically relists your eBay
+items at scheduled times. It helps you stay competitive by refreshing your
+listings without manual work.
+
+Key Features:
+✓ Automatic relisting on a schedule you choose
+✓ License-protected (your key, your computer)
+✓ Secure local storage of eBay API credentials
+✓ Auto-update checker to stay current
+✓ Email notifications when items are relisted
+✓ Detailed activity log for transparency
+
+
+SYSTEM REQUIREMENTS
+================================================================================
+
+• Windows 10 or Windows 11
+• Administrator rights (to install the scheduled task)
+• At least 100 MB free disk space
+• Internet connection (for license validation and eBay API calls)
+• An eBay seller account with API credentials
+
+
+BEFORE YOU START: GET YOUR LICENSE KEY
+================================================================================
+
+Relist Agent requires a license key to run. Each key is unique to your
+computer and prevents unauthorized sharing.
+
+1. Visit: https://thetrashedpanda.com/ or Check your email for the Order details Email
+2. If visiting the website click My Account > Orders > View. Your License Key will be here
+   If checking your email the order details email will contain your license key
+3. Copy your key (format: RA-XX-XXXXXXXX-XXXXXXXX)
+4. Keep it safe — you'll need it during installation
+
+
+STEP 1: DOWNLOAD RELIST AGENT v1.5.0
+================================================================================
+
+Your download link was provided in the email confirmation when you purchased
+Relist Agent. Check your email for "Order Details" or similar subject line.
+
+The email contains a direct download link to your copy of Relist Agent v1.5.0.
+
+If you lost or deleted the email:
+1. Go to: https://thetrashedpanda.com/
+2. Click My Account > Orders > View
+3. Find your Relist Agent purchase
+4. Click the download link provided there
+
+If you still cannot find the download link, contact support:
+Email: support@thetrashedpanda.com
+Include: Your name and order number
+Response: A download link will be provided within 24 hours
+
+
+STEP 2: EXTRACT THE ZIP FILE
+================================================================================
+
+1. Open Windows File Explorer
+2. Locate the downloaded ZIP file (likely in your Downloads folder)
+3. Right-click the ZIP file
+4. Click "Extract All..."
+5. Choose a location (e.g., C:\Relist Agent\)
+6. Click "Extract"
+
+
+STEP 3: CHOOSE INSTALLATION LOCATION
+================================================================================
+
+Decide where to install Relist Agent. Good locations:
+
+• C:\Program Files\Relist Agent\
+• C:\Users\[YourUsername]\AppData\Local\Relist Agent\
+• Any other folder you have full access to
+
+For simplicity, we'll use: C:\Relist Agent\
+
+1. Create a new folder named "Relist Agent" (if not already there)
+2. Move the extracted files into this folder
+3. You should see these files:
+   ✓ Relist Agent.exe
+   ✓ config.json (empty template)
+
+
+STEP 4: WINDOWS SMARTSCREEN WARNING
+================================================================================
+
+When you first run Relist Agent.exe, Windows may show:
+
+  "Windows Defender SmartScreen prevented an unrecognized app from starting.
+   Running this app might put your PC at risk."
+
+This is normal for apps downloaded from the internet. Relist Agent is safe.
+
+To proceed:
+1. Click "More info"
+2. Click "Run anyway"
+3. The warning won't appear again on that computer
+
+This warning does NOT mean the app is malicious.
+
+
+STEP 5: RUN RELIST AGENT
+================================================================================
+
+1. Navigate to your installation folder (e.g., C:\Relist Agent\)
+2. Double-click "Relist Agent.exe"
+3. The app will start and ask for your license key
+
+
+STEP 6: ACTIVATE YOUR LICENSE KEY
+================================================================================
+
+When the app opens for the first time:
+
+1. You'll see the "License Key" prompt
+2. Paste your license key from Step 1 (before you started)
+3. Click "Activate" or "Confirm"
+
+The app will:
+• Connect to the license server
+• Verify your key
+• Lock the key to this computer
+• Create your local config.json file
+
+If activation fails:
+• Check your internet connection
+• Verify you copied the key correctly
+• See "Troubleshooting" section below
+
+
+STEP 7: CONFIGURE YOUR eBay API CREDENTIALS
+================================================================================
+
+Relist Agent needs your eBay seller API credentials to work. These are stored
+locally in config.json (encrypted) on your computer only.
+
+To get your eBay credentials:
+
+1. Log in to your eBay Seller Center: https://sellercentre.ebay.com/
+2. Go to: Account > API Access
+3. Find your API credentials:
+   • App ID
+   • Certificate ID (Cert ID)
+   • Developer ID (Dev ID)
+   • RU Name (OAuth return URL)
+
+If you don't have API credentials:
+1. Go to: Account > API Access > Create an Application
+2. Follow eBay's setup wizard
+3. When asked for:
+   • "Your privacy policy URL" → use: https://thetrashedpanda.com/oauth/oauth.html
+   • "Your auth accepted URL" → use: https://thetrashedpanda.com/oauth/oauth.html
+4. Complete the wizard and copy your credentials
+
+
+To enter credentials in Relist Agent:
+
+1. Click Settings (gear icon)
+2. Click "Configure"
+3. Enter your eBay API credentials exactly as shown on eBay:
+   ✓ App ID (also called "Client ID")
+   ✓ Certificate ID (copy the entire value)
+   ✓ Developer ID (copy the entire value)
+   ✓ RU Name (OAuth return URL - copy exactly as provided by eBay)
+
+   IMPORTANT: Do not add spaces or modify these values
+
+4. Click "Next" or "Continue"
+
+
+STEP 8: SET UP EMAIL NOTIFICATIONS (OPTIONAL)
+================================================================================
+
+Relist Agent can email you when items are relisted. To enable:
+
+1. In Settings > Configure, find the "Email Settings" section
+2. Enter your Gmail address (or email provider)
+3. For Gmail users:
+   • Use your Gmail address
+   • DO NOT use your regular Gmail password
+   • Instead, create an "App Password" at: https://myaccount.google.com/apppasswords
+   • Use that App Password in the field
+4. Enter a "Report Email" (where notifications go)
+5. Click "Save"
+
+Test the email:
+• Click "Send Test Email"
+• Check your inbox
+
+
+STEP 9: SET UP THE SCHEDULED TASK
+================================================================================
+
+For automatic relisting at a set time:
+
+1. In the app, go to: Settings > Schedule
+2. Choose when you want relisting to happen (e.g., 2:00 AM)
+3. Click "Save"
+
+The app will create a Windows Scheduled Task. You can verify:
+
+1. Press Windows+R
+2. Type: taskschd.msc
+3. Press Enter
+4. Look for "eBayRelistAgent" in the task list
+
+The task will run automatically at your chosen time.
+
+
+STEP 10: TEST YOUR SETUP
+================================================================================
+
+Before relying on automatic relisting:
+
+1. Click "Relist Items" in the app
+2. Watch the Activity Log to see what happens
+3. Check your email to verify notifications work
+4. Review which items would be relisted
+
+If everything looks good, you're ready to go!
+
+
+TROUBLESHOOTING
+================================================================================
+
+Problem: "Invalid License Key"
+──────────────────────────────
+
+• Check the key format: RA-XX-XXXXXXXX-XXXXXXXX (24 characters)
+• Verify you copied the entire key correctly (including dashes)
+• Check your email confirmation or order details (see Step 1)
+• Ensure your computer has internet access
+• Contact support: support@thetrashedpanda.com with your name and order number
+
+
+Problem: "License already in use on another computer"
+──────────────────────────────────────────────────────
+
+• Your key is locked to one computer after first use
+• To move to a different computer, email: support@thetrashedpanda.com
+• Request a "license reset" (1 free reset per purchase)
+• After reset, you can activate on a new computer
+
+
+Problem: eBay Credentials Won't Save
+───────────────────────────────────────
+
+• Make sure you're using the exact values from eBay Seller Center
+• RU Name must match what you registered with eBay (usually your app name)
+• App ID, Cert ID, and Dev ID must have no extra spaces
+• Check the Activity Log (Settings > Activity Log) for specific errors
+
+
+Problem: Email Notifications Not Working
+────────────────────────────────────────────
+
+For Gmail:
+• Verify you're using an "App Password", not your Gmail password
+• App Passwords: https://myaccount.google.com/apppasswords
+• Make sure you enabled 2-factor authentication first
+• Check the Activity Log for SMTP errors
+
+For other email:
+• Verify your email address is correct
+• Check that you have the correct SMTP settings
+• Contact your email provider for SMTP settings if needed
+
+
+Problem: The App Won't Start / Keeps Closing
+───────────────────────────────────────────────
+
+• Check that you have Windows 10 or Windows 11
+• Verify you have administrator rights
+• Take a screenshot of any error message
+• Contact support@thetrashedpanda.com with:
+  • Your name and order number
+  • The screenshot of the error
+  • What you were trying to do
+
+
+Problem: Windows SmartScreen Warning
+──────────────────────────────────────
+
+• Click "More info"
+• Click "Run anyway"
+• This is normal for downloaded apps and is not a security risk
+
+
+GETTING HELP
+================================================================================
+
+If you encounter issues:
+
+1. Check the Troubleshooting section above
+2. Take a screenshot of the error message
+3. Contact support:
+
+   Email: support@thetrashedpanda.com
+   Subject: "Relist Agent v1.5.0 [Your Issue]"
+
+   Please include:
+   • What you were trying to do
+   • A screenshot of the error message
+   • Your name and order number
+   • Your operating system (Windows 10 or Windows 11)
+
+   We'll respond within 24 hours with a solution
+
+
+NEXT STEPS
+================================================================================
+
+Once you've completed setup:
+
+1. Test automatic relisting with "Relist Items" button
+2. Wait for your scheduled task to run (or run it manually to test)
+3. Check the Activity Log to confirm it worked
+4. Verify emails are being sent
+5. Monitor your eBay listings to see the results
+
+The app is now ready for automatic relisting!
+
+
+IMPORTANT NOTES
+================================================================================
+
+• Your eBay credentials are stored locally in config.json (encrypted)
+• Never share config.json or your license key
+• Your license key locks to this specific computer
+• If you change computers, you'll need a new key (or request a reset)
+• Scheduled tasks run even if you're not logged in
+• The app must stay installed for scheduled tasks to work
+
+
+SECURITY & PRIVACY
+================================================================================
+
+Relist Agent:
+✓ Stores credentials locally (NOT on external servers)
+✓ Communicates only with eBay servers and license servers
+✓ Never shares your data with third parties
+✓ Encrypts your credentials in config.json
+✓ Requires a license key to prevent unauthorized sharing
+
+Your data is yours. We don't sell or share it.
+
+
+THANKS FOR INSTALLING RELIST AGENT!
+================================================================================
+
+We hope Relist Agent helps you automate your eBay business. If you have
+feedback or feature requests:
+
+Email: support@thetrashedpanda.com
+
+Happy selling!

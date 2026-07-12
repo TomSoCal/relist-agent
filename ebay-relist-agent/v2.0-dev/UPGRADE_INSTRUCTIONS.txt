@@ -1,0 +1,312 @@
+================================================================================
+RELIST AGENT v1.5.0 — UPGRADE INSTRUCTIONS
+================================================================================
+
+Welcome to the Relist Agent v1.5.0 upgrade! This document guides you through
+updating from v1.0.3 (or any earlier version) to v1.5.0.
+
+WHAT'S NEW IN v1.5.0
+================================================================================
+
+✓ Auto-Update Checker — The app now checks for new versions on startup and
+  alerts you when updates are available. You can download new versions directly
+  from the app.
+
+✓ License System — Protect your purchase with unique license keys. Each key
+  locks to one computer to prevent sharing. Get your key from your order
+  confirmation email or account orders page at https://thetrashedpanda.com/
+
+✓ Window Management — The app prevents duplicate windows from opening. Click
+  a button twice and it brings up the existing window instead of creating a
+  new one.
+
+✓ Built-in Configuration Persistence — Your eBay API credentials are now
+  automatically saved in the encrypted config.json file (stored locally on
+  your computer only).
+
+✓ Improved UI/UX — About dialog updated with support contact info, better
+  error messages, and cleaner window layouts.
+
+
+SYSTEM REQUIREMENTS
+================================================================================
+
+• Windows 10 or Windows 11
+• Administrator rights (to register the scheduled task)
+• Internet connection (for license validation and eBay API calls)
+• At least 100 MB free disk space
+
+
+STEP 1: BACKUP YOUR CURRENT INSTALLATION
+================================================================================
+
+Before upgrading, back up your current v1.0.3 installation in case you need
+to roll back.
+
+1. Open Windows File Explorer
+2. Navigate to where you installed Relist Agent v1.0.3
+3. Create a copy of the folder (e.g., "Relist Agent v1.0.3 - BACKUP")
+4. Keep this backup safe
+
+
+STEP 2: DOWNLOAD v1.5.0
+================================================================================
+
+Option A: Using the App Update Checker (Recommended for v1.0.3+)
+
+1. Open your current Relist Agent
+2. Click "Check for Updates" button (if available)
+3. If v1.5.0 is available, you'll see a download option
+4. Click to download and save the ZIP file
+
+Option B: Manual Download
+
+1. Visit: https://thetrashedpanda.com/updates/
+2. Download "Relist-Agent-v1.5.0.zip"
+3. Extract the ZIP file to a temporary location
+
+
+STEP 3: PREPARE FOR INSTALLATION
+================================================================================
+
+1. Close the current Relist Agent (exit the app completely)
+2. Wait 5-10 seconds to ensure all processes terminate
+3. You may see a Windows SmartScreen warning during next step — see FAQ below
+
+
+STEP 4: INSTALL v1.5.0
+================================================================================
+
+From the extracted ZIP file:
+
+1. Extract "Relist Agent.exe" from the ZIP
+2. Navigate to your Relist Agent installation folder
+3. Rename the old "Relist Agent.exe" to "Relist Agent v1.0.3.exe" (optional,
+   for safety)
+4. Copy the new "Relist Agent.exe" into that folder
+
+Your config.json and existing settings will remain intact.
+
+
+STEP 5: GET A LICENSE KEY
+================================================================================
+
+v1.5.0 requires a license key to run. Each key is unique to your computer
+and prevents unauthorized sharing.
+
+1. Check your email for your order confirmation email, or visit
+   https://thetrashedpanda.com/ and click My Account > Orders > View
+2. Locate your Relist Agent license key (format: RA-XX-XXXXXXXX-XXXXXXXX)
+3. Copy your license key
+4. Keep this key safe — you'll need it below
+
+
+STEP 6: RUN v1.5.0 FOR THE FIRST TIME
+================================================================================
+
+1. Double-click "Relist Agent.exe"
+2. On first run, the app will ask for your license key
+3. Paste your key from Step 5 above
+4. Click "Activate" or "Submit"
+5. The app will validate your key with the server and activate
+
+If validation fails:
+• Check that you copied the key correctly (including dashes)
+• Ensure you have an internet connection
+• If the key was generated on another computer, you may need to reset it first
+  (see "License Key Issues" in FAQ below)
+
+
+STEP 7: RECONFIGURE YOUR eBay CREDENTIALS (If Needed)
+================================================================================
+
+In v1.5.0, your eBay API credentials (App ID, Cert ID, Dev ID, etc.) are
+encrypted and stored in config.json locally on your computer.
+
+If the app asks for your credentials:
+
+1. Go to Settings > Configure
+2. Enter your eBay API credentials:
+   • App ID
+   • Certificate ID
+   • Developer ID
+   • RU Name (OAuth return URL)
+3. Enter your Gmail account (for notification emails):
+   • Gmail email address
+   • Gmail App Password (not your regular password)
+   • Report email (who to notify)
+4. Click "Save"
+
+Your credentials are saved to config.json (encrypted) and stored locally only.
+
+
+STEP 8: SET UP THE SCHEDULED TASK
+================================================================================
+
+For automatic relisting:
+
+1. In the app, go to Settings > Schedule
+2. Choose your preferred time to run the relist (e.g., 2:00 AM)
+3. Click "Save"
+
+The app will register a Windows Scheduled Task that runs automatically at your
+chosen time. You can verify this in:
+
+Windows Task Scheduler > Task Scheduler Library > Look for "eBayRelistAgent"
+
+
+STEP 9: TEST YOUR SETUP
+================================================================================
+
+1. Click "Relist Items" to test that the app can connect to your eBay account
+2. Check your email to verify notifications are working
+3. Review the Activity Log to see what the app did
+
+All done! The app is now ready for automatic relisting.
+
+
+TROUBLESHOOTING / FAQ
+================================================================================
+
+Q1: Windows SmartScreen Warning
+────────────────────────────────
+
+A: Windows may show: "Windows Defender SmartScreen prevented an unrecognized
+app from starting. Running this app might put your PC at risk."
+
+This is normal for apps downloaded from the internet. The Relist Agent is
+safe — it's built by an independent developer and not signed by a major
+publisher.
+
+To proceed:
+1. Click "More info"
+2. Click "Run anyway"
+3. The warning won't appear again on that computer
+
+This warning does NOT mean the app is malicious.
+
+
+Q2: License Key Not Working
+────────────────────────────
+
+A: Common causes and fixes:
+
+Problem: "Invalid License Key"
+• Double-check the key format (RA-XX-XXXXXXXX-XXXXXXXX, 24 characters with dashes)
+• Make sure you copied the entire key correctly
+• Check your email confirmation or account orders page (see Step 5)
+• Contact support@thetrashedpanda.com with your name and order number
+
+Problem: "License already in use on another computer"
+• Each key locks to one computer on first use
+• If you need to move the key to a new computer:
+  1. Email: support@thetrashedpanda.com
+  2. Request a "license reset"
+  3. You get 1 free reset per purchase
+  4. After reset, the key will unlock and you can use it on a new computer
+
+Problem: "No internet connection" during license check
+• Ensure your computer has internet access
+• Check that your firewall isn't blocking the app
+
+
+Q3: The App Closed Without Warning
+────────────────────────────────────
+
+A: This usually means:
+1. License validation failed (no internet connection, invalid key, etc.)
+2. An error occurred during startup (check logs below)
+
+To get more details:
+• Take a screenshot of any error message that appeared
+• Email support@thetrashedpanda.com with:
+  - Your name and order number
+  - A screenshot of the error (if any)
+  - What you were trying to do when the error occurred
+
+
+Q4: Can I Use the Same Key on Multiple Computers?
+──────────────────────────────────────────────────
+
+A: No. Each license key is locked to a single computer on first use to
+prevent unauthorized sharing.
+
+If you own multiple computers and want to run the Relist Agent on each:
+• Purchase a separate license key for each computer
+• Contact support@thetrashedpanda.com with your name and order number
+
+
+Q5: Where Are My Settings Stored?
+──────────────────────────────────
+
+A: Your settings are saved in:
+
+  config.json  (in the same folder as Relist Agent.exe)
+
+This file contains:
+• eBay API credentials
+• Gmail login and email addresses
+• Your store name
+• Your license key
+
+Important: DO NOT share this file — it contains your personal credentials.
+
+To reset everything, you can delete config.json and the app will ask you to
+set up again on next run.
+
+
+Q6: How Do I Uninstall v1.5.0?
+───────────────────────────────
+
+A: To remove the app:
+
+1. Close the app
+2. Delete the installation folder
+3. (Optional) Open Windows Task Scheduler and delete the "eBayRelistAgent"
+   task:
+   • Start > Task Scheduler
+   • Find "eBayRelistAgent" under Task Scheduler Library
+   • Right-click > Delete
+
+
+Q7: Can I Downgrade to v1.0.3?
+────────────────────────────────
+
+A: Yes. If you created a backup (Step 1):
+
+1. Close v1.5.0
+2. Delete the config.json and license_debug.log from the v1.5.0 folder
+3. Copy your v1.0.3 backup folder contents back
+4. Run v1.0.3 again
+
+Your settings will return to what they were before the upgrade.
+
+
+GETTING HELP
+================================================================================
+
+If you encounter any issues:
+
+1. Check the FAQ above
+2. Take a screenshot of any error message
+3. Contact support:
+
+   Email: support@thetrashedpanda.com
+   Subject: "Relist Agent v1.5.0 [Your Issue]"
+
+   Please include:
+   • Your name and order number
+   • A screenshot of any error message
+   • Steps you took when the problem occurred
+   • Your operating system (Windows 10 or 11)
+
+
+THANKS FOR UPGRADING!
+================================================================================
+
+v1.5.0 brings important improvements for reliability, security, and ease of
+use. If you have feedback or feature requests, please reach out to:
+
+support@thetrashedpanda.com
+
+Happy relisting!
