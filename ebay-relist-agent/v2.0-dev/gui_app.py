@@ -2350,6 +2350,128 @@ TYPICAL WORKFLOW
     def open_inventory(self):
         InventoryWindow(self, self.app_config)
 
+    def upload_exclusion_file(self):
+        """Handle file upload for exclusions (CSV/XLS with Item IDs)"""
+        from tkinter import filedialog
+        file_path = filedialog.askopenfilename(
+            title="Select CSV or XLS file with Item IDs",
+            filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
+        if not file_path:
+            return
+
+        try:
+            items_to_add = []
+
+            if file_path.endswith('.csv'):
+                import csv
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        item_id = row.get('Item ID', row.get('item_id', row.get('ID', ''))).strip()
+                        if item_id:
+                            items_to_add.append(item_id)
+            else:  # XLS/XLSX
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(file_path)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        item_id = str(row[0] or '').strip() if row else ''
+                        if item_id and item_id.lower() != 'item id':
+                            items_to_add.append(item_id)
+                except ImportError:
+                    messagebox.showerror("Error", "openpyxl not installed. Please use CSV format instead.")
+                    return
+
+            # Add to treeview
+            for item_id in items_to_add:
+                # Check if item already exists
+                existing_ids = [self.exclusion_tree.item(child, "values")[0] for child in self.exclusion_tree.get_children()]
+                if item_id not in existing_ids:
+                    self.exclusion_tree.insert("", "end", values=(item_id, ""))
+
+            self.exclusion_file_var.set(f"Loaded {len(items_to_add)} items from {Path(file_path).name}")
+            messagebox.showinfo("Success", f"Added {len(items_to_add)} Item IDs from file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read file: {str(e)}")
+
+    def add_exclusion_item(self):
+        """Add single item ID to exclusions"""
+        if not self.exclusion_item_id:
+            return
+
+        item_id = self.exclusion_item_id.get().strip()
+        if item_id:
+            # Check if item already exists
+            existing_ids = [self.exclusion_tree.item(child, "values")[0] for child in self.exclusion_tree.get_children()]
+            if item_id in existing_ids:
+                messagebox.showwarning("Duplicate", f"Item ID {item_id} already in exclusion list")
+                return
+
+            # Add to treeview
+            self.exclusion_tree.insert("", "end", values=(item_id, ""))
+            self.exclusion_item_id.delete(0, tk.END)
+            messagebox.showinfo("Success", f"Added {item_id} to exclusion list")
+
+    def save_exclusions(self):
+        """Save exclusions to configuration"""
+        # Get all items from treeview
+        excluded_items = []
+        for child in self.exclusion_tree.get_children():
+            values = self.exclusion_tree.item(child, "values")
+            if values:
+                excluded_items.append(values[0])
+
+        if not excluded_items:
+            messagebox.showwarning("Empty", "No exclusions to save")
+            return
+
+        # Show confirmation
+        msg = f"""Save these exclusions?
+
+Items to exclude ({len(excluded_items)}):
+{', '.join(excluded_items[:5])}{'...' if len(excluded_items) > 5 else ''}
+"""
+        if messagebox.askyesno("Confirm Exclusions", msg):
+            self.app_config.update({
+                "excluded_item_ids": sorted(set(excluded_items)),
+            })
+            save_config(self.app_config)
+            messagebox.showinfo("Success", "Exclusion settings saved!")
+
+    def save_configure_settings(self):
+        """Save settings from Configure tab"""
+        self.app_config.update({
+            "app_id": self.configure_app_id.get(),
+            "dev_id": self.configure_dev_id.get(),
+            "cert_id": self.configure_cert_id.get(),
+            "ru_name": self.configure_ru_name.get(),
+            "gmail_email": self.configure_gmail_email.get(),
+            "gmail_app_password": self.configure_gmail_pass.get(),
+            "report_email": self.configure_report_email.get(),
+            "store_name": self.configure_store_name.get(),
+            "log_days": int(self.configure_log_days.get()),
+            "listings_per_run": int(self.configure_listings_per_run.get()),
+            "run_hour": int(self.configure_run_hour.get()),
+            "run_minute": int(self.configure_run_minute.get()),
+        })
+        save_config(self.app_config)
+        messagebox.showinfo("Success", "Settings saved!")
+
+    def clear_cache(self):
+        """Clear the progress.json file to remove stale progress data"""
+        progress_file = BASE_DIR / "progress.json"
+
+        try:
+            if progress_file.exists():
+                progress_file.unlink()
+                messagebox.showinfo("Success", "Progress cache cleared.\n\nStale progress data has been removed.")
+            else:
+                messagebox.showinfo("Info", "No cache to clear.\n\nProgress cache is already empty.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not clear cache: {e}")
+
 
 class InventoryWindow(tk.Toplevel):
     instance = None
