@@ -1184,84 +1184,92 @@ class MainApp(tk.Tk):
         nav_divider.pack(fill="x", pady=10)
 
         # ===== CONFIGURE TAB CONTENT =====
-        # Scrollable frame for configure content
-        configure_scroll = ttk.Frame(self.configure_tab)
-        configure_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        # 3-row horizontal layout: store name (top) / two columns (middle) / buttons (bottom)
+        configure_container = ttk.Frame(self.configure_tab)
+        configure_container.pack(fill="both", expand=True, padx=15, pady=15)
 
-        # Canvas with scrollbar for configure content
-        canvas = tk.Canvas(configure_scroll, bg=BG_PRIMARY, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(configure_scroll, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # ----- TOP ROW: Store Name (large, centered) -----
+        store_name_frame = ttk.Frame(configure_container)
+        store_name_frame.pack(fill="x", pady=(0, 15))
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        def _on_configure_mousewheel(event):
-            if event.num == 5 or event.delta < 0:
-                canvas.yview_scroll(3, "units")
-            elif event.num == 4 or event.delta > 0:
-                canvas.yview_scroll(-3, "units")
-        canvas.bind("<MouseWheel>", _on_configure_mousewheel)
-        canvas.bind("<Button-4>", _on_configure_mousewheel)
-        canvas.bind("<Button-5>", _on_configure_mousewheel)
-
-        # API Credentials section
-        ttk.Label(scrollable_frame, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
-
-        ttk.Label(scrollable_frame, text="App ID:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_app_id = ttk.Entry(scrollable_frame, width=40, show="*")
-        self.configure_app_id.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_app_id.insert(0, self.app_config.get("app_id", ""))
-
-        ttk.Label(scrollable_frame, text="Dev ID:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_dev_id = ttk.Entry(scrollable_frame, width=40, show="*")
-        self.configure_dev_id.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_dev_id.insert(0, self.app_config.get("dev_id", ""))
-
-        ttk.Label(scrollable_frame, text="Cert ID:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_cert_id = ttk.Entry(scrollable_frame, width=40, show="*")
-        self.configure_cert_id.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_cert_id.insert(0, self.app_config.get("cert_id", ""))
-
-        ttk.Label(scrollable_frame, text="RU Name:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_ru_name = ttk.Entry(scrollable_frame, width=40)
-        self.configure_ru_name.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_ru_name.insert(0, self.app_config.get("ru_name", ""))
-
-        # Email section
-        ttk.Label(scrollable_frame, text="Email Configuration", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 10))
-
-        ttk.Label(scrollable_frame, text="Gmail Email:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_gmail_email = ttk.Entry(scrollable_frame, width=40)
-        self.configure_gmail_email.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_gmail_email.insert(0, self.app_config.get("gmail_email", ""))
-
-        ttk.Label(scrollable_frame, text="Gmail App Password:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_gmail_pass = ttk.Entry(scrollable_frame, width=40, show="*")
-        self.configure_gmail_pass.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_gmail_pass.insert(0, self.app_config.get("gmail_app_password", ""))
-
-        ttk.Label(scrollable_frame, text="Report Sent To:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_report_email = ttk.Entry(scrollable_frame, width=40)
-        self.configure_report_email.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_report_email.insert(0, self.app_config.get("report_email", ""))
-
-        ttk.Label(scrollable_frame, text="Store Name:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_store_name = ttk.Entry(scrollable_frame, width=40)
-        self.configure_store_name.pack(anchor="w", padx=10, pady=(0, 8))
+        ttk.Label(store_name_frame, text="Store Name", font=("Arial", 10, "bold")).pack(anchor="center")
+        self.configure_store_name = ttk.Entry(store_name_frame, width=40, font=("Arial", 16), justify="center")
+        self.configure_store_name.pack(anchor="center", pady=(5, 0))
         self.configure_store_name.insert(0, self.app_config.get("store_name", ""))
 
-        # Schedule section
-        ttk.Label(scrollable_frame, text="Schedule", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 10))
+        top_divider = tk.Frame(configure_container, height=1, bg=BG_TERTIARY)
+        top_divider.pack(fill="x", pady=(0, 15))
 
-        ttk.Label(scrollable_frame, text="Run Time (HH:MM):").pack(anchor="w", padx=10, pady=(0, 3))
-        time_frame = ttk.Frame(scrollable_frame)
-        time_frame.pack(anchor="w", padx=10, pady=(0, 8))
+        # ----- MIDDLE ROW: Two columns -----
+        columns_frame = ttk.Frame(configure_container)
+        columns_frame.pack(fill="both", expand=True)
+        columns_frame.columnconfigure(0, weight=1, uniform="configure_col")
+        columns_frame.columnconfigure(1, weight=1, uniform="configure_col")
+
+        left_col = ttk.Frame(columns_frame)
+        left_col.grid(row=0, column=0, sticky="new", padx=(0, 25))
+
+        right_col = ttk.Frame(columns_frame)
+        right_col.grid(row=0, column=1, sticky="new", padx=(25, 0))
+
+        # --- LEFT COLUMN: Email Configuration + API Credentials ---
+        ttk.Label(left_col, text="Email Configuration", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(left_col, text="Gmail Email:").pack(anchor="w", pady=(0, 3))
+        self.configure_gmail_email = ttk.Entry(left_col, width=35)
+        self.configure_gmail_email.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_gmail_email.insert(0, self.app_config.get("gmail_email", ""))
+
+        ttk.Label(left_col, text="Gmail App Password:").pack(anchor="w", pady=(0, 3))
+        self.configure_gmail_pass = ttk.Entry(left_col, width=35, show="*")
+        self.configure_gmail_pass.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_gmail_pass.insert(0, self.app_config.get("gmail_app_password", ""))
+
+        ttk.Label(left_col, text="Report Sent To:").pack(anchor="w", pady=(0, 3))
+        self.configure_report_email = ttk.Entry(left_col, width=35)
+        self.configure_report_email.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_report_email.insert(0, self.app_config.get("report_email", ""))
+
+        ttk.Label(left_col, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(12, 10))
+
+        ttk.Label(left_col, text="App ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_app_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_app_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_app_id.insert(0, self.app_config.get("app_id", ""))
+
+        ttk.Label(left_col, text="Dev ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_dev_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_dev_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_dev_id.insert(0, self.app_config.get("dev_id", ""))
+
+        ttk.Label(left_col, text="Cert ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_cert_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_cert_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_cert_id.insert(0, self.app_config.get("cert_id", ""))
+
+        ttk.Label(left_col, text="RU Name:").pack(anchor="w", pady=(0, 3))
+        self.configure_ru_name = ttk.Entry(left_col, width=35)
+        self.configure_ru_name.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_ru_name.insert(0, self.app_config.get("ru_name", ""))
+
+        # --- RIGHT COLUMN: Execution Settings + Schedule ---
+        ttk.Label(right_col, text="Execution Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(right_col, text="Log Days to Display:").pack(anchor="w", pady=(0, 3))
+        self.configure_log_days = ttk.Spinbox(right_col, from_=1, to=30, width=10)
+        self.configure_log_days.pack(anchor="w", pady=(0, 8))
+        self.configure_log_days.set(self.app_config.get("log_days", 3))
+
+        ttk.Label(right_col, text="Listings to Execute Per Run:").pack(anchor="w", pady=(0, 3))
+        self.configure_listings_per_run = ttk.Spinbox(right_col, from_=1, to=50, width=10)
+        self.configure_listings_per_run.pack(anchor="w", pady=(0, 8))
+        self.configure_listings_per_run.set(self.app_config.get("listings_per_run", 10))
+
+        ttk.Label(right_col, text="Schedule", font=("Arial", 10, "bold")).pack(anchor="w", pady=(12, 10))
+
+        ttk.Label(right_col, text="Run Time (HH:MM):").pack(anchor="w", pady=(0, 3))
+        time_frame = ttk.Frame(right_col)
+        time_frame.pack(anchor="w", pady=(0, 8))
 
         self.configure_run_hour = ttk.Spinbox(time_frame, from_=0, to=23, width=3)
         self.configure_run_hour.pack(side="left")
@@ -1271,19 +1279,9 @@ class MainApp(tk.Tk):
         self.configure_run_hour.set(self.app_config.get("run_hour", 12))
         self.configure_run_minute.set(self.app_config.get("run_minute", 0))
 
-        ttk.Label(scrollable_frame, text="Log Days to Display:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_log_days = ttk.Spinbox(scrollable_frame, from_=1, to=30, width=10)
-        self.configure_log_days.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_log_days.set(self.app_config.get("log_days", 3))
-
-        ttk.Label(scrollable_frame, text="Listings to Execute Per Run:").pack(anchor="w", padx=10, pady=(0, 3))
-        self.configure_listings_per_run = ttk.Spinbox(scrollable_frame, from_=1, to=50, width=10)
-        self.configure_listings_per_run.pack(anchor="w", padx=10, pady=(0, 8))
-        self.configure_listings_per_run.set(self.app_config.get("listings_per_run", 10))
-
-        ttk.Label(scrollable_frame, text="Days to Run:").pack(anchor="w", padx=10, pady=(0, 3))
-        configure_days_frame = tk.Frame(scrollable_frame, bg=BG_PRIMARY)
-        configure_days_frame.pack(anchor="w", padx=10, pady=(0, 8))
+        ttk.Label(right_col, text="Days to Run:").pack(anchor="w", pady=(0, 3))
+        configure_days_frame = tk.Frame(right_col, bg=BG_PRIMARY)
+        configure_days_frame.pack(anchor="w", pady=(0, 8))
 
         _days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         _configured_run_days = self.app_config.get("run_days", _days_of_week)
@@ -1297,17 +1295,17 @@ class MainApp(tk.Tk):
                                font=("Arial", 10), relief="flat", borderwidth=0)
             cb.grid(row=i // 4, column=i % 4, sticky="w", padx=5, pady=3)
 
-        # Buttons
-        button_frame = ttk.Frame(scrollable_frame)
-        button_frame.pack(fill="x", pady=(20, 0), padx=10)
+        # ----- BOTTOM ROW: Buttons -----
+        bottom_divider = tk.Frame(configure_container, height=1, bg=BG_TERTIARY)
+        bottom_divider.pack(fill="x", pady=(20, 15))
+
+        button_frame = ttk.Frame(configure_container)
+        button_frame.pack(fill="x")
 
         ttk.Button(button_frame, text="Save Configuration", command=self.save_configure_settings).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Authorize Now", command=self.configure_oauth_auth).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Test Email", command=self.test_email).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear Cache", command=self.clear_cache).pack(side="left", padx=5)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
 
         # ===== LEFT SIDEBAR CONTENT: logo, store name, live status/progress =====
 
