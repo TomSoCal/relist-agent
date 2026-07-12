@@ -88,23 +88,36 @@ def get_admin_prefs_file():
 
 
 def load_admin_prefs():
-    """Load admin preferences (skip future prompts)"""
-    prefs_file = get_admin_prefs_file()
-    if prefs_file.exists():
-        try:
-            with open(prefs_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return {"skip_admin_prompt": False, "skip_uac_prompt": False}
+    """Load admin preferences from config.json"""
+    try:
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                return {
+                    "skip_admin_prompt": cfg.get("skip_admin_prompt", False),
+                    "schedule_updated_before": cfg.get("schedule_updated_before", False)
+                }
+    except:
+        pass
+    return {"skip_admin_prompt": False, "schedule_updated_before": False}
 
 
 def save_admin_prefs(prefs):
-    """Save admin preferences"""
-    prefs_file = get_admin_prefs_file()
-    prefs_file.parent.mkdir(exist_ok=True)
-    with open(prefs_file, "w", encoding="utf-8") as f:
-        json.dump(prefs, f, indent=2)
+    """Save admin preferences to config.json"""
+    try:
+        cfg = {}
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+
+        # Update with new prefs
+        cfg.update(prefs)
+
+        # Save back
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        pass
 
 
 def is_admin():
@@ -140,111 +153,69 @@ def restart_as_admin():
         messagebox.showerror("Error", f"Could not restart as admin:\n{e}")
 
 
-class AdminPromptDialog(tk.Toplevel):
-    """Custom dialog for admin prompt with 'Don't Ask Again' option"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.title("Admin Setup Required")
-        self.geometry("450x250")
-        self.resizable(False, False)
-        self.result = None
-        self.dont_ask_again = False
-
-        # Set icon
-        try:
-            ico_path = BASE_DIR / "ERA_Icon.ico"
-            if ico_path.exists():
-                self.iconbitmap(str(ico_path))
-        except:
-            pass
-
-        # Make dialog modal
-        self.transient(parent)
-        self.grab_set()
-
-        # Main frame
-        main_frame = ttk.Frame(self)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Message
-        msg_frame = ttk.Frame(main_frame)
-        msg_frame.pack(fill="both", expand=True, pady=(0, 15))
-
-        msg_text = (
-            "eBay Relist Agent needs admin privileges to configure\n"
-            "Windows Task Scheduler for automatic runs.\n\n"
-            "Restart the app as admin?\n\n"
-            "After restart, settings changes will update automatically."
-        )
-        msg_label = ttk.Label(msg_frame, text=msg_text, justify="left")
-        msg_label.pack(anchor="w")
-
-        # Checkbox for "Don't Ask Again"
-        self.checkbox_var = tk.BooleanVar()
-        checkbox = ttk.Checkbutton(
-            main_frame,
-            text="Don't ask again",
-            variable=self.checkbox_var
-        )
-        checkbox.pack(anchor="w", pady=(0, 15))
-
-        # Button frame
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill="x")
-
-        yes_btn = ttk.Button(btn_frame, text="Yes, Restart as Admin", command=self.on_yes)
-        yes_btn.pack(side="left", padx=(0, 5))
-
-        no_btn = ttk.Button(btn_frame, text="No, Skip", command=self.on_no)
-        no_btn.pack(side="left")
-
-        # Center window on screen
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (self.winfo_width() // 2)
-        y = (self.winfo_screenheight() // 2) - (self.winfo_height() // 2)
-        self.geometry(f"+{x}+{y}")
-
-    def on_yes(self):
-        self.result = True
-        self.dont_ask_again = self.checkbox_var.get()
-        self.destroy()
-
-    def on_no(self):
-        self.result = False
-        self.dont_ask_again = self.checkbox_var.get()
-        self.destroy()
-
-
 def check_admin_on_startup():
     """Check if admin is needed and show popup if necessary"""
+    # Log startup
+    debug_file = DATA_DIR / "admin_debug.log"
+    try:
+        with open(debug_file, "a", encoding="utf-8") as f:
+            f.write(f"[{__import__('datetime').datetime.now()}] check_admin_on_startup() called\n")
+    except:
+        pass
+
     admin_prefs = load_admin_prefs()
+
+    # Log prefs
+    try:
+        with open(debug_file, "a", encoding="utf-8") as f:
+            f.write(f"[{__import__('datetime').datetime.now()}] admin_prefs: {admin_prefs}\n")
+    except:
+        pass
 
     # Skip if user previously selected "Don't Ask Again"
     if admin_prefs.get("skip_admin_prompt"):
+        try:
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"[{__import__('datetime').datetime.now()}] Skipping admin prompt (user chose not to ask again)\n")
+        except:
+            pass
         return
 
     if not is_admin():
-        # Create root window temporarily for dialog
-        root = tk.Tk()
-        root.withdraw()  # Hide it
+        msg = (
+            "eBay Relist Agent needs admin privileges to configure\n"
+            "Windows Task Scheduler for automatic runs.\n\n"
+            "Yes = Restart as admin\n"
+            "No = Skip this check (and don't ask again)\n\n"
+            "After restart, settings changes will update automatically."
+        )
+        result = messagebox.askyesno(
+            "Admin Setup Required",
+            msg,
+            icon=messagebox.QUESTION
+        )
 
-        dialog = AdminPromptDialog(root)
-        root.wait_window(dialog)
-
-        result = dialog.result
-        dont_ask_again = dialog.dont_ask_again
-
-        root.destroy()
-
-        if dont_ask_again:
-            admin_prefs["skip_admin_prompt"] = True
-            save_admin_prefs(admin_prefs)
+        try:
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"[{__import__('datetime').datetime.now()}] User selected: {result}\n")
+        except:
+            pass
 
         if result:
             restart_as_admin()
         else:
+            # User clicked "No" - mark to not ask again
+            admin_prefs["skip_admin_prompt"] = True
+            try:
+                with open(debug_file, "a", encoding="utf-8") as f:
+                    f.write(f"[{__import__('datetime').datetime.now()}] Saving prefs: skip_admin_prompt=True\n")
+            except:
+                pass
+            save_admin_prefs(admin_prefs)
+
             messagebox.showinfo(
                 "Limited Functionality",
+                "Admin check disabled.\n\n"
                 "The app will run, but you won't be able to\n"
                 "configure automatic scheduling.\n\n"
                 "You can still use 'Run Now' manually."
