@@ -1457,6 +1457,19 @@ class MainApp(tk.Tk):
         else:
             tk.Button(log_header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
 
+        # Tips/warnings section (moved from the old Status tab)
+        tips_frame = tk.Frame(self.logs_tab, bg=WARNING_BG, relief="solid", borderwidth=1, highlightbackground=YELLOW_WARNING, highlightthickness=1)
+        tips_frame.pack(fill="x", padx=0, pady=(0, 10))
+
+        tk.Label(tips_frame, text="⏱️ Each listing takes 1-2 minutes (delists before relisting)",
+                 bg=WARNING_BG, fg=TEXT_SECONDARY, font=("Arial", 9), justify="left", anchor="w").pack(fill="x", padx=10, pady=(8, 2))
+        tk.Label(tips_frame, text="\U0001f504 If you see a stalled 'Completed' item, click Refresh to clear it",
+                 bg=WARNING_BG, fg=TEXT_SECONDARY, font=("Arial", 9), justify="left", anchor="w").pack(fill="x", padx=10, pady=2)
+        tk.Label(tips_frame, text="⚠️ Scheduled tasks: Log updates AFTER the run completes (not live)",
+                 bg=WARNING_BG, fg=YELLOW_WARNING, font=("Arial", 9, "bold"), justify="left", anchor="w").pack(fill="x", padx=10, pady=2)
+        tk.Label(tips_frame, text="▶️ Click 'Run Now' to see real-time progress",
+                 bg=WARNING_BG, fg=TEXT_SECONDARY, font=("Arial", 9), justify="left", anchor="w").pack(fill="x", padx=10, pady=(2, 8))
+
         # Log area
         log_frame = tk.LabelFrame(self.logs_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
         log_frame.pack(fill="both", expand=True)
