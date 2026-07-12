@@ -1214,9 +1214,30 @@ class MainApp(tk.Tk):
         self.overall_progress_bar = ttk.Progressbar(self.status_tab, length=150, mode="determinate", value=0)
         self.overall_progress_bar.pack(anchor="w", fill="x")
 
-        # Auxiliary button bar (will be filled in a later task)
+        # Action buttons
+        action_frame = ttk.Frame(self.status_tab)
+        action_frame.pack(fill="x", pady=(20, 0), padx=10)
+
+        self.run_button = ttk.Button(action_frame, text="Run Now", command=self.run_agent, width=14)
+        self.run_button.pack(fill="x", pady=3)
+        ttk.Button(action_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
+        self.refresh_btn = ttk.Button(action_frame, text="Refresh", command=self.refresh_log, width=14)
+        self.refresh_btn.pack(fill="x", pady=3)
+        ttk.Button(action_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
+
+        self.retry_button = ttk.Button(action_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
+        self.retry_button.pack(fill="x", pady=3)
+
+        # Auxiliary button bar (fixed, visible from all tabs)
         self.button_frame = ttk.Frame(self)
         self.button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+
+        ttk.Button(self.button_frame, text="Instructions", command=self.show_instructions, width=14).pack(side="left", padx=3)
+        ttk.Button(self.button_frame, text="About", command=self.show_about, width=14).pack(side="left", padx=3)
+        self.update_button = ttk.Button(self.button_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
+        self.update_button.pack(side="left", padx=3)
+        ttk.Button(self.button_frame, text="Stop Service", command=self.stop_service, width=14).pack(side="left", padx=3)
+        ttk.Button(self.button_frame, text="Exit", command=self.quit, width=14).pack(side="left", padx=3)
 
         # Configure Treeview style for dark theme (kept here since it's a global style,
         # not tied to a specific frame; used once Logs/Exclusions tabs are populated)
