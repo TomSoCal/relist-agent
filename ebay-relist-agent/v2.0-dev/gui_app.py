@@ -1081,7 +1081,7 @@ class MainApp(tk.Tk):
         self.after(500, self.bring_to_front)
         self.after(1000, self.bring_to_front)
         self.after(1500, self.bring_to_front)
-        self.geometry("700x500")
+        self.geometry("1400x850")
         self.app_config = load_config()
 
         # Configure window background
@@ -1185,8 +1185,33 @@ class MainApp(tk.Tk):
 
         # ===== CONFIGURE TAB CONTENT =====
         # 3-row horizontal layout: store name (top) / two columns (middle) / buttons (bottom)
-        configure_container = ttk.Frame(self.configure_tab)
-        configure_container.pack(fill="both", expand=True, padx=15, pady=15)
+        # Wrapped in a scrollable canvas so nothing is clipped if the window is
+        # resized smaller than the content (same pattern as the Inventory tab's canvas).
+        configure_canvas = tk.Canvas(self.configure_tab, bg=BG_PRIMARY, highlightthickness=0)
+        configure_scrollbar = ttk.Scrollbar(self.configure_tab, orient="vertical", command=configure_canvas.yview)
+        configure_container = ttk.Frame(configure_canvas, padding=15)
+
+        def _configure_on_frame_configure(event=None):
+            configure_canvas.configure(scrollregion=configure_canvas.bbox("all"))
+            canvas_width = configure_canvas.winfo_width()
+            if canvas_width > 1:
+                configure_canvas.itemconfig(configure_canvas_window, width=canvas_width)
+
+        def _configure_on_mousewheel(event):
+            if event.num == 5 or getattr(event, "delta", 0) < 0:
+                configure_canvas.yview_scroll(3, "units")
+            elif event.num == 4 or getattr(event, "delta", 0) > 0:
+                configure_canvas.yview_scroll(-3, "units")
+
+        configure_container.bind("<Configure>", _configure_on_frame_configure)
+        configure_canvas_window = configure_canvas.create_window((0, 0), window=configure_container, anchor="nw")
+        configure_canvas.configure(yscrollcommand=configure_scrollbar.set)
+        configure_canvas.bind("<MouseWheel>", _configure_on_mousewheel)
+        configure_canvas.bind("<Button-4>", _configure_on_mousewheel)
+        configure_canvas.bind("<Button-5>", _configure_on_mousewheel)
+
+        configure_canvas.pack(side="left", fill="both", expand=True)
+        configure_scrollbar.pack(side="right", fill="y")
 
         # ----- TOP ROW: Store Name (large, centered) -----
         store_name_frame = ttk.Frame(configure_container)
