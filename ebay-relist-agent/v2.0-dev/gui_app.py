@@ -1142,16 +1142,18 @@ class MainApp(tk.Tk):
         self.tabs = ttk.Notebook(self)
         self.tabs.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
 
-        # Create 4 tab frames
+        # Create 5 tab frames
         self.configure_tab = ttk.Frame(self.tabs)
         self.exclusions_tab = ttk.Frame(self.tabs)
         self.logs_tab = ttk.Frame(self.tabs)
         self.inventory_tab = ttk.Frame(self.tabs)
+        self.viewlog_tab = ttk.Frame(self.tabs)
 
         # Add tabs to notebook
         self.tabs.add(self.logs_tab, text="Main")
         self.tabs.add(self.inventory_tab, text="Inventory")
         self.tabs.add(self.exclusions_tab, text="Exclusions")
+        self.tabs.add(self.viewlog_tab, text="View Log")
         self.tabs.add(self.configure_tab, text="Configure")
 
         # ===== RIGHT SIDEBAR CONTENT: Tab Navigation (replaces the notebook tab bar) =====
@@ -1160,13 +1162,15 @@ class MainApp(tk.Tk):
             "exclusions": self.exclusions_tab,
             "logs": self.logs_tab,
             "inventory": self.inventory_tab,
+            "viewlog": self.viewlog_tab,
         }
         self.nav_buttons = {}
 
         ttk.Label(right_frame, text="Navigate", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
         for key, label in (("logs", "Main"), ("inventory", "Inventory"),
-                            ("exclusions", "Exclusions"), ("configure", "Configure")):
+                            ("exclusions", "Exclusions"), ("viewlog", "View Log"),
+                            ("configure", "Configure")):
             nav_btn = tk.Button(
                 right_frame, text=label, width=14, relief="flat", borderwidth=0,
                 bg=BG_TERTIARY, fg=TEXT_SECONDARY, activebackground=BLUE_HOVER,
@@ -1390,7 +1394,6 @@ class MainApp(tk.Tk):
         self.run_button.pack(fill="x", pady=3)
         self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
         self.refresh_btn.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Test Email", command=self.test_email, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
@@ -1674,6 +1677,64 @@ class MainApp(tk.Tk):
         inv_scrollbar.grid(row=0, column=1, sticky="ns")
 
         self.inv_tree = None  # Keep for compatibility
+
+        # ===== VIEW LOG TAB CONTENT =====
+        # (Consolidated from the old LogViewerWindow popup — same layout, widgets, and methods)
+
+        # Header with title and guide icon
+        viewlog_header = ttk.Frame(self.viewlog_tab)
+        viewlog_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(viewlog_header, text="Log Viewer", font=("Arial", 12, "bold")).pack(side="left")
+        viewlog_icon = get_info_icon(24)
+        if viewlog_icon:
+            tk.Button(viewlog_header, image=viewlog_icon, command=self.viewlog_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(viewlog_header, text="ⓘ", command=self.viewlog_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+
+        # Filter frame
+        viewlog_filter_frame = tk.LabelFrame(self.viewlog_tab, text="Filter", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
+        viewlog_filter_frame.pack(fill="x", padx=10, pady=10)
+
+        ttk.Label(viewlog_filter_frame, text="From Date:").grid(row=0, column=0, sticky="w")
+        self.viewlog_from_date = ttk.Entry(viewlog_filter_frame, width=15)
+        self.viewlog_from_date.grid(row=0, column=1, sticky="w", padx=5)
+        self.viewlog_from_date.insert(0, "2026-01-01")
+
+        ttk.Label(viewlog_filter_frame, text="To Date:").grid(row=0, column=2, sticky="w")
+        self.viewlog_to_date = ttk.Entry(viewlog_filter_frame, width=15)
+        self.viewlog_to_date.grid(row=0, column=3, sticky="w", padx=5)
+        self.viewlog_to_date.insert(0, "2099-12-31")
+
+        ttk.Label(viewlog_filter_frame, text="Status:").grid(row=0, column=4, sticky="w")
+        self.viewlog_status_var = tk.StringVar(value="All")
+        viewlog_status_box = ttk.Combobox(viewlog_filter_frame, textvariable=self.viewlog_status_var, values=["All", "Relisted", "Error"], width=10)
+        viewlog_status_box.grid(row=0, column=5, sticky="w", padx=5)
+
+        ttk.Label(viewlog_filter_frame, text="Search:").grid(row=0, column=6, sticky="w")
+        self.viewlog_search = ttk.Entry(viewlog_filter_frame, width=20)
+        self.viewlog_search.grid(row=0, column=7, sticky="w", padx=5)
+
+        ttk.Button(viewlog_filter_frame, text="Apply Filter", command=self.viewlog_apply_filter).grid(row=0, column=8, padx=5)
+        ttk.Button(viewlog_filter_frame, text="\U0001f504 Refresh", command=self.viewlog_refresh).grid(row=0, column=9, padx=5)
+        ttk.Button(viewlog_filter_frame, text="Export CSV", command=self.viewlog_export).grid(row=0, column=10, padx=5)
+
+        # Table frame
+        viewlog_table_frame = tk.LabelFrame(self.viewlog_tab, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
+        viewlog_table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Text widget for log (with built-in scrollbars)
+        self.viewlog_display = scrolledtext.ScrolledText(viewlog_table_frame, height=20, width=100, bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
+        self.viewlog_display.pack(fill="both", expand=True)
+
+        # Load all data
+        self.viewlog_all_entries = []
+        self.viewlog_filtered_entries = []
+        self.viewlog_last_modify_time = 0
+        self.viewlog_load_all_entries()
+        self.viewlog_apply_filter()
+
+        # Auto-refresh log every 2 seconds
+        self.viewlog_auto_refresh()
 
         # Load items in background
         threading.Thread(target=self.inv_load_items, daemon=True).start()
@@ -2210,7 +2271,160 @@ class MainApp(tk.Tk):
         self.after(1000, self.monitor_progress)  # Update every 1 second
 
     def open_log_viewer(self):
+        # Deprecated: View Log is now a tab (see viewlog_* methods below).
+        # Kept for backwards compatibility only — not used by the UI.
         LogViewerWindow(self)
+
+    def viewlog_load_all_entries(self):
+        try:
+            if not LOG_FILE.exists():
+                return
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                self.viewlog_all_entries = json.load(f)
+        except Exception as e:
+            self.viewlog_display.insert("end", f"Error loading log: {e}\n")
+
+    def viewlog_refresh(self):
+        """Reload log entries and reapply filters"""
+        self.viewlog_load_all_entries()
+        self.viewlog_apply_filter()
+
+    def viewlog_auto_refresh(self):
+        """Auto-refresh the View Log tab if the log file has been modified"""
+        try:
+            if LOG_FILE.exists():
+                current_modify_time = LOG_FILE.stat().st_mtime
+                if current_modify_time > self.viewlog_last_modify_time:
+                    self.viewlog_last_modify_time = current_modify_time
+                    self.viewlog_load_all_entries()
+                    self.viewlog_apply_filter()
+        except:
+            pass
+
+        # Schedule next refresh in 2 seconds
+        if self.winfo_exists():
+            self.after(2000, self.viewlog_auto_refresh)
+
+    def viewlog_apply_filter(self):
+        from_date = self.viewlog_from_date.get()
+        to_date = self.viewlog_to_date.get()
+        status = self.viewlog_status_var.get()
+        search = self.viewlog_search.get().lower()
+
+        self.viewlog_display.config(state="normal")
+        self.viewlog_display.delete(1.0, "end")
+
+        filtered = [
+            e for e in self.viewlog_all_entries
+            if (from_date <= e.get("date", "") <= to_date) and
+               (status == "All" or e.get("status", "").capitalize() == status) and
+               (search == "" or search in str(e.get("title", "")).lower() or
+                search in str(e.get("item_id", "")).lower() or
+                search in str(e.get("old_item_id", "")).lower())
+        ]
+
+        # Entries (sorted newest first)
+        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+        self.viewlog_filtered_entries = sorted_entries  # Keep for Export CSV
+
+        if not filtered:
+            self.viewlog_display.insert("end", "No matching entries.\n")
+            self.viewlog_display.config(state="disabled")
+            return
+
+        # Header
+        self.viewlog_display.insert("end", f"{'Started':<20} {'Completed':<20} {'Status':<10} {'Old Item':<15} {'Title':<35}\n")
+        self.viewlog_display.insert("end", "=" * 110 + "\n")
+
+        for entry in sorted_entries:
+            start_time = entry.get("start_time", "?")
+            end_time = entry.get("end_time", "?")
+            status = entry.get("status", "?")
+            old_id = entry.get("old_item_id") or entry.get("item_id", "?")
+            title = entry.get("title", "")[:33]
+            reason = entry.get("reason", "")
+
+            if status == "relisted":
+                self.viewlog_display.insert("end", f"{start_time:<20} {end_time:<20} {status:<10} {old_id:<15} {title:<35}\n")
+            else:
+                self.viewlog_display.insert("end", f"{start_time:<20} {end_time:<20} {status:<10} {old_id:<15} {title:<35}\n")
+                if reason:
+                    self.viewlog_display.insert("end", f"{'':40} Error: {reason}\n")
+
+        self.viewlog_display.config(state="disabled")
+
+    def viewlog_export(self):
+        """Export the currently filtered View Log entries to a CSV file"""
+        if not self.viewlog_filtered_entries:
+            messagebox.showinfo("Export CSV", "No matching entries to export.")
+            return
+
+        from tkinter import filedialog
+        import csv
+        from datetime import datetime
+
+        default_name = f"relist_log_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=default_name,
+            title="Export Log to CSV",
+        )
+        if not file_path:
+            return
+
+        try:
+            fieldnames = ["date", "start_time", "end_time", "status", "old_item_id", "new_item_id", "item_id", "title", "reason"]
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                for entry in self.viewlog_filtered_entries:
+                    writer.writerow(entry)
+            messagebox.showinfo("Export CSV", f"Exported {len(self.viewlog_filtered_entries)} entries to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Export CSV", f"Failed to export log: {e}")
+
+    def viewlog_show_guide(self):
+        guide_text = """LOG VIEWER QUICK GUIDE
+
+FILTERING YOUR LOGS
+Find specific relist activity using these filters:
+
+FROM DATE / TO DATE
+• Enter dates in YYYY-MM-DD format (e.g., 2026-06-01)
+• Filters logs within the date range
+• Default: 2026-01-01 to 2099-12-31 (all dates)
+
+STATUS
+• All: Shows all entries regardless of status
+• Relisted: Only successful relists
+• Error: Only failed attempts
+• Helps identify problem items quickly
+
+SEARCH
+• Search by title, item ID, or old item ID
+• Case-insensitive
+• Enter partial text (e.g., "Plant" will find "Plant Pot")
+
+APPLY FILTER
+Click this button to filter the log based on your criteria.
+
+READING THE LOG
+Each entry shows:
+• Started: Time the relist process began
+• Completed: Time the relist process finished
+• Status: relisted (success) or error (failed)
+• Old Item: The item ID that was ended
+• Title: The first 33 characters of the listing title
+
+ERROR DETAILS
+If an entry shows Error status, additional error details are
+displayed on the next line explaining what went wrong.
+
+SORTING
+Logs are always sorted by newest first (most recent at the top).
+"""
+        QuickGuideWindow(self, "Log Viewer", guide_text)
 
     def retry_selected_error(self):
         # Placeholder for retry logic (will be implemented in full feature)
@@ -2373,12 +2587,16 @@ CENTER PANEL - Activity Log
 • Old Item: The item ID being relisted
 • Title: Item title for identification
 
-RIGHT PANEL - Quick Actions
-• Run Now: Execute the agent immediately
+NAVIGATE PANEL - Tabs
+• Main: Activity log (this view)
 • Inventory: Browse all your items
-• Refresh: Reload the activity log
+• Exclusions: Manage items excluded from relist
 • View Log: Detailed log viewer with filtering
 • Configure: Change settings
+
+RIGHT PANEL - Quick Actions
+• Run Now: Execute the agent immediately
+• Refresh: Reload the activity log
 • Instructions: This page
 • About: App information
 • Exit: Close the application
@@ -2558,7 +2776,7 @@ TIPS & BEST PRACTICES
    Watch the first 2-3 runs before going fully automatic
    Check activity log to see what's being relisted
 
-3. Use View Log for Details
+3. Use the View Log Tab for Details
    Full log viewer has filtering by date/status/keywords
    Great for finding specific items or troubleshooting
 
@@ -2580,12 +2798,16 @@ QUICK REFERENCE
 
 BUTTONS BY LOCATION
 
-Dashboard Right Panel:
-• Run Now → Execute agent now
+Navigate Tabs:
+• Main → Activity log
 • Inventory → Browse items
-• Refresh → Reload log
+• Exclusions → Manage exclusions
 • View Log → Detailed viewer
 • Configure → Settings
+
+Dashboard Right Panel:
+• Run Now → Execute agent now
+• Refresh → Reload log
 • Instructions → This page
 • About → App info
 • Exit → Close app
