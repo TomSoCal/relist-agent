@@ -1135,6 +1135,85 @@ class MainApp(tk.Tk):
         self.tabs.add(self.status_tab, text="Status")
         self.tabs.add(self.logs_tab, text="Logs")
 
+        # ===== STATUS TAB CONTENT =====
+        # (Moved from the old left_frame in the 3-column layout)
+
+        # Logo section
+        logo_frame = tk.Frame(self.status_tab, bg=BG_PRIMARY)
+        logo_frame.pack(fill="x", pady=(0, 10))
+
+        self.logo_photo = None
+        logo_path = ASSETS_DIR / "ERA_Logo.png"
+        if logo_path.exists():
+            try:
+                logo_img = Image.open(str(logo_path))
+                # Scale to larger size for sidebar (keep aspect ratio)
+                logo_img.thumbnail((220, 110), Image.Resampling.LANCZOS)
+                print(f"[DEBUG] Logo loaded from {logo_path}, size: {logo_img.size}")
+                self.logo_photo = ImageTk.PhotoImage(logo_img)
+                logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
+                logo_label.pack(anchor="center", pady=(5, 5))
+            except Exception as e:
+                # Fallback if image loading fails
+                tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                        bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
+        else:
+            # Logo file not found - show placeholder text
+            tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                    bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
+
+        # Store info - CREATE AND PACK ALWAYS so layout is consistent
+        store_name = self.app_config.get("store_name", "")
+        self.store_label = tk.Label(self.status_tab, text=store_name,
+                              font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
+        self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
+
+        # Divider
+        divider = tk.Frame(self.status_tab, height=1, bg=BG_TERTIARY)
+        divider.pack(fill="x", pady=10)
+
+        # Status section
+        status_label = ttk.Label(self.status_tab, text="Status", font=("Arial", 10, "bold"))
+        status_label.pack(anchor="w", pady=(0, 3))
+
+        self.status_text = tk.Label(self.status_tab, text="Ready", font=("Arial", 9), bg=BG_PRIMARY, fg="#00DD00", wraplength=150)
+        self.status_text.pack(anchor="w", fill="x", pady=(0, 5))
+
+        # Current item section
+        self.current_item_label = tk.Label(self.status_tab, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, wraplength=150, justify="left")
+        self.current_item_label.pack(anchor="w", fill="x", pady=(0, 3))
+
+        # Current item progress
+        self.progress_label = tk.Label(self.status_tab, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg=BLUE_PRIMARY)
+        self.progress_label.pack(anchor="w", fill="x", pady=(0, 3))
+
+        # Current item progress bar
+        self.progress_bar = ttk.Progressbar(self.status_tab, length=150, mode="determinate", value=0)
+        self.progress_bar.pack(anchor="w", fill="x", pady=(0, 8))
+
+        # Process stage indicator
+        self.stage_label = tk.Label(self.status_tab, text="", font=("Arial", 12), bg=BG_PRIMARY, fg=BLUE_PRIMARY, wraplength=150, justify="center")
+        self.stage_label.pack(anchor="w", fill="x", pady=(0, 3))
+
+        # Stage dots (visual indicator)
+        self.stage_dots = tk.Label(self.status_tab, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, justify="center")
+        self.stage_dots.pack(anchor="w", fill="x", pady=(0, 10))
+
+        # Overall job progress divider
+        divider3 = tk.Frame(self.status_tab, height=1, bg=BG_TERTIARY)
+        divider3.pack(fill="x", pady=8)
+
+        # Overall progress label
+        ttk.Label(self.status_tab, text="Overall", font=("Arial", 9, "bold")).pack(anchor="w", pady=(0, 3))
+
+        # Overall progress counter (e.g., "7/10")
+        self.overall_label = tk.Label(self.status_tab, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg="#00DD00")
+        self.overall_label.pack(anchor="w", fill="x", pady=(0, 3))
+
+        # Overall progress bar
+        self.overall_progress_bar = ttk.Progressbar(self.status_tab, length=150, mode="determinate", value=0)
+        self.overall_progress_bar.pack(anchor="w", fill="x")
+
         # Auxiliary button bar (will be filled in a later task)
         self.button_frame = ttk.Frame(self)
         self.button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
