@@ -1110,6 +1110,10 @@ class MainApp(tk.Tk):
         style.map('TNotebook.Tab',
                   background=[('selected', BLUE_PRIMARY), ('active', BLUE_HOVER)],
                   foreground=[('selected', TEXT_PRIMARY), ('active', TEXT_PRIMARY)])
+        # Hide the Notebook's built-in tab strip — navigation now happens via
+        # buttons in the right sidebar (see "Navigate" section below). The
+        # tabs still exist and are switched programmatically with self.tabs.select().
+        style.layout('TNotebook.Tab', [])
 
         # Set window icon
         icon_path = BASE_DIR / "ERA_Icon.png"
@@ -1149,6 +1153,31 @@ class MainApp(tk.Tk):
         self.tabs.add(self.exclusions_tab, text="Exclusions")
         self.tabs.add(self.status_tab, text="Status")
         self.tabs.add(self.logs_tab, text="Logs")
+
+        # ===== RIGHT SIDEBAR CONTENT: Tab Navigation (replaces the notebook tab bar) =====
+        self.tab_frames = {
+            "configure": self.configure_tab,
+            "exclusions": self.exclusions_tab,
+            "status": self.status_tab,
+            "logs": self.logs_tab,
+        }
+        self.nav_buttons = {}
+
+        ttk.Label(right_frame, text="Navigate", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        for key, label in (("configure", "Configure"), ("exclusions", "Exclusions"),
+                            ("status", "Status"), ("logs", "Logs")):
+            nav_btn = tk.Button(
+                right_frame, text=label, width=14, relief="flat", borderwidth=0,
+                bg=BG_TERTIARY, fg=TEXT_SECONDARY, activebackground=BLUE_HOVER,
+                activeforeground=TEXT_PRIMARY, font=("Arial", 9, "bold"),
+                command=lambda k=key: self.select_tab(k)
+            )
+            nav_btn.pack(fill="x", pady=3)
+            self.nav_buttons[key] = nav_btn
+
+        nav_divider = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
+        nav_divider.pack(fill="x", pady=10)
 
         # ===== CONFIGURE TAB CONTENT =====
         # Scrollable frame for configure content
@@ -1497,6 +1526,22 @@ class MainApp(tk.Tk):
 
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
+
+        # Set initial nav button highlight to match the default-selected tab
+        self.select_tab("configure")
+
+    def select_tab(self, key):
+        """Switch the center Notebook to the tab identified by `key` and
+        highlight the matching button in the right sidebar's Navigate section."""
+        frame = self.tab_frames.get(key)
+        if frame is None:
+            return
+        self.tabs.select(frame)
+        for btn_key, btn in self.nav_buttons.items():
+            if btn_key == key:
+                btn.configure(bg=BLUE_PRIMARY, fg=TEXT_PRIMARY)
+            else:
+                btn.configure(bg=BG_TERTIARY, fg=TEXT_SECONDARY)
 
     def bring_to_front(self):
         """Bring window to foreground after admin dialog"""
