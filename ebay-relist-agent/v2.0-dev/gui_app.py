@@ -1367,58 +1367,90 @@ class MainApp(tk.Tk):
         self.retry_button.pack(fill="x", pady=3)
 
         # ===== EXCLUSIONS TAB CONTENT =====
-        # (Moved from the old ExclusionsWindow)
+        # (Consolidated from the old ExclusionsWindow popup — same layout, widgets, and methods)
 
-        # Initialize exclusion-related instance variables
-        self.exclusion_file_var = tk.StringVar()
-        self.exclusion_item_id = None
-        self.exclusion_tree = None
+        self.sku_display_map = {}  # Map display text to SKU
+        self.excluded_skus_set = set()  # Keep a reliable set of excluded SKUs in memory
+        self.has_unsaved_changes = False
 
-        # Upload section header
-        ttk.Label(self.exclusions_tab, text="Upload Exclusion List", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        # Header
+        excl_header = ttk.Frame(self.exclusions_tab)
+        excl_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(excl_header, text="Exclude from Relist", font=("Arial", 12, "bold")).pack(side="left")
+        ttk.Button(excl_header, text="Save", command=self.save_exclusions).pack(side="right", padx=2)
+        ttk.Button(excl_header, text="Upload CSV/XLS", command=self.upload_exclusion_file).pack(side="right", padx=5)
+        ttk.Button(excl_header, text="Refresh Data", command=self.refresh_data).pack(side="right", padx=5)
 
-        # Upload button and file label frame
-        upload_frame = ttk.Frame(self.exclusions_tab)
-        upload_frame.pack(fill="x", padx=10, pady=(0, 10))
+        # Description
+        excl_desc = tk.Label(self.exclusions_tab, text="Upload a CSV/XLS file with SKUs, or manually select from the list below. Excel template: columns 'SKU' and 'Notes (optional)'.",
+                       bg="#1a1a1a", fg=TEXT_PRIMARY, font=("Arial", 9), justify="left", wraplength=900)
+        excl_desc.pack(anchor="w", padx=20, pady=(0, 10))
 
-        ttk.Button(upload_frame, text="Choose File (CSV/XLS)", command=self.upload_exclusion_file).pack(side="left")
-        ttk.Label(upload_frame, textvariable=self.exclusion_file_var).pack(side="left", padx=10)
+        # Progress bar
+        excl_progress_frame = ttk.Frame(self.exclusions_tab)
+        excl_progress_frame.pack(fill="x", padx=15, pady=(0, 10))
+        self.excl_progress_bar = ttk.Progressbar(excl_progress_frame, mode="determinate", length=300, value=0)
+        self.excl_progress_bar.pack(side="left", padx=5, fill="x", expand=True)
+        self.excl_progress_text = ttk.Label(excl_progress_frame, text="Ready")
+        self.excl_progress_text.pack(side="left", padx=5)
 
-        # Manual add section
-        ttk.Label(self.exclusions_tab, text="Add Item Manually", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        # Main content - SKUs only
+        excl_main_frame = ttk.Frame(self.exclusions_tab)
+        excl_main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        manual_frame = ttk.Frame(self.exclusions_tab)
-        manual_frame.pack(fill="x", padx=10, pady=(0, 10))
+        # ===== SKU SECTION =====
+        sku_section = tk.LabelFrame(excl_main_frame, text="SKUs", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                    font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
+                                    highlightthickness=0)
+        sku_section.pack(fill="both", expand=True)
 
-        ttk.Label(manual_frame, text="Item ID:").pack(side="left", padx=(0, 5))
-        self.exclusion_item_id = ttk.Entry(manual_frame, width=30)
-        self.exclusion_item_id.pack(side="left", padx=(0, 5))
-        ttk.Button(manual_frame, text="Add", command=self.add_exclusion_item).pack(side="left")
+        sku_frame = ttk.Frame(sku_section)
+        sku_frame.pack(fill="both", expand=True)
 
-        # Exclusion list section
-        ttk.Label(self.exclusions_tab, text="Currently Excluded", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        # Available SKUs (left)
+        left_sku_frame = tk.LabelFrame(sku_frame, text="Available", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                       font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        left_sku_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        list_frame = tk.LabelFrame(self.exclusions_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1)
-        list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        # Search field
+        ttk.Label(left_sku_frame, text="Search:").pack(anchor="w")
+        self.sku_search = ttk.Entry(left_sku_frame, width=20)
+        self.sku_search.pack(anchor="w", pady=(0, 5))
+        self.sku_search.bind("<KeyRelease>", self.filter_available_skus)
 
-        # Treeview for exclusions
-        columns = ("Item ID", "Action")
-        self.exclusion_tree = ttk.Treeview(list_frame, columns=columns, height=10, show="headings")
-        self.exclusion_tree.column("Item ID", width=300, anchor="w")
-        self.exclusion_tree.column("Action", width=100, anchor="center")
-        self.exclusion_tree.heading("Item ID", text="Item ID")
-        self.exclusion_tree.heading("Action", text="Action")
+        sku_scrollbar_left = ttk.Scrollbar(left_sku_frame)
+        sku_scrollbar_left.pack(side="right", fill="y")
 
-        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.exclusion_tree.yview)
-        self.exclusion_tree.configure(yscrollcommand=scrollbar.set)
+        self.available_skus = tk.Listbox(left_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                         yscrollcommand=sku_scrollbar_left.set, height=12)
+        self.available_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_left.config(command=self.available_skus.yview)
 
-        self.exclusion_tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Buttons in middle
+        middle_sku_frame = ttk.Frame(sku_frame)
+        middle_sku_frame.pack(side="left", padx=5)
+        ttk.Button(middle_sku_frame, text="Select All\nExcluded", command=self.select_all_excluded, width=10).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="← Include", command=self.include_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="→ Exclude", command=self.exclude_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="Select All\nAvailable", command=self.select_all_skus, width=10).pack(fill="x", pady=3)
 
-        # Save button
-        button_frame = ttk.Frame(self.exclusions_tab)
-        button_frame.pack(fill="x", padx=10, pady=(0, 10))
-        ttk.Button(button_frame, text="Save Exclusions", command=self.save_exclusions).pack(side="left")
+        # Excluded SKUs (right)
+        right_sku_frame = tk.LabelFrame(sku_frame, text="Excluded", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                        font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        right_sku_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
+
+        sku_scrollbar_right = ttk.Scrollbar(right_sku_frame)
+        sku_scrollbar_right.pack(side="right", fill="y")
+
+        self.excluded_skus = tk.Listbox(right_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                        yscrollcommand=sku_scrollbar_right.set, height=12)
+        self.excluded_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_right.config(command=self.excluded_skus.yview)
+
+        # Load initial data (load excluded first so they're excluded from available list)
+        self.load_excluded_from_config()  # Load previously saved exclusions
+        self.load_skus_from_store()
+        self.has_unsaved_changes = False  # Track if user has made changes without saving
 
         # ===== RIGHT SIDEBAR CONTENT: Settings (persistent, visible from all tabs) =====
         divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
@@ -2504,95 +2536,394 @@ TYPICAL WORKFLOW
     def open_inventory(self):
         InventoryWindow(self, self.app_config)
 
+    def _get_inventory_refresh_callback(self):
+        """Return InventoryWindow.load_items if an Inventory window is currently open, else None.
+        (Tab equivalent of the refresh_inventory_callback passed into the old ExclusionsWindow constructor.)"""
+        for widget in self.winfo_children():
+            if isinstance(widget, InventoryWindow):
+                return widget.load_items
+        return None
+
+    def refresh_data(self):
+        """Refresh data from store (with or without Inventory window) — Exclusions tab"""
+        self.excl_progress_bar.config(value=0)
+        self.excl_progress_text.config(text="Refreshing...")
+        self.update_idletasks()
+        try:
+            refresh_inventory_callback = self._get_inventory_refresh_callback()
+            if refresh_inventory_callback:
+                # Use callback if Inventory window is open (for efficiency)
+                refresh_inventory_callback(force_refresh=True)
+            else:
+                # Fetch inventory directly if Inventory window not open
+                from auth import get_access_token, load_config
+                from ebay_api import fetch_all_active_listings
+                cfg = load_config()
+                token = get_access_token(cfg)
+                self.excl_progress_text.config(text="Fetching inventory...")
+                self.update_idletasks()
+                items = fetch_all_active_listings(cfg, token)
+                # Save full items with title for display
+                cache_file = self._get_cache_file()
+                cache_data = {"items": items}
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(cache_data, f, indent=2)
+
+            # Reload from cache after refresh
+            self.load_skus_from_store()
+            self.refresh_excluded_titles()  # Also refresh titles for excluded items
+            self.excl_progress_bar.config(value=100)
+            self.excl_progress_text.config(text="Done")
+            messagebox.showinfo("Success", "Data refreshed from store")
+        except Exception as e:
+            self.excl_progress_bar.config(value=0)
+            self.excl_progress_text.config(text="Ready")
+            messagebox.showerror("Error", f"Refresh failed: {str(e)}")
+
+    def _get_cache_file(self):
+        return DATA_DIR / "available_for_exclusions.json"
+
+    def refresh_excluded_titles(self):
+        """Update excluded items display with titles from refreshed cache"""
+        try:
+            cache = self._load_cache()
+            items = cache.get("items", [])
+
+            # Build SKU -> Title map from cache
+            sku_to_title = {}
+            for item in items:
+                sku = item.get("sku", "").strip()
+                if sku:
+                    sku_to_title[sku] = item.get("title", "").strip()[:60]
+
+            # Update excluded items display with titles
+            excluded_count = self.excluded_skus.size()
+            new_items = []
+            for idx in range(excluded_count):
+                display_text = self.excluded_skus.get(idx)
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+
+                # Try to get title from cache
+                title = sku_to_title.get(sku, "")
+                if title:
+                    new_display = f"{sku} - {title}"
+                else:
+                    new_display = sku
+
+                new_items.append(new_display)
+                self.sku_display_map[new_display] = sku
+
+            # Rebuild excluded list with new titles
+            self.excluded_skus.delete(0, tk.END)
+            for item in new_items:
+                self.excluded_skus.insert(tk.END, item)
+        except:
+            pass  # Graceful failure if cache doesn't have items
+
+    def _write_debug_log(self, log_lines):
+        """Write debug logs to file"""
+        try:
+            debug_file = DATA_DIR / "exclusions_debug.log"
+            with open(debug_file, "a", encoding="utf-8") as f:
+                import datetime
+                f.write(f"\n=== {datetime.datetime.now().isoformat()} ===\n")
+                for line in log_lines:
+                    f.write(line + "\n")
+        except:
+            pass
+
+    def _load_cache(self):
+        """Load cached items (SKU + Title)"""
+        cache_file = self._get_cache_file()
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"items": []}
+
+    def select_all_skus(self):
+        """Select all available SKUs"""
+        self.available_skus.select_set(0, tk.END)
+
+    def select_all_excluded(self):
+        """Select all excluded SKUs"""
+        self.excluded_skus.select_set(0, tk.END)
+
     def upload_exclusion_file(self):
-        """Handle file upload for exclusions (CSV/XLS with Item IDs)"""
+        """Upload CSV or XLS file with SKUs to exclude"""
         from tkinter import filedialog
-        file_path = filedialog.askopenfilename(
-            title="Select CSV or XLS file with Item IDs",
+        file = filedialog.askopenfile(
+            title="Select CSV or XLS file with SKUs",
             filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
         )
-        if not file_path:
+        if not file:
             return
 
         try:
-            items_to_add = []
+            skus_to_add = []
+            filename = file.name
+            file.close()
 
-            if file_path.endswith('.csv'):
+            if filename.endswith('.csv'):
                 import csv
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(filename, 'r', encoding='utf-8') as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        item_id = row.get('Item ID', row.get('item_id', row.get('ID', ''))).strip()
-                        if item_id:
-                            items_to_add.append(item_id)
+                        sku = row.get('SKU', row.get('sku', '')).strip()
+                        title = row.get('Title', row.get('title', '')).strip()
+                        if sku:
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
             else:  # XLS/XLSX
                 try:
                     import openpyxl
-                    wb = openpyxl.load_workbook(file_path)
+                    wb = openpyxl.load_workbook(filename)
                     ws = wb.active
                     for row in ws.iter_rows(min_row=2, values_only=True):
-                        item_id = str(row[0] or '').strip() if row else ''
-                        if item_id and item_id.lower() != 'item id':
-                            items_to_add.append(item_id)
+                        sku = str(row[0] or '').strip()
+                        title = str(row[1] or '').strip() if len(row) > 1 else ''
+                        if sku and sku.lower() != 'sku':
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
                 except ImportError:
                     messagebox.showerror("Error", "openpyxl not installed. Please use CSV format instead.")
                     return
 
-            # Add to treeview
-            for item_id in items_to_add:
-                # Check if item already exists
-                existing_ids = [self.exclusion_tree.item(child, "values")[0] for child in self.exclusion_tree.get_children()]
-                if item_id not in existing_ids:
-                    self.exclusion_tree.insert("", "end", values=(item_id, ""))
+            # Add to excluded list
+            for sku, display_text in skus_to_add:
+                if sku not in [s.split(" - ")[0] if " - " in s else s for s in self.excluded_skus.get(0, tk.END)]:
+                    self.excluded_skus.insert(tk.END, display_text)
 
-            self.exclusion_file_var.set(f"Loaded {len(items_to_add)} items from {Path(file_path).name}")
-            messagebox.showinfo("Success", f"Added {len(items_to_add)} Item IDs from file")
+            messagebox.showinfo("Success", f"Added {len(skus_to_add)} SKUs from file")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to read file: {str(e)}")
 
-    def add_exclusion_item(self):
-        """Add single item ID to exclusions"""
-        if not self.exclusion_item_id:
+    def load_skus_from_store(self):
+        """Load SKUs with titles from cache"""
+        debug_log = []
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        debug_log.append(f"load_skus_from_store: Found {len(items)} items in cache")
+
+        # Use in-memory excluded SKUs set instead of extracting from display text
+        excluded_skus = getattr(self, 'excluded_skus_set', set())
+        debug_log.append(f"load_skus_from_store: Using in-memory excluded set with {len(excluded_skus)} SKUs")
+        debug_log.append(f"  Excluded SKUs in memory: {list(excluded_skus)[:5]}")
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}  # Map display text back to SKU
+
+        added_count = 0
+        excluded_count = 0
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]  # Truncate long titles
+            if sku:
+                display_text = f"{sku} - {title}" if title else sku
+                if sku not in excluded_skus:
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+                    added_count += 1
+                else:
+                    excluded_count += 1
+
+        debug_log.append(f"load_skus_from_store: Added {added_count} to available, excluded {excluded_count}")
+        self._write_debug_log(debug_log)
+
+        if not items:
+            self.available_skus.insert(tk.END, "(No SKUs found in store)")
+
+    def load_excluded_from_config(self):
+        """Load previously saved excluded items from persistent file (with titles)"""
+        debug_log = []
+        try:
+            # First try to load from excluded_items.json (has titles)
+            excluded_items_file = DATA_DIR / "excluded_items.json"
+            excluded_display_texts = []
+
+            if excluded_items_file.exists():
+                try:
+                    with open(excluded_items_file, "r", encoding="utf-8") as f:
+                        excluded_data = json.load(f)
+                        excluded_display_texts = excluded_data.get("items", [])
+                    debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} items from excluded_items.json")
+                except:
+                    debug_log.append("load_excluded_from_config: Failed to load excluded_items.json, falling back to config")
+
+            # If excluded_items.json doesn't exist, fall back to config (SKU only)
+            if not excluded_display_texts:
+                excluded_skus_list = self.app_config.get("excluded_skus", [])
+                excluded_display_texts = excluded_skus_list
+                debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} SKUs from config (no titles)")
+
+            # Populate excluded_skus listbox with saved exclusions
+            self.excluded_skus.delete(0, tk.END)
+            self.sku_display_map = getattr(self, 'sku_display_map', {})
+            self.excluded_skus_set = set()  # Clear and rebuild the in-memory set
+
+            loaded_count = 0
+            for display_text in excluded_display_texts:
+                self.excluded_skus.insert(tk.END, display_text)
+                # Extract SKU and add to set
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+                self.sku_display_map[display_text] = sku
+                self.excluded_skus_set.add(sku)
+                loaded_count += 1
+            debug_log.append(f"load_excluded_from_config: Loaded {loaded_count} items into UI and memory set")
+
+            # Write logs to file
+            self._write_debug_log(debug_log)
+        except Exception as e:
+            debug_log.append(f"load_excluded_from_config ERROR: {e}")
+            import traceback
+            debug_log.append(traceback.format_exc())
+            self._write_debug_log(debug_log)
+
+    def refresh_skus_cache(self):
+        """Trigger complete refresh (inventory + exclusions cache)"""
+        self.excl_progress_bar.config(value=0)
+        self.excl_progress_text.config(text="Loading...")
+        self.update_idletasks()
+
+        refresh_inventory_callback = self._get_inventory_refresh_callback()
+        if refresh_inventory_callback:
+            try:
+                refresh_inventory_callback(force_refresh=True)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showinfo("Success", "Refreshed all data: Inventory, Categories, and SKUs")
+            except Exception as e:
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Refresh failed: {str(e)[:100]}")
+        else:
+            # Fallback: fetch directly without updating inventory
+            try:
+                categories, skus = self._fetch_from_store()
+                self._save_cache(categories, skus)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showinfo("Success", f"Loaded {len(categories)} categories and {len(skus)} SKUs\n(Open Inventory for full sync)")
+            except Exception as e:
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Fetch failed: {str(e)[:100]}")
+
+    def filter_available_skus(self, event=None):
+        """Filter SKUs based on search (SKU or title)"""
+        search_term = self.sku_search.get().lower()
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        # Use in-memory excluded SKUs set (raw SKU values, not display text)
+        excluded_skus = self.excluded_skus_set
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}
+
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]
+            if sku and sku not in excluded_skus:
+                if search_term in sku.lower() or search_term in title.lower():
+                    display_text = f"{sku} - {title}" if title else sku
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+
+        if not self.available_skus.get(0, tk.END):
+            self.available_skus.insert(tk.END, "(No matches)")
+
+    def exclude_sku(self):
+        """Move selected SKUs from available to excluded"""
+        selection = self.available_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to exclude.")
             return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            display_text = self.available_skus.get(idx)
+            if display_text.startswith("Error") or display_text.startswith("("):
+                continue
+            # Extract actual SKU from display text
+            sku = self.sku_display_map.get(display_text, display_text.split(" - ")[0])
+            self.available_skus.delete(idx)
+            if sku not in self.excluded_skus.get(0, tk.END):
+                # Display with title in excluded list too
+                title_part = display_text.split(" - ", 1)[1] if " - " in display_text else ""
+                excluded_display = f"{sku} - {title_part}" if title_part else sku
+                self.excluded_skus.insert(tk.END, excluded_display)
+                self.excluded_skus_set.add(sku)  # Add to in-memory set
+        self.has_unsaved_changes = True
 
-        item_id = self.exclusion_item_id.get().strip()
-        if item_id:
-            # Check if item already exists
-            existing_ids = [self.exclusion_tree.item(child, "values")[0] for child in self.exclusion_tree.get_children()]
-            if item_id in existing_ids:
-                messagebox.showwarning("Duplicate", f"Item ID {item_id} already in exclusion list")
-                return
-
-            # Add to treeview
-            self.exclusion_tree.insert("", "end", values=(item_id, ""))
-            self.exclusion_item_id.delete(0, tk.END)
-            messagebox.showinfo("Success", f"Added {item_id} to exclusion list")
+    def include_sku(self):
+        """Move selected SKUs from excluded to available"""
+        selection = self.excluded_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to include.")
+            return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            excluded_display = self.excluded_skus.get(idx)
+            # Extract SKU from display text
+            sku = excluded_display.split(" - ")[0] if " - " in excluded_display else excluded_display
+            self.excluded_skus.delete(idx)
+            self.excluded_skus_set.discard(sku)  # Remove from in-memory set
+            # Add back to available list with title if present
+            if sku not in self.available_skus.get(0, tk.END):
+                self.available_skus.insert(tk.END, excluded_display)
+                self.sku_display_map[excluded_display] = sku
+        self.has_unsaved_changes = True
 
     def save_exclusions(self):
-        """Save exclusions to configuration"""
-        # Get all items from treeview
-        excluded_items = []
-        for child in self.exclusion_tree.get_children():
-            values = self.exclusion_tree.item(child, "values")
-            if values:
-                excluded_items.append(values[0])
+        """Save exclusions with confirmation"""
+        excluded_displays = list(self.excluded_skus.get(0, tk.END))
+        excluded_displays = [s for s in excluded_displays if not s.startswith("Error") and not s.startswith("(No")]
 
-        if not excluded_items:
-            messagebox.showwarning("Empty", "No exclusions to save")
-            return
+        # Extract SKUs from display text
+        excluded_skus = []
+        for display in excluded_displays:
+            sku = display.split(" - ")[0] if " - " in display else display
+            excluded_skus.append(sku)
+
+        # DEBUG: Log what we're about to save
+        debug_info = [
+            f"SAVE_EXCLUSIONS - Listbox has {self.excluded_skus.size()} items",
+            f"  Displays to save: {excluded_displays}",
+            f"  SKUs to save: {excluded_skus}",
+            f"  excluded_skus_set in memory: {self.excluded_skus_set}"
+        ]
+        self._write_debug_log(debug_info)
 
         # Show confirmation
         msg = f"""Save these exclusions?
 
-Items to exclude ({len(excluded_items)}):
-{', '.join(excluded_items[:5])}{'...' if len(excluded_items) > 5 else ''}
+SKUs to exclude ({len(excluded_skus)}):
+{', '.join(excluded_skus[:5])}{'...' if len(excluded_skus) > 5 else ''}
 """
         if messagebox.askyesno("Confirm Exclusions", msg):
             self.app_config.update({
-                "excluded_item_ids": sorted(set(excluded_items)),
+                "excluded_skus": sorted(set(excluded_skus)),
             })
             save_config(self.app_config)
+
+            # Also save the display format (SKU - Title) to persistent file
+            # This way titles load without needing to refresh data from store
+            try:
+                excluded_items_file = DATA_DIR / "excluded_items.json"
+                with open(excluded_items_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": excluded_displays}, f, indent=2)
+                self._write_debug_log([f"  Saved to {excluded_items_file.name}: {len(excluded_displays)} items"])
+            except Exception as e:
+                self._write_debug_log([f"  ERROR saving to {excluded_items_file.name}: {e}"])
+
             messagebox.showinfo("Success", "Exclusion settings saved!")
+            self.has_unsaved_changes = False
+            self.refresh_after_settings_save()
 
     def save_configure_settings(self):
         """Save settings from Configure tab"""
