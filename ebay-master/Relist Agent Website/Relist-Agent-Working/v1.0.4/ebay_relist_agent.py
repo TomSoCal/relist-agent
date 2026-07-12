@@ -207,6 +207,13 @@ def run() -> None:
             log_entries.append({"date": today, "start_time": start_time, "end_time": end_time, "item_id": iid, "title": title, "status": "error", "reason": str(e)})
             continue
 
+        # Check if item sold out between fetch and now
+        if fields["quantity"] == "0":
+            log(f"  Skipped (sold out): {iid} — {title}")
+            log_entries.append({"date": today, "start_time": start_time, "end_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "item_id": iid, "title": title, "status": "skipped-sold-out"})
+            update_progress("Completed", iid, title, idx, len(to_relist))
+            continue
+
         # Stage 2: Delete old listing
         update_progress("Delisting old", iid, title, idx - 1, len(to_relist))
         try:

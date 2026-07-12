@@ -92,6 +92,15 @@ def run() -> None:
             log_entries.append({"date": today, "item_id": iid, "title": item["title"], "status": "error", "reason": str(e)})
             continue
 
+        if fields["quantity"] == "0":
+            try:
+                end_item(cfg, token, iid)
+                log(f"  Ended (sold out): {iid} — {item['title']}")
+                log_entries.append({"date": today, "item_id": iid, "title": item["title"], "status": "ended-sold-out"})
+            except Exception as e:
+                log(f"  WARNING EndItem {iid} failed: {e}")
+            continue
+
         try:
             end_item(cfg, token, iid)
         except Exception as e:
