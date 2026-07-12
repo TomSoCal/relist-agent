@@ -1527,8 +1527,8 @@ class MainApp(tk.Tk):
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
 
-        # Set initial nav button highlight to match the default-selected tab
-        self.select_tab("configure")
+        # Set initial nav button highlight to match the default-selected tab (activity log, like v1.5.0)
+        self.select_tab("logs")
 
     def select_tab(self, key):
         """Switch the center Notebook to the tab identified by `key` and
