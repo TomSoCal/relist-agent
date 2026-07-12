@@ -1400,6 +1400,72 @@ class MainApp(tk.Tk):
         style.configure("Treeview.Heading", background=BG_TERTIARY, foreground=TEXT_PRIMARY)
         style.map("Treeview.Heading", background=[("active", BLUE_HOVER)])
 
+        # ===== LOGS TAB CONTENT =====
+        # (Moved from the old center_frame in the 3-column layout)
+
+        # Header with title and info icon
+        log_header = ttk.Frame(self.logs_tab)
+        log_header.pack(fill="x", pady=(0, 10))
+        ttk.Label(log_header, text="Activity Log", font=("Arial", 12, "bold")).pack(side="left")
+        icon = get_info_icon(24)
+        if icon:
+            tk.Button(log_header, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(log_header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+
+        # Timing note
+        ttk.Label(self.logs_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", pady=(0, 3))
+
+        # Stalled item note
+        ttk.Label(self.logs_tab, text="\U0001F4A1 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 8))
+
+        # Log area
+        log_frame = tk.LabelFrame(self.logs_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
+        log_frame.pack(fill="both", expand=True)
+
+        # Create Treeview with columns (dark theme style configured above)
+        columns = ("Started", "Completed", "Status", "Old Item", "Title")
+        self.log_tree = ttk.Treeview(log_frame, columns=columns, height=20, show="headings")
+
+        # Define column headings and widths
+        self.log_tree.column("Started", width=120, anchor="w")
+        self.log_tree.column("Completed", width=120, anchor="w")
+        self.log_tree.column("Status", width=90, anchor="w")
+        self.log_tree.column("Old Item", width=110, anchor="w")
+        self.log_tree.column("Title", width=400, anchor="w")
+
+        self.log_tree.heading("Started", text="Started")
+        self.log_tree.heading("Completed", text="Completed")
+        self.log_tree.heading("Status", text="Status")
+        self.log_tree.heading("Old Item", text="Old Item")
+        self.log_tree.heading("Title", text="Title")
+
+        # Add scrollbar
+        log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_tree.yview)
+        self.log_tree.configure(yscrollcommand=log_scrollbar.set)
+
+        self.log_tree.pack(side="left", fill="both", expand=True)
+        log_scrollbar.pack(side="right", fill="y")
+
+        # Track log file modification time for auto-refresh
+        self.last_log_modify_time = 0
+
+        # Legacy reference for compatibility
+        self.log_text = None
+
+        # Store selected error item for retry
+        self.selected_error_item_id = None
+        self.selected_error_item_data = None
+
+        # Prevent concurrent refresh calls
+        self.refresh_lock = False
+
+        # Track if agent is running
+        self.is_running = False
+
+        # Bind row selection to detect errors
+        self.log_tree.bind("<ButtonRelease-1>", self.on_log_row_selected)
+
         # Load log and check error items in background thread
         threading.Thread(target=self.startup_check, daemon=True).start()
 
@@ -1575,6 +1641,26 @@ class MainApp(tk.Tk):
             # Always unlock when done
             self.refresh_lock = False
             print("[REFRESH] Lock released")
+
+    def on_log_row_selected(self, event):
+        """Handle Activity Log row selection - enable Retry Relist for active errors"""
+        selection = self.log_tree.selection()
+        if not selection:
+            return
+
+        item_id = selection[0]
+        tags = self.log_tree.item(item_id, "tags")
+
+        if "error_active" in tags:
+            self.selected_error_item_id = item_id
+            self.selected_error_item_data = self.log_tree.item(item_id, "values")
+            if hasattr(self, "retry_button"):
+                self.retry_button.config(state="normal")
+        else:
+            self.selected_error_item_id = None
+            self.selected_error_item_data = None
+            if hasattr(self, "retry_button"):
+                self.retry_button.config(state="disabled")
 
     def cleanup_old_logs(self, keep_days=30):
         """Delete log entries older than keep_days (default 30 days)"""
