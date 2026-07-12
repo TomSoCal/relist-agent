@@ -1142,23 +1142,20 @@ class MainApp(tk.Tk):
         self.tabs = ttk.Notebook(self)
         self.tabs.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
 
-        # Create 4 tab frames
+        # Create 3 tab frames
         self.configure_tab = ttk.Frame(self.tabs)
         self.exclusions_tab = ttk.Frame(self.tabs)
-        self.status_tab = ttk.Frame(self.tabs)
         self.logs_tab = ttk.Frame(self.tabs)
 
         # Add tabs to notebook
         self.tabs.add(self.configure_tab, text="Configure")
         self.tabs.add(self.exclusions_tab, text="Exclusions")
-        self.tabs.add(self.status_tab, text="Status")
         self.tabs.add(self.logs_tab, text="Logs")
 
         # ===== RIGHT SIDEBAR CONTENT: Tab Navigation (replaces the notebook tab bar) =====
         self.tab_frames = {
             "configure": self.configure_tab,
             "exclusions": self.exclusions_tab,
-            "status": self.status_tab,
             "logs": self.logs_tab,
         }
         self.nav_buttons = {}
@@ -1166,7 +1163,7 @@ class MainApp(tk.Tk):
         ttk.Label(right_frame, text="Navigate", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
         for key, label in (("configure", "Configure"), ("exclusions", "Exclusions"),
-                            ("status", "Status"), ("logs", "Logs")):
+                            ("logs", "Logs")):
             nav_btn = tk.Button(
                 right_frame, text=label, width=14, relief="flat", borderwidth=0,
                 bg=BG_TERTIARY, fg=TEXT_SECONDARY, activebackground=BLUE_HOVER,
@@ -1368,17 +1365,6 @@ class MainApp(tk.Tk):
 
         self.retry_button = ttk.Button(right_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
         self.retry_button.pack(fill="x", pady=3)
-
-        # ===== STATUS TAB CONTENT =====
-        # Live status/progress now lives permanently in the left sidebar (visible from
-        # every tab); this tab surfaces contextual tips about that live status.
-        ttk.Label(self.status_tab, text="Tips", font=("Arial", 12, "bold")).pack(anchor="w", padx=10, pady=(10, 10))
-        ttk.Label(self.status_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", padx=10, pady=(0, 5))
-        ttk.Label(self.status_tab, text="\U0001F4A1 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 9), foreground="#999999").pack(anchor="w", padx=10, pady=(0, 5))
-        ttk.Label(self.status_tab, text="⚠️  Scheduled tasks: the log updates AFTER the run completes (not live).", font=("Arial", 9), foreground="#FFAA00").pack(anchor="w", padx=10, pady=(10, 2))
-        ttk.Label(self.status_tab, text="Click 'Run Now' in the right sidebar to see real-time progress.", font=("Arial", 9), foreground="#FFAA00").pack(anchor="w", padx=10, pady=(0, 10))
-        ttk.Label(self.status_tab, text="Live status and progress bars are shown in the left sidebar at all times.",
-                  font=("Arial", 9), foreground=TEXT_SECONDARY, justify="left", wraplength=400).pack(anchor="w", padx=10, pady=(10, 5))
 
         # ===== EXCLUSIONS TAB CONTENT =====
         # (Moved from the old ExclusionsWindow)
