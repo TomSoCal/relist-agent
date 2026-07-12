@@ -1104,6 +1104,12 @@ class MainApp(tk.Tk):
         style.map('TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
         style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
         style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.configure('TNotebook', background=BG_PRIMARY, borderwidth=0)
+        style.configure('TNotebook.Tab', background=BG_TERTIARY, foreground=TEXT_SECONDARY,
+                         padding=[14, 7], font=("Arial", 9, "bold"), borderwidth=0)
+        style.map('TNotebook.Tab',
+                  background=[('selected', BLUE_PRIMARY), ('active', BLUE_HOVER)],
+                  foreground=[('selected', TEXT_PRIMARY), ('active', TEXT_PRIMARY)])
 
         # Set window icon
         icon_path = BASE_DIR / "ERA_Icon.png"
@@ -1113,17 +1119,26 @@ class MainApp(tk.Tk):
             except Exception:
                 pass
 
-        # ===== TAB-BASED LAYOUT =====
-        self.rowconfigure(0, weight=0)  # Tab bar at top
-        self.rowconfigure(1, weight=1)  # Tab content area
-        self.rowconfigure(2, weight=0)  # Button bar at bottom
-        self.columnconfigure(0, weight=1)  # Full width
+        # ===== 3-COLUMN LAYOUT (restored from v1.5.0) =====
+        self.columnconfigure(0, weight=0, minsize=180)  # Left sidebar
+        self.columnconfigure(1, weight=1)               # Center column (tabs, expands)
+        self.columnconfigure(2, weight=0, minsize=150)  # Right sidebar
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=1)
 
-        # Create tab widget
+        # ===== LEFT SIDEBAR (persistent across all tabs: logo, store, live status) =====
+        left_frame = ttk.Frame(self)
+        left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
+
+        # ===== RIGHT SIDEBAR (persistent across all tabs: quick actions, settings) =====
+        right_frame = ttk.Frame(self)
+        right_frame.grid(row=0, column=2, sticky="new", padx=10, pady=10)
+
+        # ===== CENTER: TAB NOTEBOOK =====
         self.tabs = ttk.Notebook(self)
-        self.tabs.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        self.tabs.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
 
-        # Create 4 tab frames (empty for now, populated in later tasks)
+        # Create 4 tab frames
         self.configure_tab = ttk.Frame(self.tabs)
         self.exclusions_tab = ttk.Frame(self.tabs)
         self.status_tab = ttk.Frame(self.tabs)
@@ -1234,11 +1249,10 @@ class MainApp(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # ===== STATUS TAB CONTENT =====
-        # (Moved from the old left_frame in the 3-column layout)
+        # ===== LEFT SIDEBAR CONTENT: logo, store name, live status/progress =====
 
         # Logo section
-        logo_frame = tk.Frame(self.status_tab, bg=BG_PRIMARY)
+        logo_frame = tk.Frame(left_frame, bg=BG_PRIMARY)
         logo_frame.pack(fill="x", pady=(0, 10))
 
         self.logo_photo = None
@@ -1263,69 +1277,79 @@ class MainApp(tk.Tk):
 
         # Store info - CREATE AND PACK ALWAYS so layout is consistent
         store_name = self.app_config.get("store_name", "")
-        self.store_label = tk.Label(self.status_tab, text=store_name,
+        self.store_label = tk.Label(left_frame, text=store_name,
                               font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
         self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
 
         # Divider
-        divider = tk.Frame(self.status_tab, height=1, bg=BG_TERTIARY)
+        divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
         divider.pack(fill="x", pady=10)
 
         # Status section
-        status_label = ttk.Label(self.status_tab, text="Status", font=("Arial", 10, "bold"))
+        status_label = ttk.Label(left_frame, text="Status", font=("Arial", 10, "bold"))
         status_label.pack(anchor="w", pady=(0, 3))
 
-        self.status_text = tk.Label(self.status_tab, text="Ready", font=("Arial", 9), bg=BG_PRIMARY, fg="#00DD00", wraplength=150)
+        self.status_text = tk.Label(left_frame, text="Ready", font=("Arial", 9), bg=BG_PRIMARY, fg="#00DD00", wraplength=150)
         self.status_text.pack(anchor="w", fill="x", pady=(0, 5))
 
         # Current item section
-        self.current_item_label = tk.Label(self.status_tab, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, wraplength=150, justify="left")
+        self.current_item_label = tk.Label(left_frame, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, wraplength=150, justify="left")
         self.current_item_label.pack(anchor="w", fill="x", pady=(0, 3))
 
         # Current item progress
-        self.progress_label = tk.Label(self.status_tab, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg=BLUE_PRIMARY)
+        self.progress_label = tk.Label(left_frame, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg=BLUE_PRIMARY)
         self.progress_label.pack(anchor="w", fill="x", pady=(0, 3))
 
         # Current item progress bar
-        self.progress_bar = ttk.Progressbar(self.status_tab, length=150, mode="determinate", value=0)
+        self.progress_bar = ttk.Progressbar(left_frame, length=150, mode="determinate", value=0)
         self.progress_bar.pack(anchor="w", fill="x", pady=(0, 8))
 
         # Process stage indicator
-        self.stage_label = tk.Label(self.status_tab, text="", font=("Arial", 12), bg=BG_PRIMARY, fg=BLUE_PRIMARY, wraplength=150, justify="center")
+        self.stage_label = tk.Label(left_frame, text="", font=("Arial", 12), bg=BG_PRIMARY, fg=BLUE_PRIMARY, wraplength=150, justify="center")
         self.stage_label.pack(anchor="w", fill="x", pady=(0, 3))
 
         # Stage dots (visual indicator)
-        self.stage_dots = tk.Label(self.status_tab, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, justify="center")
+        self.stage_dots = tk.Label(left_frame, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, justify="center")
         self.stage_dots.pack(anchor="w", fill="x", pady=(0, 10))
 
         # Overall job progress divider
-        divider3 = tk.Frame(self.status_tab, height=1, bg=BG_TERTIARY)
+        divider3 = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
         divider3.pack(fill="x", pady=8)
 
         # Overall progress label
-        ttk.Label(self.status_tab, text="Overall", font=("Arial", 9, "bold")).pack(anchor="w", pady=(0, 3))
+        ttk.Label(left_frame, text="Overall", font=("Arial", 9, "bold")).pack(anchor="w", pady=(0, 3))
 
         # Overall progress counter (e.g., "7/10")
-        self.overall_label = tk.Label(self.status_tab, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg="#00DD00")
+        self.overall_label = tk.Label(left_frame, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg="#00DD00")
         self.overall_label.pack(anchor="w", fill="x", pady=(0, 3))
 
         # Overall progress bar
-        self.overall_progress_bar = ttk.Progressbar(self.status_tab, length=150, mode="determinate", value=0)
+        self.overall_progress_bar = ttk.Progressbar(left_frame, length=150, mode="determinate", value=0)
         self.overall_progress_bar.pack(anchor="w", fill="x")
 
-        # Action buttons
-        action_frame = ttk.Frame(self.status_tab)
-        action_frame.pack(fill="x", pady=(20, 0), padx=10)
+        # ===== RIGHT SIDEBAR CONTENT: Quick Actions =====
+        ttk.Label(right_frame, text="Quick Actions", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
-        self.run_button = ttk.Button(action_frame, text="Run Now", command=self.run_agent, width=14)
+        self.run_button = ttk.Button(right_frame, text="Run Now", command=self.run_agent, width=14)
         self.run_button.pack(fill="x", pady=3)
-        ttk.Button(action_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
-        self.refresh_btn = ttk.Button(action_frame, text="Refresh", command=self.refresh_log, width=14)
+        ttk.Button(right_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
+        self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
         self.refresh_btn.pack(fill="x", pady=3)
-        ttk.Button(action_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
 
-        self.retry_button = ttk.Button(action_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
+        self.retry_button = ttk.Button(right_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
         self.retry_button.pack(fill="x", pady=3)
+
+        # ===== STATUS TAB CONTENT =====
+        # Live status/progress now lives permanently in the left sidebar (visible from
+        # every tab); this tab surfaces contextual tips about that live status.
+        ttk.Label(self.status_tab, text="Tips", font=("Arial", 12, "bold")).pack(anchor="w", padx=10, pady=(10, 10))
+        ttk.Label(self.status_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", padx=10, pady=(0, 5))
+        ttk.Label(self.status_tab, text="\U0001F4A1 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 9), foreground="#999999").pack(anchor="w", padx=10, pady=(0, 5))
+        ttk.Label(self.status_tab, text="⚠️  Scheduled tasks: the log updates AFTER the run completes (not live).", font=("Arial", 9), foreground="#FFAA00").pack(anchor="w", padx=10, pady=(10, 2))
+        ttk.Label(self.status_tab, text="Click 'Run Now' in the right sidebar to see real-time progress.", font=("Arial", 9), foreground="#FFAA00").pack(anchor="w", padx=10, pady=(0, 10))
+        ttk.Label(self.status_tab, text="Live status and progress bars are shown in the left sidebar at all times.",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY, justify="left", wraplength=400).pack(anchor="w", padx=10, pady=(10, 5))
 
         # ===== EXCLUSIONS TAB CONTENT =====
         # (Moved from the old ExclusionsWindow)
@@ -1381,16 +1405,21 @@ class MainApp(tk.Tk):
         button_frame.pack(fill="x", padx=10, pady=(0, 10))
         ttk.Button(button_frame, text="Save Exclusions", command=self.save_exclusions).pack(side="left")
 
-        # Auxiliary button bar (fixed, visible from all tabs)
-        self.button_frame = ttk.Frame(self)
-        self.button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        # ===== RIGHT SIDEBAR CONTENT: Settings (persistent, visible from all tabs) =====
+        divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
+        divider2.pack(fill="x", pady=10)
 
-        ttk.Button(self.button_frame, text="Instructions", command=self.show_instructions, width=14).pack(side="left", padx=3)
-        ttk.Button(self.button_frame, text="About", command=self.show_about, width=14).pack(side="left", padx=3)
-        self.update_button = ttk.Button(self.button_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
-        self.update_button.pack(side="left", padx=3)
-        ttk.Button(self.button_frame, text="Stop Service", command=self.stop_service, width=14).pack(side="left", padx=3)
-        ttk.Button(self.button_frame, text="Exit", command=self.quit, width=14).pack(side="left", padx=3)
+        ttk.Label(right_frame, text="Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
+        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
+        self.update_button.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
+
+        # Version label
+        ttk.Label(right_frame, text="v2.0.0", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
 
         # Configure Treeview style for dark theme (kept here since it's a global style,
         # not tied to a specific frame; used once Logs/Exclusions tabs are populated)
@@ -1412,12 +1441,6 @@ class MainApp(tk.Tk):
             tk.Button(log_header, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
         else:
             tk.Button(log_header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
-
-        # Timing note
-        ttk.Label(self.logs_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", pady=(0, 3))
-
-        # Stalled item note
-        ttk.Label(self.logs_tab, text="\U0001F4A1 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 8))
 
         # Log area
         log_frame = tk.LabelFrame(self.logs_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
