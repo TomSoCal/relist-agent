@@ -1194,6 +1194,15 @@ class MainApp(tk.Tk):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        def _on_configure_mousewheel(event):
+            if event.num == 5 or event.delta < 0:
+                canvas.yview_scroll(3, "units")
+            elif event.num == 4 or event.delta > 0:
+                canvas.yview_scroll(-3, "units")
+        canvas.bind("<MouseWheel>", _on_configure_mousewheel)
+        canvas.bind("<Button-4>", _on_configure_mousewheel)
+        canvas.bind("<Button-5>", _on_configure_mousewheel)
+
         # API Credentials section
         ttk.Label(scrollable_frame, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
@@ -1265,11 +1274,29 @@ class MainApp(tk.Tk):
         self.configure_listings_per_run.pack(anchor="w", padx=10, pady=(0, 8))
         self.configure_listings_per_run.set(self.app_config.get("listings_per_run", 10))
 
+        ttk.Label(scrollable_frame, text="Days to Run:").pack(anchor="w", padx=10, pady=(0, 3))
+        configure_days_frame = tk.Frame(scrollable_frame, bg=BG_PRIMARY)
+        configure_days_frame.pack(anchor="w", padx=10, pady=(0, 8))
+
+        _days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        _configured_run_days = self.app_config.get("run_days", _days_of_week)
+
+        self.configure_day_vars = {}
+        for i, day in enumerate(_days_of_week):
+            var = tk.BooleanVar(value=day in _configured_run_days)
+            self.configure_day_vars[day] = var
+            cb = tk.Checkbutton(configure_days_frame, text=day, variable=var, bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                               activebackground="black", activeforeground=TEXT_PRIMARY, selectcolor=BLUE_PRIMARY,
+                               font=("Arial", 10), relief="flat", borderwidth=0)
+            cb.grid(row=i // 4, column=i % 4, sticky="w", padx=5, pady=3)
+
         # Buttons
         button_frame = ttk.Frame(scrollable_frame)
         button_frame.pack(fill="x", pady=(20, 0), padx=10)
 
         ttk.Button(button_frame, text="Save Configuration", command=self.save_configure_settings).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Authorize Now", command=self.configure_oauth_auth).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Test Email", command=self.test_email).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear Cache", command=self.clear_cache).pack(side="left", padx=5)
 
         canvas.pack(side="left", fill="both", expand=True)
@@ -2927,11 +2954,34 @@ SKUs to exclude ({len(excluded_skus)}):
 
     def save_configure_settings(self):
         """Save settings from Configure tab"""
+        selected_days = [day for day, var in self.configure_day_vars.items() if var.get()]
+        if not selected_days:
+            messagebox.showwarning("Warning", "Please select at least one day to run.")
+            return
+
+        run_time = f"{int(self.configure_run_hour.get()):02d}:{int(self.configure_run_minute.get()):02d}"
+
+        # Track whether eBay credentials changed, to decide whether to offer OAuth
+        old_app_id = self.app_config.get("app_id", "")
+        old_cert_id = self.app_config.get("cert_id", "")
+        old_dev_id = self.app_config.get("dev_id", "")
+        old_ru_name = self.app_config.get("ru_name", "")
+
+        new_app_id = self.configure_app_id.get()
+        new_cert_id = self.configure_cert_id.get()
+        new_dev_id = self.configure_dev_id.get()
+        new_ru_name = self.configure_ru_name.get()
+
+        credentials_changed = (
+            new_app_id != old_app_id or new_cert_id != old_cert_id
+            or new_dev_id != old_dev_id or new_ru_name != old_ru_name
+        )
+
         self.app_config.update({
-            "app_id": self.configure_app_id.get(),
-            "dev_id": self.configure_dev_id.get(),
-            "cert_id": self.configure_cert_id.get(),
-            "ru_name": self.configure_ru_name.get(),
+            "app_id": new_app_id,
+            "dev_id": new_dev_id,
+            "cert_id": new_cert_id,
+            "ru_name": new_ru_name,
             "gmail_email": self.configure_gmail_email.get(),
             "gmail_app_password": self.configure_gmail_pass.get(),
             "report_email": self.configure_report_email.get(),
@@ -2940,9 +2990,171 @@ SKUs to exclude ({len(excluded_skus)}):
             "listings_per_run": int(self.configure_listings_per_run.get()),
             "run_hour": int(self.configure_run_hour.get()),
             "run_minute": int(self.configure_run_minute.get()),
+            "run_time": run_time,
+            "run_days": selected_days,
         })
         save_config(self.app_config)
-        messagebox.showinfo("Success", "Settings saved!")
+
+        # Update Windows Task Scheduler with the new run time/days
+        self.apply_configure_schedule(run_time, selected_days)
+
+        messagebox.showinfo("Success", "Settings saved and schedule updated!")
+        self.refresh_after_settings_save()
+
+        # If eBay credentials changed, offer to (re)authorize via OAuth
+        if credentials_changed and new_app_id and new_cert_id and new_dev_id and new_ru_name:
+            if messagebox.askyesno(
+                "Authorize eBay Account",
+                "Your eBay API credentials were changed.\n\n"
+                "Authorize now via eBay OAuth? A browser window will open."
+            ):
+                self.configure_oauth_auth()
+
+    def apply_configure_schedule(self, run_time, run_days):
+        """Apply the schedule to Windows Task Scheduler via inline PowerShell"""
+        try:
+            exe_path = str(BASE_DIR / "Relist Agent.exe")
+            script_dir = str(BASE_DIR)
+
+            # Build PowerShell command inline (no external files)
+            # Run the EXE with --run flag for headless relisting
+            ps_cmd = f"""
+$taskName = 'eBayRelistAgent'
+$exe = '"{exe_path}"'
+$scriptDir = '{script_dir}'
+
+$action = New-ScheduledTaskAction -Execute $exe -Argument "--run" -WorkingDirectory $scriptDir
+$trigger = New-ScheduledTaskTrigger -Daily -At '{run_time}'
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+"""
+
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+                capture_output=True,
+                timeout=10,
+                text=True
+            )
+
+            if result.returncode != 0:
+                messagebox.showwarning("Warning", f"Schedule update had issues:\n{result.stderr}")
+            else:
+                print(f"[CONFIGURE] Schedule updated: {run_time} on {', '.join(run_days)}")
+
+        except Exception as e:
+            messagebox.showwarning("Error", f"Failed to update schedule:\n{e}")
+
+    def configure_oauth_auth(self):
+        """OAuth authorization - exactly mirrors interactive_setup() flow from auth.py"""
+        try:
+            from tkinter import simpledialog as sd
+            import urllib.parse
+            import requests
+            import base64
+            from datetime import datetime, timezone, timedelta
+            from auth import save_tokens, OAUTH_AUTH_URL, OAUTH_TOKEN_URL, SCOPES
+
+            # Verify all required credentials are present
+            required = {
+                "app_id": self.configure_app_id.get(),
+                "cert_id": self.configure_cert_id.get(),
+                "dev_id": self.configure_dev_id.get(),
+                "ru_name": self.configure_ru_name.get(),
+            }
+            missing = [f for f, v in required.items() if not v]
+            if missing:
+                messagebox.showerror("Missing Credentials", f"Please fill in all required fields:\n{', '.join(missing)}")
+                return
+
+            # Build OAuth URL (exactly as _do_oauth() does in auth.py)
+            auth_url = (
+                f"{OAUTH_AUTH_URL}?client_id={urllib.parse.quote(required['app_id'])}"
+                f"&response_type=code"
+                f"&redirect_uri={urllib.parse.quote(required['ru_name'])}"
+                f"&scope={urllib.parse.quote(SCOPES)}"
+            )
+
+            # Open browser
+            messagebox.showinfo(
+                "OAuth Authorization",
+                "A browser window will open for eBay authorization.\n\n"
+                "After you authorize the app, your browser will redirect to a page that fails to load.\n"
+                "Copy the full URL from the address bar and paste it in the next dialog."
+            )
+            webbrowser.open(auth_url)
+
+            # Ask user to paste redirect URL
+            raw = sd.askstring(
+                "Paste Authorization URL",
+                "Copy the full URL from your browser's address bar and paste it below:"
+            )
+            if not raw:
+                messagebox.showwarning("Cancelled", "OAuth authorization was cancelled.")
+                return
+
+            # Extract authorization code
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+            if "code" not in params:
+                messagebox.showerror("Error", "No 'code' found in the URL.\nMake sure you copied the entire URL from the address bar.")
+                return
+            code = params["code"][0]
+
+            # Exchange code for tokens (exactly as _do_oauth() does)
+            creds = base64.b64encode(f"{required['app_id']}:{required['cert_id']}".encode()).decode()
+            resp = requests.post(
+                OAUTH_TOKEN_URL,
+                headers={"Authorization": f"Basic {creds}", "Content-Type": "application/x-www-form-urlencoded"},
+                data={"grant_type": "authorization_code", "code": code, "redirect_uri": required["ru_name"]},
+                timeout=30,
+            )
+            if not resp.ok:
+                messagebox.showerror("Error", f"Token exchange failed ({resp.status_code}):\n{resp.text}")
+                return
+
+            data = resp.json()
+            if not data.get("refresh_token"):
+                messagebox.showerror("Error", "eBay did not return a refresh token.\nCheck your app credentials and OAuth scopes are correct.")
+                return
+
+            # Save tokens (exactly as _do_oauth() does)
+            now = datetime.now(timezone.utc)
+            save_tokens({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "expires_at": (now + timedelta(seconds=data["expires_in"])).isoformat(),
+            })
+
+            messagebox.showinfo("Success", "Authorization complete!\n\nTokens saved. You're ready to use the app.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"OAuth failed: {str(e)}")
+
+    def test_email(self):
+        """Send a test email using the currently entered email settings"""
+        gmail_email = self.configure_gmail_email.get()
+        gmail_pass = self.configure_gmail_pass.get()
+        report_email = self.configure_report_email.get()
+
+        if not gmail_email or not gmail_pass or not report_email:
+            messagebox.showerror(
+                "Missing Fields",
+                "Please fill in Gmail Email, Gmail App Password, and Report Sent To before testing."
+            )
+            return
+
+        try:
+            from notifications import send_email
+            send_email(
+                gmail_app_password=gmail_pass,
+                subject="Relist Agent - Test Email",
+                body="This is a test email from eBay Relist Agent.\n\nIf you received this, your email settings are configured correctly.",
+                sender=gmail_email,
+                recipient=report_email,
+            )
+            messagebox.showinfo("Success", f"Test email sent to {report_email}!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send test email:\n{e}")
 
     def clear_cache(self):
         """Clear the progress.json file to remove stale progress data"""
