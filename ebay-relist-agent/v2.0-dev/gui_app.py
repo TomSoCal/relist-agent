@@ -1113,207 +1113,39 @@ class MainApp(tk.Tk):
             except Exception:
                 pass
 
-        # Configure grid layout
-        self.columnconfigure(0, weight=0, minsize=180)  # Left column
-        self.columnconfigure(1, weight=1)              # Center column (expands)
-        self.columnconfigure(2, weight=0, minsize=150) # Right column
-        self.rowconfigure(0, weight=0)
-        self.rowconfigure(1, weight=1)
+        # ===== TAB-BASED LAYOUT =====
+        self.rowconfigure(0, weight=0)  # Tab bar at top
+        self.rowconfigure(1, weight=1)  # Tab content area
+        self.rowconfigure(2, weight=0)  # Button bar at bottom
+        self.columnconfigure(0, weight=1)  # Full width
 
-        # ===== LEFT COLUMN =====
-        left_frame = ttk.Frame(self)
-        left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
+        # Create tab widget
+        self.tabs = ttk.Notebook(self)
+        self.tabs.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
-        # Logo section
-        logo_frame = tk.Frame(left_frame, bg=BG_PRIMARY)
-        logo_frame.pack(fill="x", pady=(0, 10))
+        # Create 4 tab frames (empty for now, populated in later tasks)
+        self.configure_tab = ttk.Frame(self.tabs)
+        self.exclusions_tab = ttk.Frame(self.tabs)
+        self.status_tab = ttk.Frame(self.tabs)
+        self.logs_tab = ttk.Frame(self.tabs)
 
-        self.logo_photo = None
-        logo_path = ASSETS_DIR / "ERA_Logo.png"
-        if logo_path.exists():
-            try:
-                logo_img = Image.open(str(logo_path))
-                # Scale to larger size for sidebar (keep aspect ratio)
-                logo_img.thumbnail((220, 110), Image.Resampling.LANCZOS)
-                print(f"[DEBUG] Logo loaded from {logo_path}, size: {logo_img.size}")
-                self.logo_photo = ImageTk.PhotoImage(logo_img)
-                logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
-                logo_label.pack(anchor="center", pady=(5, 5))
-            except Exception as e:
-                # Fallback if image loading fails
-                tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
-                        bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
-        else:
-            # Logo file not found - show placeholder text
-            tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
-                    bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
+        # Add tabs to notebook
+        self.tabs.add(self.configure_tab, text="Configure")
+        self.tabs.add(self.exclusions_tab, text="Exclusions")
+        self.tabs.add(self.status_tab, text="Status")
+        self.tabs.add(self.logs_tab, text="Logs")
 
-        # Store info - CREATE AND PACK ALWAYS so layout is consistent
-        store_name = self.app_config.get("store_name", "")
-        self.store_label = tk.Label(left_frame, text=store_name,
-                              font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
-        self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
+        # Auxiliary button bar (will be filled in a later task)
+        self.button_frame = ttk.Frame(self)
+        self.button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
 
-        # Divider
-        divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
-        divider.pack(fill="x", pady=10)
-
-        # Status section
-        status_label = ttk.Label(left_frame, text="Status", font=("Arial", 10, "bold"))
-        status_label.pack(anchor="w", pady=(0, 3))
-
-        self.status_text = tk.Label(left_frame, text="Ready", font=("Arial", 9), bg=BG_PRIMARY, fg="#00DD00", wraplength=150)
-        self.status_text.pack(anchor="w", fill="x", pady=(0, 5))
-
-        # Current item section
-        self.current_item_label = tk.Label(left_frame, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, wraplength=150, justify="left")
-        self.current_item_label.pack(anchor="w", fill="x", pady=(0, 3))
-
-        # Current item progress
-        self.progress_label = tk.Label(left_frame, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg=BLUE_PRIMARY)
-        self.progress_label.pack(anchor="w", fill="x", pady=(0, 3))
-
-        # Current item progress bar
-        self.progress_bar = ttk.Progressbar(left_frame, length=150, mode="determinate", value=0)
-        self.progress_bar.pack(anchor="w", fill="x", pady=(0, 8))
-
-        # Process stage indicator
-        self.stage_label = tk.Label(left_frame, text="", font=("Arial", 12), bg=BG_PRIMARY, fg=BLUE_PRIMARY, wraplength=150, justify="center")
-        self.stage_label.pack(anchor="w", fill="x", pady=(0, 3))
-
-        # Stage dots (visual indicator)
-        self.stage_dots = tk.Label(left_frame, text="", font=("Arial", 8), bg=BG_PRIMARY, fg=TEXT_SECONDARY, justify="center")
-        self.stage_dots.pack(anchor="w", fill="x", pady=(0, 10))
-
-        # Overall job progress divider
-        divider3 = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
-        divider3.pack(fill="x", pady=8)
-
-        # Overall progress label
-        ttk.Label(left_frame, text="Overall", font=("Arial", 9, "bold")).pack(anchor="w", pady=(0, 3))
-
-        # Overall progress counter (e.g., "7/10")
-        self.overall_label = tk.Label(left_frame, text="", font=("Arial", 9, "bold"), bg=BG_PRIMARY, fg="#00DD00")
-        self.overall_label.pack(anchor="w", fill="x", pady=(0, 3))
-
-        # Overall progress bar
-        self.overall_progress_bar = ttk.Progressbar(left_frame, length=150, mode="determinate", value=0)
-        self.overall_progress_bar.pack(anchor="w", fill="x")
-
-        # ===== CENTER COLUMN =====
-        center_frame = ttk.Frame(self)
-        center_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
-
-        # Header with title and info icon
-        header = ttk.Frame(center_frame)
-        header.pack(fill="x", pady=(0, 10))
-        ttk.Label(header, text="Activity Log", font=("Arial", 12, "bold")).pack(side="left")
-        icon = get_info_icon(24)
-        if icon:
-            tk.Button(header, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
-        else:
-            tk.Button(header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
-
-        # Timing note
-        ttk.Label(center_frame, text="⏱ Each listing takes 1–2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", pady=(0, 3))
-
-        # Stalled item note
-        ttk.Label(center_frame, text="💡 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 3))
-
-        # Scheduled task note (multi-line)
-        ttk.Label(center_frame, text="⚠️  Scheduled tasks: Log updates AFTER the run completes (not live).", font=("Arial", 8), foreground="#FFAA00").pack(anchor="w", pady=(0, 2))
-        ttk.Label(center_frame, text="Click 'Run Now' to see real-time progress.", font=("Arial", 8), foreground="#FFAA00").pack(anchor="w", pady=(0, 8))
-
-        # Log area
-        log_frame = tk.LabelFrame(center_frame, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
-        log_frame.pack(fill="both", expand=True)
-
-        # Configure Treeview style for dark theme
+        # Configure Treeview style for dark theme (kept here since it's a global style,
+        # not tied to a specific frame; used once Logs/Exclusions tabs are populated)
         style = ttk.Style()
         style.configure("Treeview", background=BG_SECONDARY, foreground=TEXT_PRIMARY, fieldbackground=BG_SECONDARY, borderwidth=0)
         style.map("Treeview", background=[("selected", BLUE_PRIMARY)], foreground=[("selected", TEXT_PRIMARY)])
         style.configure("Treeview.Heading", background=BG_TERTIARY, foreground=TEXT_PRIMARY)
         style.map("Treeview.Heading", background=[("active", BLUE_HOVER)])
-
-        # Create Treeview with columns
-        columns = ("Started", "Completed", "Status", "Old Item", "Title")
-        self.log_tree = ttk.Treeview(log_frame, columns=columns, height=20, show="headings")
-
-        # Define column headings and widths
-        self.log_tree.column("Started", width=120, anchor="w")
-        self.log_tree.column("Completed", width=120, anchor="w")
-        self.log_tree.column("Status", width=90, anchor="w")
-        self.log_tree.column("Old Item", width=110, anchor="w")
-        self.log_tree.column("Title", width=400, anchor="w")
-
-        self.log_tree.heading("Started", text="Started")
-        self.log_tree.heading("Completed", text="Completed")
-        self.log_tree.heading("Status", text="Status")
-        self.log_tree.heading("Old Item", text="Old Item")
-        self.log_tree.heading("Title", text="Title")
-
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_tree.yview)
-        self.log_tree.configure(yscroll=scrollbar.set)
-
-        self.log_tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Track log file modification time for auto-refresh
-        self.last_log_modify_time = 0
-
-        # Legacy reference for compatibility
-        self.log_text = None
-
-        # Prevent concurrent refresh calls
-        self.refresh_lock = False
-
-        # Track if agent is running
-        self.is_running = False
-
-        # Bind row selection to detect errors
-        # log_tree selection binding removed (retry feature removed)
-
-        # ===== RIGHT COLUMN =====
-        right_frame = ttk.Frame(self)
-        right_frame.grid(row=0, column=2, sticky="new", padx=10, pady=10)
-
-        # Quick actions label
-        ttk.Label(right_frame, text="Quick Actions", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
-
-        # Action buttons (vertical stack)
-        self.run_button = ttk.Button(right_frame, text="Run Now", command=self.run_agent, width=14)
-        self.run_button.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
-        self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
-        self.refresh_btn.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
-
-        # Divider
-        divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
-        divider2.pack(fill="x", pady=10)
-
-        # Settings section
-        ttk.Label(right_frame, text="Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
-        ttk.Button(right_frame, text="Configure", command=self.open_settings, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Exclude from Relist", command=self.open_exclusions, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
-
-        # Update status button
-        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
-        self.update_button.pack(fill="x", pady=3)
-
-        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
-
-        # Version label
-        ttk.Label(right_frame, text="v1.5.0", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
-
-        # Bottom action buttons
-        bottom_frame = ttk.Frame(self)
-        bottom_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
-        # Placeholder for potential bottom-level controls
 
         # Load log and check error items in background thread
         threading.Thread(target=self.startup_check, daemon=True).start()
