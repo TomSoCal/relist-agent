@@ -1123,7 +1123,7 @@ class MainApp(tk.Tk):
             except Exception:
                 pass
 
-        # ===== 3-COLUMN LAYOUT (restored from v1.5.0) =====
+        # ===== 3-COLUMN LAYOUT (restored from v1.5.0, upgraded to v2.0.0) =====
         self.columnconfigure(0, weight=0, minsize=180)  # Left sidebar
         self.columnconfigure(1, weight=1)               # Center column (tabs, expands)
         self.columnconfigure(2, weight=0, minsize=150)  # Right sidebar
@@ -1510,7 +1510,7 @@ class MainApp(tk.Tk):
         else:
             tk.Button(log_header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
 
-        # Tips/warnings section (moved from the old Status tab) — plain text, matches v1.5.0
+        # Tips/warnings section (moved from the old Status tab) — plain text, matches v2.0.0
         ttk.Label(self.logs_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)",
                   font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w", pady=(0, 3))
         ttk.Label(self.logs_tab, text="\U0001f504 If you see a stalled 'Completed' item, click Refresh to clear it",
@@ -1746,7 +1746,7 @@ class MainApp(tk.Tk):
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
 
-        # Set initial nav button highlight to match the default-selected tab (activity log, like v1.5.0)
+        # Set initial nav button highlight to match the default-selected tab (activity log, like v2.0.0)
         self.select_tab("logs")
 
     def select_tab(self, key):
@@ -2432,7 +2432,7 @@ Logs are always sorted by newest first (most recent at the top).
         store_name = self.app_config.get("store_name", "")
         licensed_to = f"Licensed to: {store_name}" if store_name else ""
 
-        about_text = """eBay Relist Agent v1.5.0
+        about_text = """eBay Relist Agent v2.0.0
 
 Automatically relist your items daily from your eBay store.
 
