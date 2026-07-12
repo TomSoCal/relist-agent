@@ -8,7 +8,10 @@
 
 ## Overview
 
-Consolidate the multi-window GUI into a single main window using a tab interface. All features, functionality, and branding from v1.5.0 are preserved exactly — only the UI organization changes.
+Refactor v1.5.0's single-window tkinter GUI to use a tab-based interface for better organization. All features, functionality, and branding from v1.5.0 are preserved exactly — only the UI layout changes from a 3-column grid to tabbed sections.
+
+**Current v1.5.0 layout:** 3-column tkinter window (left: status/progress, center: activity log, right: buttons)  
+**v2.0 layout:** Single window with 4 tabs (Configure, Exclusions, Status, Logs) + fixed auxiliary buttons (Instructions, About, Check for Updates, Stop Service, Exit)
 
 **Scope:** UI refactoring of `gui_app.py` only. No changes to core relisting logic, API calls, scheduling, email reports, or any supporting modules.
 
@@ -16,9 +19,10 @@ Consolidate the multi-window GUI into a single main window using a tab interface
 
 ## Goals
 
-- **Single unified window** — Replace 4 separate windows (Configure, Exclusions, Status, Logs) with 1 main window containing 4 tabs
-- **Feature parity** — All v1.5.0 features, buttons, forms, and workflows remain unchanged
-- **Preserve branding** — Keep eBay red accent (#d32f2f), ERA icon, color scheme, and styling
+- **Tab-based organization** — Reorganize v1.5.0's single window from 3-column grid to 4-tab interface for cleaner UX
+- **All features preserved** — Every button, form, and workflow from v1.5.0 remains unchanged and accessible
+- **Preserve branding** — Keep eBay red accent (#d32f2f), ERA icon, color scheme, and styling intact
+- **Keep auxiliary controls visible** — Instructions, About, Check for Updates, Stop Service, Exit remain accessible (not hidden by tabs)
 - **Minimal code changes** — Only `gui_app.py` is refactored; all other modules remain untouched
 - **Safe development** — v1.5.0 stays intact at root; v2.0-dev folder for testing
 
@@ -37,31 +41,43 @@ Consolidate the multi-window GUI into a single main window using a tab interface
 
 ### Tab Structure
 
-The main window contains a `QTabWidget` with exactly 4 tabs:
+The main window contains a `QTabWidget` with exactly 4 core tabs:
 
-1. **Configure Tab** (from ConfigWindow)
-   - eBay credentials status
-   - Schedule settings (run time, number of items to relist)
-   - Email configuration (recipient, HTML option)
-   - Buttons: Save Configuration, Test Email
+1. **Configure Tab**
+   - eBay API credentials (App ID, Dev ID, Cert ID, RU Name)
+   - Email configuration (Gmail email, app password, report recipient)
+   - Store name
+   - Schedule settings (run time, days, items per run, log days)
+   - Buttons: Save Configuration, Clear Cache
 
-2. **Exclusions Tab** (from ExclusionsWindow)
-   - File upload (CSV/XLS) for exclusion list
+2. **Exclusions Tab**
+   - File upload (CSV/XLS) for bulk exclusion list
    - Manual item ID entry + Add button
    - List of currently excluded items with Remove buttons
    - Button: Save Exclusions
 
-3. **Status Tab** (from StatusWindow)
-   - Today's run statistics (relisted count, skipped count, errors, completion time)
+3. **Status Tab**
+   - Real-time progress (current item, stage, progress bar)
+   - Today's run statistics (relisted count, skipped count, errors, time)
    - Active listing count and rotation estimate
    - Next scheduled run info
-   - Buttons: Run Now, View Full Log
+   - Buttons: Run Now, Inventory, Refresh, View Log, Retry Relist
 
-4. **Logs Tab** (from LogsWindow)
+4. **Logs Tab**
    - Activity history (success/skip/error entries with timestamps)
-   - Status badges (Success, Skipped, Error)
-   - Item IDs and operation details
+   - Status badges (Success, Skipped, Error, Retry)
+   - Item IDs, old→new ID mapping, operation details
    - Buttons: Export Logs, Clear Logs
+
+### Auxiliary Buttons (Right-side panel or bottom bar)
+
+These buttons remain accessible from any tab (not hidden by tab switching):
+
+- **Instructions** — Opens Quick Guide window with setup/usage instructions
+- **About** — Displays app version, license info, credits
+- **Check for Updates** — Launches update_checker.py to detect new versions
+- **Stop Service** — Halts the scheduled task and stops current run
+- **Exit** — Closes the application gracefully
 
 ### Folder Structure
 
