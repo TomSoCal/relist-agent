@@ -1151,7 +1151,7 @@ class MainApp(tk.Tk):
         )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscroll=scrollbar.set)
+        canvas.configure(yscrollcommand=scrollbar.set)
 
         # API Credentials section
         ttk.Label(scrollable_frame, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
@@ -1371,7 +1371,7 @@ class MainApp(tk.Tk):
         self.exclusion_tree.heading("Action", text="Action")
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.exclusion_tree.yview)
-        self.exclusion_tree.configure(yscroll=scrollbar.set)
+        self.exclusion_tree.configure(yscrollcommand=scrollbar.set)
 
         self.exclusion_tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -1983,6 +1983,10 @@ class MainApp(tk.Tk):
 
     def open_log_viewer(self):
         LogViewerWindow(self)
+
+    def retry_selected_error(self):
+        # Placeholder for retry logic (will be implemented in full feature)
+        pass
 
     def show_about(self):
         store_name = self.app_config.get("store_name", "")
