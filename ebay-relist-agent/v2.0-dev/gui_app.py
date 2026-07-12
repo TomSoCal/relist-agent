@@ -82,6 +82,31 @@ def save_config(cfg):
         json.dump(cfg, f, indent=2)
 
 
+def get_admin_prefs_file():
+    """Get path to admin preferences file"""
+    return DATA_DIR / "admin_prefs.json"
+
+
+def load_admin_prefs():
+    """Load admin preferences (skip future prompts)"""
+    prefs_file = get_admin_prefs_file()
+    if prefs_file.exists():
+        try:
+            with open(prefs_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {"skip_admin_prompt": False, "skip_uac_prompt": False}
+
+
+def save_admin_prefs(prefs):
+    """Save admin preferences"""
+    prefs_file = get_admin_prefs_file()
+    prefs_file.parent.mkdir(exist_ok=True)
+    with open(prefs_file, "w", encoding="utf-8") as f:
+        json.dump(prefs, f, indent=2)
+
+
 def is_admin():
     """Check if running with admin privileges"""
     try:
@@ -98,30 +123,123 @@ def restart_as_admin():
         import sys
         import os
 
-        # Get the path to the current script
-        script_path = os.path.abspath(__file__)
+        # Get the path to the current script or EXE
+        if getattr(sys, 'frozen', False):
+            # Running as EXE
+            app_path = sys.executable
+        else:
+            # Running as script
+            app_path = os.path.abspath(__file__)
 
         # Use ShellExecuteW to restart as admin
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script_path}"', None, 1)
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", app_path, "", None, 1)
 
         # Exit current process
-        import sys
         sys.exit(0)
     except Exception as e:
         messagebox.showerror("Error", f"Could not restart as admin:\n{e}")
 
 
-def check_admin_on_startup():
-    """Check if admin is needed and show popup if necessary"""
-    if not is_admin():
-        result = messagebox.askyesno(
-            "Admin Setup Required",
+class AdminPromptDialog(tk.Toplevel):
+    """Custom dialog for admin prompt with 'Don't Ask Again' option"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.title("Admin Setup Required")
+        self.geometry("450x250")
+        self.resizable(False, False)
+        self.result = None
+        self.dont_ask_again = False
+
+        # Set icon
+        try:
+            ico_path = BASE_DIR / "ERA_Icon.ico"
+            if ico_path.exists():
+                self.iconbitmap(str(ico_path))
+        except:
+            pass
+
+        # Make dialog modal
+        self.transient(parent)
+        self.grab_set()
+
+        # Main frame
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Message
+        msg_frame = ttk.Frame(main_frame)
+        msg_frame.pack(fill="both", expand=True, pady=(0, 15))
+
+        msg_text = (
             "eBay Relist Agent needs admin privileges to configure\n"
             "Windows Task Scheduler for automatic runs.\n\n"
-            "Restart the app as admin? (one-time only)\n\n"
-            "After restart, settings changes will update automatically.",
-            icon=messagebox.QUESTION
+            "Restart the app as admin?\n\n"
+            "After restart, settings changes will update automatically."
         )
+        msg_label = ttk.Label(msg_frame, text=msg_text, justify="left")
+        msg_label.pack(anchor="w")
+
+        # Checkbox for "Don't Ask Again"
+        self.checkbox_var = tk.BooleanVar()
+        checkbox = ttk.Checkbutton(
+            main_frame,
+            text="Don't ask again",
+            variable=self.checkbox_var
+        )
+        checkbox.pack(anchor="w", pady=(0, 15))
+
+        # Button frame
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill="x")
+
+        yes_btn = ttk.Button(btn_frame, text="Yes, Restart as Admin", command=self.on_yes)
+        yes_btn.pack(side="left", padx=(0, 5))
+
+        no_btn = ttk.Button(btn_frame, text="No, Skip", command=self.on_no)
+        no_btn.pack(side="left")
+
+        # Center window on screen
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (self.winfo_width() // 2)
+        y = (self.winfo_screenheight() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
+
+    def on_yes(self):
+        self.result = True
+        self.dont_ask_again = self.checkbox_var.get()
+        self.destroy()
+
+    def on_no(self):
+        self.result = False
+        self.dont_ask_again = self.checkbox_var.get()
+        self.destroy()
+
+
+def check_admin_on_startup():
+    """Check if admin is needed and show popup if necessary"""
+    admin_prefs = load_admin_prefs()
+
+    # Skip if user previously selected "Don't Ask Again"
+    if admin_prefs.get("skip_admin_prompt"):
+        return
+
+    if not is_admin():
+        # Create root window temporarily for dialog
+        root = tk.Tk()
+        root.withdraw()  # Hide it
+
+        dialog = AdminPromptDialog(root)
+        root.wait_window(dialog)
+
+        result = dialog.result
+        dont_ask_again = dialog.dont_ask_again
+
+        root.destroy()
+
+        if dont_ask_again:
+            admin_prefs["skip_admin_prompt"] = True
+            save_admin_prefs(admin_prefs)
+
         if result:
             restart_as_admin()
         else:
@@ -365,13 +483,27 @@ class SettingsWindow(tk.Toplevel):
         import subprocess
         import sys
 
-        messagebox.showinfo(
-            "Schedule Updated",
-            f"✓ Schedule configured:\n\n"
-            f"⏰ Run Time: {run_time}\n"
-            f"📅 Days: {', '.join(run_days)}\n\n"
-            f"Changes take effect immediately."
-        )
+        admin_prefs = load_admin_prefs()
+        schedule_updated_before = admin_prefs.get("schedule_updated_before", False)
+
+        if not schedule_updated_before:
+            msg = (
+                "✓ Schedule configured:\n\n"
+                f"⏰ Run Time: {run_time}\n"
+                f"📅 Days: {', '.join(run_days)}\n\n"
+                "A security prompt will appear (Windows UAC).\n\n"
+                "✓ Check 'Apply to all' in the UAC dialog so this won't ask again.\n\n"
+                "Changes take effect immediately."
+            )
+        else:
+            msg = (
+                "✓ Schedule updated:\n\n"
+                f"⏰ Run Time: {run_time}\n"
+                f"📅 Days: {', '.join(run_days)}\n\n"
+                "Changes take effect immediately."
+            )
+
+        messagebox.showinfo("Schedule Updated", msg)
 
         try:
             exe_path = str(BASE_DIR / "Relist Agent.exe")
@@ -401,6 +533,10 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Se
             if result.returncode != 0:
                 messagebox.showwarning("Warning", f"Schedule update had issues:\n{result.stderr}")
             else:
+                # Mark that schedule has been updated at least once
+                if not schedule_updated_before:
+                    admin_prefs["schedule_updated_before"] = True
+                    save_admin_prefs(admin_prefs)
                 print(f"[SETTINGS] Schedule updated: {run_time} on {', '.join(run_days)}")
 
         except Exception as e:
