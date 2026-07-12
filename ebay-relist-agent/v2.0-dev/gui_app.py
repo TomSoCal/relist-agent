@@ -1135,6 +1135,105 @@ class MainApp(tk.Tk):
         self.tabs.add(self.status_tab, text="Status")
         self.tabs.add(self.logs_tab, text="Logs")
 
+        # ===== CONFIGURE TAB CONTENT =====
+        # Scrollable frame for configure content
+        configure_scroll = ttk.Frame(self.configure_tab)
+        configure_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Canvas with scrollbar for configure content
+        canvas = tk.Canvas(configure_scroll, bg=BG_PRIMARY, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(configure_scroll, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscroll=scrollbar.set)
+
+        # API Credentials section
+        ttk.Label(scrollable_frame, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(scrollable_frame, text="App ID:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_app_id = ttk.Entry(scrollable_frame, width=40, show="*")
+        self.configure_app_id.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_app_id.insert(0, self.app_config.get("app_id", ""))
+
+        ttk.Label(scrollable_frame, text="Dev ID:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_dev_id = ttk.Entry(scrollable_frame, width=40, show="*")
+        self.configure_dev_id.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_dev_id.insert(0, self.app_config.get("dev_id", ""))
+
+        ttk.Label(scrollable_frame, text="Cert ID:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_cert_id = ttk.Entry(scrollable_frame, width=40, show="*")
+        self.configure_cert_id.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_cert_id.insert(0, self.app_config.get("cert_id", ""))
+
+        ttk.Label(scrollable_frame, text="RU Name:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_ru_name = ttk.Entry(scrollable_frame, width=40)
+        self.configure_ru_name.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_ru_name.insert(0, self.app_config.get("ru_name", ""))
+
+        # Email section
+        ttk.Label(scrollable_frame, text="Email Configuration", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 10))
+
+        ttk.Label(scrollable_frame, text="Gmail Email:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_gmail_email = ttk.Entry(scrollable_frame, width=40)
+        self.configure_gmail_email.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_gmail_email.insert(0, self.app_config.get("gmail_email", ""))
+
+        ttk.Label(scrollable_frame, text="Gmail App Password:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_gmail_pass = ttk.Entry(scrollable_frame, width=40, show="*")
+        self.configure_gmail_pass.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_gmail_pass.insert(0, self.app_config.get("gmail_app_password", ""))
+
+        ttk.Label(scrollable_frame, text="Report Sent To:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_report_email = ttk.Entry(scrollable_frame, width=40)
+        self.configure_report_email.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_report_email.insert(0, self.app_config.get("report_email", ""))
+
+        ttk.Label(scrollable_frame, text="Store Name:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_store_name = ttk.Entry(scrollable_frame, width=40)
+        self.configure_store_name.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_store_name.insert(0, self.app_config.get("store_name", ""))
+
+        # Schedule section
+        ttk.Label(scrollable_frame, text="Schedule", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 10))
+
+        ttk.Label(scrollable_frame, text="Run Time (HH:MM):").pack(anchor="w", padx=10, pady=(0, 3))
+        time_frame = ttk.Frame(scrollable_frame)
+        time_frame.pack(anchor="w", padx=10, pady=(0, 8))
+
+        self.configure_run_hour = ttk.Spinbox(time_frame, from_=0, to=23, width=3)
+        self.configure_run_hour.pack(side="left")
+        ttk.Label(time_frame, text=":").pack(side="left", padx=2)
+        self.configure_run_minute = ttk.Spinbox(time_frame, from_=0, to=59, width=3)
+        self.configure_run_minute.pack(side="left")
+        self.configure_run_hour.set(self.app_config.get("run_hour", 12))
+        self.configure_run_minute.set(self.app_config.get("run_minute", 0))
+
+        ttk.Label(scrollable_frame, text="Log Days to Display:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_log_days = ttk.Spinbox(scrollable_frame, from_=1, to=30, width=10)
+        self.configure_log_days.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_log_days.set(self.app_config.get("log_days", 3))
+
+        ttk.Label(scrollable_frame, text="Listings to Execute Per Run:").pack(anchor="w", padx=10, pady=(0, 3))
+        self.configure_listings_per_run = ttk.Spinbox(scrollable_frame, from_=1, to=50, width=10)
+        self.configure_listings_per_run.pack(anchor="w", padx=10, pady=(0, 8))
+        self.configure_listings_per_run.set(self.app_config.get("listings_per_run", 10))
+
+        # Buttons
+        button_frame = ttk.Frame(scrollable_frame)
+        button_frame.pack(fill="x", pady=(20, 0), padx=10)
+
+        ttk.Button(button_frame, text="Save Configuration", command=self.save_configure_settings).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Clear Cache", command=self.clear_cache).pack(side="left", padx=5)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
         # ===== STATUS TAB CONTENT =====
         # (Moved from the old left_frame in the 3-column layout)
 
@@ -1227,6 +1326,60 @@ class MainApp(tk.Tk):
 
         self.retry_button = ttk.Button(action_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
         self.retry_button.pack(fill="x", pady=3)
+
+        # ===== EXCLUSIONS TAB CONTENT =====
+        # (Moved from the old ExclusionsWindow)
+
+        # Initialize exclusion-related instance variables
+        self.exclusion_file_var = tk.StringVar()
+        self.exclusion_item_id = None
+        self.exclusion_tree = None
+
+        # Upload section header
+        ttk.Label(self.exclusions_tab, text="Upload Exclusion List", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+
+        # Upload button and file label frame
+        upload_frame = ttk.Frame(self.exclusions_tab)
+        upload_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        ttk.Button(upload_frame, text="Choose File (CSV/XLS)", command=self.upload_exclusion_file).pack(side="left")
+        ttk.Label(upload_frame, textvariable=self.exclusion_file_var).pack(side="left", padx=10)
+
+        # Manual add section
+        ttk.Label(self.exclusions_tab, text="Add Item Manually", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+
+        manual_frame = ttk.Frame(self.exclusions_tab)
+        manual_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        ttk.Label(manual_frame, text="Item ID:").pack(side="left", padx=(0, 5))
+        self.exclusion_item_id = ttk.Entry(manual_frame, width=30)
+        self.exclusion_item_id.pack(side="left", padx=(0, 5))
+        ttk.Button(manual_frame, text="Add", command=self.add_exclusion_item).pack(side="left")
+
+        # Exclusion list section
+        ttk.Label(self.exclusions_tab, text="Currently Excluded", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+
+        list_frame = tk.LabelFrame(self.exclusions_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1)
+        list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # Treeview for exclusions
+        columns = ("Item ID", "Action")
+        self.exclusion_tree = ttk.Treeview(list_frame, columns=columns, height=10, show="headings")
+        self.exclusion_tree.column("Item ID", width=300, anchor="w")
+        self.exclusion_tree.column("Action", width=100, anchor="center")
+        self.exclusion_tree.heading("Item ID", text="Item ID")
+        self.exclusion_tree.heading("Action", text="Action")
+
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.exclusion_tree.yview)
+        self.exclusion_tree.configure(yscroll=scrollbar.set)
+
+        self.exclusion_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Save button
+        button_frame = ttk.Frame(self.exclusions_tab)
+        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+        ttk.Button(button_frame, text="Save Exclusions", command=self.save_exclusions).pack(side="left")
 
         # Auxiliary button bar (fixed, visible from all tabs)
         self.button_frame = ttk.Frame(self)
