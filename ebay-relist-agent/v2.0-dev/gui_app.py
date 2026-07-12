@@ -1390,6 +1390,7 @@ class MainApp(tk.Tk):
         self.run_button.pack(fill="x", pady=3)
         self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
         self.refresh_btn.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Test Email", command=self.test_email, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
         ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
@@ -3094,6 +3095,9 @@ TYPICAL WORKFLOW
         )
 
         if confirm:
+            from datetime import date, datetime
+            today = date.today().isoformat()
+            start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             try:
                 from auth import get_access_token
                 from ebay_api import get_item, add_item, end_item
@@ -3109,6 +3113,13 @@ TYPICAL WORKFLOW
                 # Create new listing with same details
                 new_item_id = add_item(self.app_config, token, details)
 
+                end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self._append_relist_log_entry({
+                    "date": today, "start_time": start_time, "end_time": end_time,
+                    "old_item_id": item_id, "new_item_id": new_item_id,
+                    "title": title, "status": "relisted",
+                })
+
                 messagebox.showinfo("Success", f"Listing refreshed!\n\nOld: {item_id}\nNew: {new_item_id}")
 
                 # Reload inventory
@@ -3116,7 +3127,30 @@ TYPICAL WORKFLOW
                 self.inv_filter_items()
                 threading.Thread(target=self.inv_load_items, daemon=True).start()
             except Exception as e:
+                end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self._append_relist_log_entry({
+                    "date": today, "start_time": start_time, "end_time": end_time,
+                    "item_id": item_id, "title": title, "status": "error", "reason": str(e),
+                })
                 messagebox.showerror("Error", f"Failed to relist: {e}")
+
+    def _append_relist_log_entry(self, entry):
+        """Append a single entry to relist_log.json (same format used by the
+        scheduled/headless run in ebay_relist_agent.py) so manual actions taken
+        from the Inventory tab show up in the Main/Logs tab activity log."""
+        try:
+            existing = []
+            if LOG_FILE.exists():
+                with open(LOG_FILE, "r", encoding="utf-8") as f:
+                    try:
+                        existing = json.load(f)
+                    except json.JSONDecodeError:
+                        existing = []
+            existing.append(entry)
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                json.dump(existing, f, indent=2)
+        except Exception as e:
+            print(f"[DEBUG] Failed to append relist log entry: {e}")
 
     def inv_show_guide(self):
         guide_text = """INVENTORY QUICK GUIDE
@@ -4571,6 +4605,7 @@ class LogViewerWindow(tk.Toplevel):
 
         ttk.Button(filter_frame, text="Apply Filter", command=self.apply_filter).grid(row=0, column=8, padx=5)
         ttk.Button(filter_frame, text="🔄 Refresh", command=self.refresh_log).grid(row=0, column=9, padx=5)
+        ttk.Button(filter_frame, text="Export CSV", command=self.export_log).grid(row=0, column=10, padx=5)
 
         # Table frame
         table_frame = tk.LabelFrame(self, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
@@ -4582,6 +4617,7 @@ class LogViewerWindow(tk.Toplevel):
 
         # Load all data
         self.all_entries = []
+        self.filtered_entries = []
         self.last_modify_time = 0
         self.load_all_entries()
         self.apply_filter()
@@ -4637,6 +4673,10 @@ class LogViewerWindow(tk.Toplevel):
                 search in str(e.get("old_item_id", "")).lower())
         ]
 
+        # Entries (sorted newest first)
+        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+        self.filtered_entries = sorted_entries  # Keep for Export CSV
+
         if not filtered:
             self.log_display.insert("end", "No matching entries.\n")
             self.log_display.config(state="disabled")
@@ -4645,9 +4685,6 @@ class LogViewerWindow(tk.Toplevel):
         # Header
         self.log_display.insert("end", f"{'Started':<20} {'Completed':<20} {'Status':<10} {'Old Item':<15} {'Title':<35}\n")
         self.log_display.insert("end", "=" * 110 + "\n")
-
-        # Entries (sorted newest first)
-        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
 
         for entry in sorted_entries:
             start_time = entry.get("start_time", "?")
@@ -4665,6 +4702,37 @@ class LogViewerWindow(tk.Toplevel):
                     self.log_display.insert("end", f"{'':40} Error: {reason}\n")
 
         self.log_display.config(state="disabled")
+
+    def export_log(self):
+        """Export the currently filtered log entries to a CSV file"""
+        if not self.filtered_entries:
+            messagebox.showinfo("Export CSV", "No matching entries to export.")
+            return
+
+        from tkinter import filedialog
+        import csv
+        from datetime import datetime
+
+        default_name = f"relist_log_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=default_name,
+            title="Export Log to CSV",
+        )
+        if not file_path:
+            return
+
+        try:
+            fieldnames = ["date", "start_time", "end_time", "status", "old_item_id", "new_item_id", "item_id", "title", "reason"]
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                for entry in self.filtered_entries:
+                    writer.writerow(entry)
+            messagebox.showinfo("Export CSV", f"Exported {len(self.filtered_entries)} entries to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Export CSV", f"Failed to export log: {e}")
 
     def show_guide(self):
         guide_text = """LOG VIEWER QUICK GUIDE
