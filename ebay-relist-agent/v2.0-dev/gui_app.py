@@ -1348,15 +1348,34 @@ class MainApp(tk.Tk):
         # --- LEFT COLUMN: Email Configuration + API Credentials ---
         ttk.Label(left_col, text="Email Configuration", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
-        ttk.Label(left_col, text="Gmail Email:").pack(anchor="w", pady=(0, 3))
+        ttk.Label(left_col, text="Email Provider:").pack(anchor="w", pady=(0, 3))
+        self.configure_email_provider = ttk.Combobox(left_col, values=["Gmail", "Outlook", "Custom SMTP"], width=32, state="readonly")
+        self.configure_email_provider.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_email_provider.set(self.app_config.get("email_provider", "Gmail"))
+        self.configure_email_provider.bind("<<ComboboxSelected>>", self.on_email_provider_changed)
+
+        ttk.Label(left_col, text="Email Address:").pack(anchor="w", pady=(0, 3))
         self.configure_gmail_email = ttk.Entry(left_col, width=35)
         self.configure_gmail_email.pack(anchor="w", fill="x", pady=(0, 8))
         self.configure_gmail_email.insert(0, self.app_config.get("gmail_email", ""))
 
-        ttk.Label(left_col, text="Gmail App Password:").pack(anchor="w", pady=(0, 3))
+        ttk.Label(left_col, text="Password:").pack(anchor="w", pady=(0, 3))
         self.configure_gmail_pass = ttk.Entry(left_col, width=35, show="*")
         self.configure_gmail_pass.pack(anchor="w", fill="x", pady=(0, 8))
         self.configure_gmail_pass.insert(0, self.app_config.get("gmail_app_password", ""))
+
+        ttk.Label(left_col, text="SMTP Server:").pack(anchor="w", pady=(0, 3))
+        self.configure_smtp_server = ttk.Entry(left_col, width=35)
+        self.configure_smtp_server.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_smtp_server.insert(0, self.app_config.get("smtp_server", "smtp.gmail.com"))
+
+        ttk.Label(left_col, text="SMTP Port:").pack(anchor="w", pady=(0, 3))
+        self.configure_smtp_port = ttk.Entry(left_col, width=35)
+        self.configure_smtp_port.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_smtp_port.insert(0, self.app_config.get("smtp_port", "587"))
+
+        self.configure_use_tls = tk.BooleanVar(value=self.app_config.get("smtp_use_tls", True))
+        ttk.Checkbutton(left_col, text="Use TLS/SSL", variable=self.configure_use_tls).pack(anchor="w", pady=(0, 8))
 
         ttk.Label(left_col, text="Report Sent To:").pack(anchor="w", pady=(0, 3))
         self.configure_report_email = ttk.Entry(left_col, width=35)
@@ -2263,6 +2282,24 @@ class MainApp(tk.Tk):
             ExclusionsWindow(self, self.app_config, on_save=self.refresh_after_settings_save, refresh_inventory_callback=refresh_callback)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open Exclude window:\n{str(e)}")
+
+    def on_email_provider_changed(self, event=None):
+        """Auto-fill SMTP settings based on selected email provider"""
+        provider = self.configure_email_provider.get()
+
+        if provider == "Gmail":
+            self.configure_smtp_server.delete(0, "end")
+            self.configure_smtp_server.insert(0, "smtp.gmail.com")
+            self.configure_smtp_port.delete(0, "end")
+            self.configure_smtp_port.insert(0, "587")
+            self.configure_use_tls.set(True)
+        elif provider == "Outlook":
+            self.configure_smtp_server.delete(0, "end")
+            self.configure_smtp_server.insert(0, "smtp-mail.outlook.com")
+            self.configure_smtp_port.delete(0, "end")
+            self.configure_smtp_port.insert(0, "587")
+            self.configure_use_tls.set(True)
+        # For Custom SMTP, user fills in the values
 
     def refresh_after_settings_save(self):
         """Refresh UI after settings are saved"""
@@ -4005,8 +4042,12 @@ SKUs to exclude ({len(excluded_skus)}):
             "dev_id": new_dev_id,
             "cert_id": new_cert_id,
             "ru_name": new_ru_name,
+            "email_provider": self.configure_email_provider.get(),
             "gmail_email": self.configure_gmail_email.get(),
             "gmail_app_password": self.configure_gmail_pass.get(),
+            "smtp_server": self.configure_smtp_server.get(),
+            "smtp_port": self.configure_smtp_port.get(),
+            "smtp_use_tls": self.configure_use_tls.get(),
             "report_email": self.configure_report_email.get(),
             "store_name": self.configure_store_name.get(),
             "log_days": int(self.configure_log_days.get()),
