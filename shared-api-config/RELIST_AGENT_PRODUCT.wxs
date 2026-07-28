@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="Relist Agent"
+    Language="1033"
+    Version="2.0.1.0"
+    Manufacturer="The Trashed Panda"
+    UpgradeCode="12345678-1234-1234-1234-123456789012">
+
+    <!-- Package Information -->
+    <Package
+      InstallerVersion="200"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Description="A PandaSuite Application by The Trashed Panda" />
+
+    <!-- Media/Disk Configuration -->
+    <Media Id="1" Cabinet="Relist Agent.cab" EmbedCab="yes" />
+
+    <!-- Icon for Add/Remove Programs -->
+    <Icon Id="icon.ico" SourceFile="$(var.SourceDir)\Relist Agent.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <!-- Upgrade Strategy (allow upgrades) -->
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+      AllowDowngrades="no" />
+
+    <!-- Installation Directory Structure -->
+    <InstallScope="perMachine" />
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="PandaSuite">
+        <Directory Id="APPFOLDER" Name="Relist Agent" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Desktop Shortcut Location -->
+    <StandardDirectory Id="DesktopFolder" Name="Desktop" />
+
+    <!-- Start Menu Location -->
+    <StandardDirectory Id="ProgramMenuFolder" Name="Programs">
+      <Directory Id="MENUDIR" Name="PandaSuite" />
+    </StandardDirectory>
+
+    <!-- Features to Install -->
+    <Feature Id="ProductFeature" Title="Relist Agent" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="RegistryEntries" />
+    </Feature>
+
+    <!-- Main Application Files -->
+    <DirectoryRef Id="APPFOLDER">
+      <Component Id="MainExecutable" Guid="87654321-4321-4321-4321-210987654321">
+        <File
+          Id="RelistAgentEXE"
+          Source="$(var.SourceDir)\Relist Agent.exe"
+          KeyPath="yes"
+          Checksum="yes" />
+        <File Id="IconFile" Source="$(var.SourceDir)\Relist Agent.ico" />
+        <File Id="ConfigFile" Source="$(var.SourceDir)\config.json" />
+        <File Id="AuthFile" Source="$(var.SourceDir)\auth.py" />
+        <File Id="EbayApiFile" Source="$(var.SourceDir)\ebay_api.py" />
+        <File Id="PandaSuiteApiFile" Source="$(var.SourceDir)\panda_suite_api.py" />
+        <!-- Add other required files here -->
+
+        <!-- Registry Entry for Uninstall -->
+        <RegistryKey Root="HKLM" Key="Software\The Trashed Panda\Relist Agent" ForceCreateOnInstall="yes">
+          <RegistryValue Type="string" Name="InstallPath" Value="[APPFOLDER]" />
+          <RegistryValue Type="string" Name="Version" Value="2.0.1" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Desktop Shortcut -->
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="11111111-1111-1111-1111-111111111111">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="Relist Agent"
+          Target="[APPFOLDER]Relist Agent.exe"
+          Icon="icon.ico"
+          IconIndex="0"
+          WorkingDirectory="APPFOLDER" />
+        <RemoveFolder Id="DesktopFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\The Trashed Panda\Relist Agent"
+          Name="DesktopShortcut"
+          Value="1"
+          Type="integer" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Start Menu Shortcut -->
+    <DirectoryRef Id="MENUDIR">
+      <Component Id="StartMenuShortcut" Guid="22222222-2222-2222-2222-222222222222">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="Relist Agent"
+          Target="[APPFOLDER]Relist Agent.exe"
+          Icon="icon.ico"
+          WorkingDirectory="APPFOLDER" />
+        <RemoveFolder Id="MENUDIR" On="uninstall" />
+        <RemoveFolder Id="ProgramMenuFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\The Trashed Panda\Relist Agent"
+          Name="StartMenuShortcut"
+          Value="1"
+          Type="integer" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Registry Entries -->
+    <DirectoryRef Id="APPFOLDER">
+      <Component Id="RegistryEntries" Guid="33333333-3333-3333-3333-333333333333">
+        <RegistryKey Root="HKCU" Key="Software\The Trashed Panda\Relist Agent" ForceCreateOnInstall="yes">
+          <RegistryValue Type="string" Name="AppName" Value="Relist Agent" />
+          <RegistryValue Type="string" Name="Version" Value="2.0.1" />
+          <RegistryValue Type="string" Name="PandaSuite" Value="yes" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- UI Configuration -->
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <!-- License File (optional) -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" Overridable="yes" />
+
+    <!-- Banner/Dialog Images (optional) -->
+    <WixVariable Id="WixUIBannerBmp" Value="Banner.bmp" Overridable="yes" />
+    <WixVariable Id="WixUIDialogBmp" Value="Dialog.bmp" Overridable="yes" />
+
+  </Product>
+</Wix>
