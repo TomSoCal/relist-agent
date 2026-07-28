@@ -152,7 +152,7 @@ NOT included:
 
 ### 6.1 License Pricing
 
-- **One-Time License:** $49.99 (perpetual for version purchased)
+- **One-Time License:** $39.99 (perpetual for version purchased)
 - **Payment Method:** Credit card via Stripe
 - **Refund Policy:** 30-day money-back guarantee
 - **No Subscription:** One-time purchase, no recurring fees
