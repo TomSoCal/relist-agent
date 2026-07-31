@@ -233,21 +233,21 @@ class SalesTab(QWidget):
             self.refresh_table()
 
             # Auto-refresh Inventory tab if available
-            print(f"DEBUG: inventory_tab is {self.inventory_tab}")
-            if self.inventory_tab:
-                print("DEBUG: Calling refresh_table on inventory_tab")
-                # Clear search filters to show the returned item
-                self.inventory_tab.search_title.clear()
-                self.inventory_tab.search_sku.clear()
-                self.inventory_tab.refresh_table()
-                print("DEBUG: Refresh complete")
-                QMessageBox.information(self, "Success",
-                                       f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
-                                       "Inventory tab has been refreshed. Search filters cleared.")
-            else:
-                QMessageBox.information(self, "Success",
-                                       f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
-                                       "Note: Inventory tab reference not found. Please click on Inventory tab to refresh.")
+            try:
+                if self.inventory_tab:
+                    # Clear search filters to show the returned item
+                    self.inventory_tab.search_title.clear()
+                    self.inventory_tab.search_sku.clear()
+                    self.inventory_tab.refresh_table()
+                    QMessageBox.information(self, "Success",
+                                           f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
+                                           "Inventory tab has been refreshed. Search filters cleared.")
+                else:
+                    QMessageBox.information(self, "Success",
+                                           f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
+                                           "Note: Inventory tab reference not found. Please click on Inventory tab to refresh.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to refresh inventory: {str(e)}\n\nPlease click on Inventory tab manually to refresh.")
 
     def on_checkbox_changed(self, row, state):
         # Highlight row when checked
@@ -336,18 +336,21 @@ class SalesTab(QWidget):
             self.refresh_table()
 
             # Auto-refresh Inventory tab if available
-            if self.inventory_tab:
-                # Clear search filters to show the returned items
-                self.inventory_tab.search_title.clear()
-                self.inventory_tab.search_sku.clear()
-                self.inventory_tab.refresh_table()
+            try:
+                if self.inventory_tab:
+                    # Clear search filters to show the returned items
+                    self.inventory_tab.search_title.clear()
+                    self.inventory_tab.search_sku.clear()
+                    self.inventory_tab.refresh_table()
+                    QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nInventory tab has been refreshed. Search filters cleared.")
+                else:
+                    QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nNote: Inventory tab reference not found. Please click on Inventory tab to refresh.")
+            except Exception as e:
+                self.toggle_bulk_mode()
+                QMessageBox.critical(self, "Error", f"Failed to refresh inventory: {str(e)}\n\nPlease click on Inventory tab manually to refresh.")
+                return
 
             self.toggle_bulk_mode()
-
-            if self.inventory_tab:
-                QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nInventory tab has been refreshed. Search filters cleared.")
-            else:
-                QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nNote: Inventory tab reference not found. Please click on Inventory tab to refresh.")
 
     def export_to_csv(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Export Sales", "", "CSV Files (*.csv)")
