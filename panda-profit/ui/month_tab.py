@@ -102,16 +102,12 @@ class MonthTab(QWidget):
         selected_month = self.month_combo.currentIndex() + 1  # 1-12
         selected_year = self.year_spinbox.value()
 
-        # Get current year (for database queries - we only query current year data)
-        current_year = datetime.now().year
-
         # Build date range for the selected month/year
-        # Note: Query uses selected_month/year for filtering, but year filter is current_year
         last_day = calendar.monthrange(selected_year, selected_month)[1]
         start_date = f"{selected_year:04d}-{selected_month:02d}-01"
         end_date = f"{selected_year:04d}-{selected_month:02d}-{last_day:02d}"
 
-        # Query database for sales in selected month/year where year = current_year
+        # Query database for sales in selected month/year
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -120,7 +116,7 @@ class MonthTab(QWidget):
             SELECT * FROM sales
             WHERE sold_date BETWEEN ? AND ? AND year = ?
             ORDER BY sold_date DESC
-        ''', (start_date, end_date, current_year))
+        ''', (start_date, end_date, selected_year))
 
         sales = c.fetchall()
         conn.close()
@@ -164,10 +160,10 @@ class MonthTab(QWidget):
             self.profit_label.setStyleSheet("font-weight: bold; font-size: 12pt; color: red;")
 
         # Load ROI by Category data
-        self._populate_roi_table(start_date, end_date, current_year)
+        self._populate_roi_table(start_date, end_date, selected_year)
 
         # Load Sales by Platform data
-        self._populate_platform_table(start_date, end_date, current_year)
+        self._populate_platform_table(start_date, end_date, selected_year)
 
     def _populate_roi_table(self, start_date, end_date, current_year):
         """Populate the ROI by Category table."""
@@ -201,7 +197,7 @@ class MonthTab(QWidget):
             roi_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.roi_table.setItem(row, 3, roi_item)
 
-    def _populate_platform_table(self, start_date, end_date, current_year):
+    def _populate_platform_table(self, start_date, end_date, selected_year):
         """Populate the Sales by Platform table."""
         # Query database to get all platforms and their sales data
         conn = db.get_connection()
@@ -213,7 +209,7 @@ class MonthTab(QWidget):
             SELECT DISTINCT platform FROM sales
             WHERE sold_date BETWEEN ? AND ? AND year = ? AND platform IS NOT NULL
             ORDER BY platform
-        ''', (start_date, end_date, current_year))
+        ''', (start_date, end_date, selected_year))
 
         platforms = c.fetchall()
 
@@ -229,7 +225,7 @@ class MonthTab(QWidget):
                     SUM(COALESCE(platform_fee, 0) + COALESCE(transaction_fee, 0) + COALESCE(promoted_fee, 0)) as total_fees
                 FROM sales
                 WHERE sold_date BETWEEN ? AND ? AND platform = ? AND year = ?
-            ''', (start_date, end_date, platform, current_year))
+            ''', (start_date, end_date, platform, selected_year))
 
             result = c.fetchone()
             if result:
