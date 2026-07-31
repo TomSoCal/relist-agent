@@ -8,7 +8,11 @@ from ui.dashboard_tab import DashboardTab
 from ui.inventory_tab import InventoryTab
 from ui.sales_tab import SalesTab
 from ui.settings_tab import SettingsTab
+from ui.day_tab import DayTab
+from ui.month_tab import MonthTab
+from ui.year_tab import YearTab
 from ui.analytics_tab import AnalyticsTab
+from ui.mileage_tab import MileageTab
 from ui.reports_tab import ReportsTab
 
 class MainWindow(QMainWindow):
@@ -28,14 +32,22 @@ class MainWindow(QMainWindow):
         self.dashboard_tab = DashboardTab()
         self.inventory_tab = InventoryTab()
         self.sales_tab = SalesTab()
+        self.day_tab = DayTab()
+        self.month_tab = MonthTab()
+        self.year_tab = YearTab()
         self.analytics_tab = AnalyticsTab()
+        self.mileage_tab = MileageTab()
         self.reports_tab = ReportsTab()
         self.settings_tab = SettingsTab()
 
         self.tabs.addTab(self.dashboard_tab, "Dashboard")
         self.tabs.addTab(self.inventory_tab, "Inventory")
         self.tabs.addTab(self.sales_tab, "Sales")
-        self.tabs.addTab(self.analytics_tab, "Analytics")
+        self.tabs.addTab(self.day_tab, "Day")
+        self.tabs.addTab(self.month_tab, "Month")
+        self.tabs.addTab(self.year_tab, "Year")
+        self.tabs.addTab(self.analytics_tab, "Forecasting")
+        self.tabs.addTab(self.mileage_tab, "Mileage")
         self.tabs.addTab(self.reports_tab, "Reports")
         self.tabs.addTab(self.settings_tab, "Settings")
 
