@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QTableWidget, QTableWidgetItem, QDialog, QLabel,
                             QLineEdit, QSpinBox, QTextEdit, QMessageBox,
-                            QDateEdit, QHeaderView)
+                            QDateEdit, QHeaderView, QTabWidget)
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
@@ -135,7 +135,7 @@ class MileageTab(QWidget):
             try:
                 db.add_mileage_trip(
                     trip_date=dialog.trip_date.date().toString("yyyy-MM-dd"),
-                    miles=dialog.miles_spinner.value(),
+                    miles=dialog.miles_value,
                     purpose=dialog.purpose_input.text() or "sourcing",
                     stores_visited=dialog.stores_input.text(),
                     notes=dialog.notes_input.toPlainText()
@@ -176,31 +176,40 @@ class MileageTab(QWidget):
 
 
 class AddMileageDialog(QDialog):
-    """Dialog for adding a new mileage trip."""
+    """Dialog for adding a new mileage trip with two input methods."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add Mileage Trip")
-        self.setGeometry(150, 150, 500, 400)
+        self.setGeometry(150, 150, 550, 500)
+        self.miles_value = 0  # Final miles value to store
         self.init_ui()
 
     def init_ui(self):
-        """Initialize the dialog UI."""
+        """Initialize the dialog UI with tabbed input methods."""
         layout = QVBoxLayout()
 
-        # Trip date picker
+        # Trip date picker (shared)
         layout.addWidget(QLabel("Trip Date:"))
         self.trip_date = QDateEdit()
         self.trip_date.setDate(QDate.currentDate())
         self.trip_date.setCalendarPopup(True)
         layout.addWidget(self.trip_date)
 
-        # Miles spinner
-        layout.addWidget(QLabel("Miles:"))
-        self.miles_spinner = QSpinBox()
-        self.miles_spinner.setRange(0, 999)
-        self.miles_spinner.setValue(0)
-        layout.addWidget(self.miles_spinner)
+        # Miles input tab widget
+        tab_widget = QTabWidget()
+        self.direct_miles_tab = self._create_direct_miles_tab()
+        self.odometer_tab = self._create_odometer_tab()
+        tab_widget.addTab(self.direct_miles_tab, "Enter Miles")
+        tab_widget.addTab(self.odometer_tab, "Enter Odometer")
+        layout.addWidget(tab_widget)
+
+        # Miles driven display (updates based on current tab)
+        layout.addWidget(QLabel("Miles Driven:"))
+        self.miles_display = QLabel("0 miles")
+        self.miles_display.setFont(QFont("Arial", 12, QFont.Bold))
+        self.miles_display.setStyleSheet("color: #1F3864; padding: 5px;")
+        layout.addWidget(self.miles_display)
 
         # Purpose
         layout.addWidget(QLabel("Purpose:"))
@@ -224,10 +233,124 @@ class AddMileageDialog(QDialog):
         button_layout = QHBoxLayout()
         save_btn = QPushButton("Save")
         cancel_btn = QPushButton("Cancel")
-        save_btn.clicked.connect(self.accept)
+        save_btn.clicked.connect(self._on_save)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(save_btn)
         button_layout.addWidget(cancel_btn)
 
         layout.addLayout(button_layout)
         self.setLayout(layout)
+
+        # Connect value changes to update display
+        tab_widget.currentChanged.connect(self._update_miles_display)
+
+    def _create_direct_miles_tab(self):
+        """Create the direct miles entry tab."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("Enter miles driven directly:"))
+        self.miles_spinner = QSpinBox()
+        self.miles_spinner.setRange(0, 999)
+        self.miles_spinner.setValue(0)
+        self.miles_spinner.valueChanged.connect(self._update_miles_display)
+        layout.addWidget(self.miles_spinner)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
+    def _create_odometer_tab(self):
+        """Create the odometer reading entry tab."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("Enter odometer readings to calculate miles:"))
+
+        # Odometer start
+        layout.addWidget(QLabel("Odometer Start (miles):"))
+        self.odometer_start = QSpinBox()
+        self.odometer_start.setRange(0, 999999)
+        self.odometer_start.setValue(0)
+        self.odometer_start.valueChanged.connect(self._update_miles_display)
+        layout.addWidget(self.odometer_start)
+
+        # Odometer end
+        layout.addWidget(QLabel("Odometer End (miles):"))
+        self.odometer_end = QSpinBox()
+        self.odometer_end.setRange(0, 999999)
+        self.odometer_end.setValue(0)
+        self.odometer_end.valueChanged.connect(self._update_miles_display)
+        layout.addWidget(self.odometer_end)
+
+        # Error label for validation
+        self.odometer_error_label = QLabel("")
+        self.odometer_error_label.setStyleSheet("color: red; font-weight: bold;")
+        layout.addWidget(self.odometer_error_label)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
+    def _update_miles_display(self):
+        """Update the miles driven display based on current tab and input values."""
+        # Determine which tab is active
+        tab_widget = self.sender() if isinstance(self.sender(), QTabWidget) else None
+
+        # If called from tab change, use the widget's currentIndex
+        if tab_widget is None:
+            # Find the tab widget
+            for child in self.findChildren(QTabWidget):
+                tab_widget = child
+                break
+
+        current_tab = tab_widget.currentIndex() if tab_widget else 0
+
+        # Clear error message
+        self.odometer_error_label.setText("")
+
+        if current_tab == 0:  # Direct miles tab
+            miles = self.miles_spinner.value()
+            self.miles_value = miles
+            self.miles_display.setText(f"{miles} miles")
+        else:  # Odometer tab
+            odometer_start = self.odometer_start.value()
+            odometer_end = self.odometer_end.value()
+
+            if odometer_end < odometer_start:
+                self.odometer_error_label.setText("Error: End odometer must be >= Start odometer")
+                self.miles_value = 0
+                self.miles_display.setText("0 miles")
+            else:
+                miles = odometer_end - odometer_start
+                self.miles_value = miles
+                self.miles_display.setText(f"{miles} miles")
+
+    def _on_save(self):
+        """Validate and save the dialog."""
+        # Validate that miles > 0
+        if self.miles_value <= 0:
+            QMessageBox.warning(
+                self,
+                "Invalid Input",
+                "Miles driven must be greater than 0."
+            )
+            return
+
+        # Validate odometer readings if in odometer tab
+        tab_widget = None
+        for child in self.findChildren(QTabWidget):
+            tab_widget = child
+            break
+
+        if tab_widget and tab_widget.currentIndex() == 1:
+            if self.odometer_end.value() < self.odometer_start.value():
+                QMessageBox.warning(
+                    self,
+                    "Invalid Input",
+                    "End odometer reading must be greater than or equal to start reading."
+                )
+                return
+
+        # All validation passed, accept the dialog
+        self.accept()
