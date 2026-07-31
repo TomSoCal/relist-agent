@@ -2,13 +2,15 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QTableWidget, QTableWidgetItem, QDialog, QLabel,
                             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox,
                             QTextEdit, QMessageBox, QDateEdit, QHeaderView,
-                            QScrollArea, QListWidget, QListWidgetItem, QFileDialog)
+                            QScrollArea, QListWidget, QListWidgetItem, QFileDialog,
+                            QCheckBox)
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QPixmap
 from datetime import datetime
 import database as db
 from constants import CATEGORIES, STORES
 import os
+import webbrowser
 
 class InventoryTab(QWidget):
     def __init__(self):
@@ -42,15 +44,17 @@ class InventoryTab(QWidget):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(10)
+        self.table.setColumnCount(11)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Listed Date", "Item Title", "Units", "SKU",
+            "✓", "ID", "Listed Date", "Item Title", "Units", "SKU",
             "Store", "Category", "Cost", "Notes", "XP"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # Disable inline editing - users must select and click Edit
         from PyQt5.QtWidgets import QAbstractItemView
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Set checkbox column narrower
+        self.table.setColumnWidth(0, 40)
 
         layout.addLayout(button_layout)
         layout.addWidget(self.table)
@@ -61,16 +65,20 @@ class InventoryTab(QWidget):
         self.table.setRowCount(len(items))
 
         for row, item in enumerate(items):
-            self.table.setItem(row, 0, QTableWidgetItem(str(item['id'])))
-            self.table.setItem(row, 1, QTableWidgetItem(str(item['listed_date'])))
-            self.table.setItem(row, 2, QTableWidgetItem(item['item_title']))
-            self.table.setItem(row, 3, QTableWidgetItem(str(item['units'])))
-            self.table.setItem(row, 4, QTableWidgetItem(item['sku'] or ''))
-            self.table.setItem(row, 5, QTableWidgetItem(item['store'] or ''))
-            self.table.setItem(row, 6, QTableWidgetItem(item['category'] or ''))
-            self.table.setItem(row, 7, QTableWidgetItem(f"${item['cost']:.2f}" if item['cost'] else ''))
-            self.table.setItem(row, 8, QTableWidgetItem(item['notes'] or ''))
-            self.table.setItem(row, 9, QTableWidgetItem(str(item['xp'] or 0)))
+            # Checkbox column
+            checkbox = QCheckBox()
+            self.table.setCellWidget(row, 0, checkbox)
+
+            self.table.setItem(row, 1, QTableWidgetItem(str(item['id'])))
+            self.table.setItem(row, 2, QTableWidgetItem(str(item['listed_date'])))
+            self.table.setItem(row, 3, QTableWidgetItem(item['item_title']))
+            self.table.setItem(row, 4, QTableWidgetItem(str(item['units'])))
+            self.table.setItem(row, 5, QTableWidgetItem(item['sku'] or ''))
+            self.table.setItem(row, 6, QTableWidgetItem(item['store'] or ''))
+            self.table.setItem(row, 7, QTableWidgetItem(item['category'] or ''))
+            self.table.setItem(row, 8, QTableWidgetItem(f"${item['cost']:.2f}" if item['cost'] else ''))
+            self.table.setItem(row, 9, QTableWidgetItem(item['notes'] or ''))
+            self.table.setItem(row, 10, QTableWidgetItem(str(item['xp'] or 0)))
 
     def add_item_dialog(self):
         dialog = AddItemDialog(self)
@@ -91,12 +99,18 @@ class InventoryTab(QWidget):
             QMessageBox.information(self, "Success", "Item added successfully!")
 
     def edit_item_dialog(self):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select an item to edit.")
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the item you want to edit.")
             return
 
-        item_id = int(self.table.item(selected_rows[0].row(), 0).text())
+        item_id = int(self.table.item(checked_row, 1).text())
         item = db.get_inventory_by_id(item_id)
 
         dialog = EditItemDialog(self, item)
@@ -118,16 +132,22 @@ class InventoryTab(QWidget):
             QMessageBox.information(self, "Success", "Item updated successfully!")
 
     def delete_item(self):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select an item to delete.")
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the item you want to delete.")
             return
 
         reply = QMessageBox.question(self, "Confirm Delete",
                                      "Are you sure you want to delete this item?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            item_id = int(self.table.item(selected_rows[0].row(), 0).text())
+            item_id = int(self.table.item(checked_row, 1).text())
             db.delete_inventory(item_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Item deleted successfully!")
@@ -329,16 +349,53 @@ class EditItemDialog(QDialog):
             self.image_list.addItem(item_widget)
 
     def add_image(self):
-        url, ok = QLineEdit().text(), False
-        # Simple URL input dialog
+        # Create a simple dialog with two options
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Picture")
+        dialog.setGeometry(200, 200, 400, 150)
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("Choose how to add a picture:"))
+
+        # URL button
+        url_btn = QPushButton("📋 Enter Web URL")
+        url_btn.clicked.connect(lambda: self.add_image_from_url(dialog))
+        layout.addWidget(url_btn)
+
+        # Browse button
+        browse_btn = QPushButton("📁 Browse Computer")
+        browse_btn.clicked.connect(lambda: self.add_image_from_file(dialog))
+        layout.addWidget(browse_btn)
+
+        # Cancel button
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        layout.addWidget(cancel_btn)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def add_image_from_url(self, parent_dialog):
         from PyQt5.QtWidgets import QInputDialog
-        url, ok = QInputDialog.getText(self, "Add Picture", "Enter image URL or file path:")
+        url, ok = QInputDialog.getText(parent_dialog, "Add Picture", "Enter image web URL:")
         if ok and url:
-            # If it's a file path, convert to file:// URL
-            if os.path.exists(url):
-                url = f"file:///{os.path.abspath(url).replace(chr(92), '/')}"
             db.add_inventory_image(self.item_id, url)
             self.refresh_image_list()
+            parent_dialog.accept()
+
+    def add_image_from_file(self, parent_dialog):
+        file_path, _ = QFileDialog.getOpenFileName(
+            parent_dialog,
+            "Select Picture",
+            os.path.expanduser("~\\Pictures"),
+            "Image Files (*.png *.jpg *.jpeg *.gif *.bmp);;All Files (*)"
+        )
+        if file_path:
+            # Convert to file:// URL
+            url = f"file:///{os.path.abspath(file_path).replace(chr(92), '/')}"
+            db.add_inventory_image(self.item_id, url)
+            self.refresh_image_list()
+            parent_dialog.accept()
 
     def delete_selected_image(self):
         current = self.image_list.currentItem()
