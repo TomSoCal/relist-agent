@@ -504,11 +504,38 @@ def get_total_expenses_by_category(start_date, end_date, year=None):
     return results
 
 # Mileage operations
-def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', notes='', odometer_start=0, odometer_end=0):
-    """Add a new mileage trip. Year is auto-populated from current system year."""
+def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', notes='', odometer_start=0, odometer_end=0, year=None):
+    """Add a new mileage trip. Year defaults to current system year if not provided.
+
+    Args:
+        trip_date: Date of the trip (YYYY-MM-DD format)
+        miles: Miles traveled
+        purpose: Purpose of the trip (default: 'sourcing')
+        stores_visited: Comma-separated list of stores visited (default: '')
+        notes: Optional notes about the trip (default: '')
+        odometer_start: Starting odometer reading (default: 0)
+        odometer_end: Ending odometer reading (default: 0)
+        year: Optional year for the trip. If provided and != current year, raises ValueError (write protection)
+
+    Returns:
+        mileage_id: ID of the newly created mileage trip
+
+    Raises:
+        ValueError: If year is provided and != current year (only current year can be edited)
+    """
     conn = get_connection()
     c = conn.cursor()
-    year = datetime.now().year
+    current_year = datetime.now().year
+
+    # If year is provided, validate it matches current year (write protection)
+    if year is not None and year != current_year:
+        conn.close()
+        raise ValueError(f"Can only add mileage for the current year ({current_year}). Cannot add mileage for year {year}.")
+
+    # Use current year if not provided
+    if year is None:
+        year = current_year
+
     c.execute('''
         INSERT INTO mileage (year, trip_date, odometer_start, odometer_end, miles, purpose, stores_visited, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -518,42 +545,79 @@ def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', no
     conn.close()
     return mileage_id
 
-def get_mileage_by_date_range(start_date, end_date):
-    """Get mileage trips within a date range for the current calendar year only."""
+def get_mileage_by_date_range(start_date, end_date, year=None):
+    """Get mileage trips within a date range. Defaults to current calendar year if year not specified.
+
+    Args:
+        start_date: Start date for the range (YYYY-MM-DD format)
+        end_date: End date for the range (YYYY-MM-DD format)
+        year: Optional year filter. If None, defaults to current year. Can be any year (read-only access to past years).
+
+    Returns:
+        List of mileage trip records ordered by trip_date DESC
+    """
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    current_year = datetime.now().year
+
+    # If year not specified, use current year
+    if year is None:
+        year = datetime.now().year
+
     c.execute('''
         SELECT * FROM mileage
         WHERE trip_date BETWEEN ? AND ? AND year = ?
         ORDER BY trip_date DESC
-    ''', (start_date, end_date, current_year))
+    ''', (start_date, end_date, year))
     trips = c.fetchall()
     conn.close()
     return trips
 
 def delete_mileage_trip(trip_id):
-    """Delete a mileage trip."""
+    """Delete a mileage trip. Only allows deletion of current year trips (write protection).
+
+    Args:
+        trip_id: ID of the mileage trip to delete
+
+    Returns:
+        Number of rows deleted (0 if trip doesn't exist or is from past year, 1 if success)
+    """
     conn = get_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM mileage WHERE id = ?', (trip_id,))
+    current_year = datetime.now().year
+    # Only delete if trip is from current year (prevents deleting past years)
+    c.execute('DELETE FROM mileage WHERE id = ? AND year = ?', (trip_id, current_year))
     conn.commit()
+    rows_deleted = c.rowcount
     conn.close()
+    return rows_deleted
 
-def get_total_mileage_for_period(start_date, end_date):
-    """Get total miles and trip count for a date range in the current calendar year only."""
+def get_total_mileage_for_period(start_date, end_date, year=None):
+    """Get total miles and trip count for a date range. Defaults to current calendar year if year not specified.
+
+    Args:
+        start_date: Start date for the range (YYYY-MM-DD format)
+        end_date: End date for the range (YYYY-MM-DD format)
+        year: Optional year filter. If None, defaults to current year. Can be any year (read-only access to past years).
+
+    Returns:
+        Dict with 'total_miles' and 'trip_count' keys
+    """
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    current_year = datetime.now().year
+
+    # If year not specified, use current year
+    if year is None:
+        year = datetime.now().year
+
     c.execute('''
         SELECT
             SUM(miles) as total_miles,
             COUNT(id) as trip_count
         FROM mileage
         WHERE trip_date BETWEEN ? AND ? AND year = ?
-    ''', (start_date, end_date, current_year))
+    ''', (start_date, end_date, year))
     result = c.fetchone()
     conn.close()
 

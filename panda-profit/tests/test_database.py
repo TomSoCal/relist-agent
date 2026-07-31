@@ -652,6 +652,89 @@ class TestMileage(unittest.TestCase):
         self.assertEqual(trip['odometer_end'], 15035)
         self.assertEqual(trip['miles'], 35.5)
 
+    def test_add_mileage_trip_with_past_year_rejected(self):
+        """Test that adding mileage trip with past year is rejected (write protection)."""
+        past_year = datetime.now().year - 1
+
+        # Attempting to add trip with past year should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            add_mileage_trip('2025-07-30', 25.0, year=past_year)
+
+        # Verify error message mentions current year
+        self.assertIn(str(datetime.now().year), str(context.exception))
+
+    def test_delete_mileage_trip_from_past_year_fails(self):
+        """Test that deleting mileage trip from past year fails (no rows match)."""
+        # First, add a trip to current year
+        trip_id = add_mileage_trip('2026-07-30', 25.0)
+
+        # Manually update the trip to have a past year
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = datetime.now().year - 1
+        c.execute('UPDATE mileage SET year = ? WHERE id = ?', (past_year, trip_id))
+        conn.commit()
+        conn.close()
+
+        # Now try to delete it - should fail (no rows match because WHERE includes year check)
+        rows_deleted = delete_mileage_trip(trip_id)
+        self.assertEqual(rows_deleted, 0)
+
+    def test_get_mileage_by_date_range_with_explicit_year(self):
+        """Test that querying with explicit year parameter works for read-only access."""
+        # Add a trip to current year
+        current_year = datetime.now().year
+        add_mileage_trip('2026-07-30', 25.0, year=current_year)
+
+        # Add a trip to past year directly (simulating historical data)
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = current_year - 1
+        c.execute('''
+            INSERT INTO mileage (year, trip_date, odometer_start, odometer_end, miles, purpose, stores_visited, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (past_year, '2025-07-30', 0, 0, 30.0, 'sourcing', '', ''))
+        conn.commit()
+        conn.close()
+
+        # Query current year (default)
+        trips_current = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips_current), 1)
+        self.assertEqual(trips_current[0]['miles'], 25.0)
+
+        # Query past year explicitly
+        trips_past = get_mileage_by_date_range('2025-07-01', '2025-07-31', year=past_year)
+        self.assertEqual(len(trips_past), 1)
+        self.assertEqual(trips_past[0]['miles'], 30.0)
+
+    def test_get_total_mileage_for_period_with_explicit_year(self):
+        """Test that get_total_mileage_for_period works with explicit year for read-only access."""
+        current_year = datetime.now().year
+
+        # Add a trip to current year
+        add_mileage_trip('2026-07-30', 25.0, year=current_year)
+
+        # Add a trip to past year directly
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = current_year - 1
+        c.execute('''
+            INSERT INTO mileage (year, trip_date, odometer_start, odometer_end, miles, purpose, stores_visited, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (past_year, '2025-07-30', 0, 0, 40.0, 'sourcing', '', ''))
+        conn.commit()
+        conn.close()
+
+        # Query current year (default)
+        totals_current = get_total_mileage_for_period('2026-07-01', '2026-07-31')
+        self.assertEqual(totals_current['total_miles'], 25.0)
+        self.assertEqual(totals_current['trip_count'], 1)
+
+        # Query past year explicitly
+        totals_past = get_total_mileage_for_period('2025-07-01', '2025-07-31', year=past_year)
+        self.assertEqual(totals_past['total_miles'], 40.0)
+        self.assertEqual(totals_past['trip_count'], 1)
+
 
 class TestBrands(unittest.TestCase):
 
