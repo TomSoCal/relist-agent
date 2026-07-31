@@ -30,8 +30,8 @@ class MainWindow(QMainWindow):
         # Create tab widget
         self.tabs = QTabWidget()
         self.dashboard_tab = DashboardTab()
-        self.inventory_tab = InventoryTab()
         self.sales_tab = SalesTab()
+        self.inventory_tab = InventoryTab(sales_tab=self.sales_tab)
         self.day_tab = DayTab()
         self.month_tab = MonthTab()
         self.year_tab = YearTab()

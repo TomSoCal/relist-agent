@@ -13,8 +13,9 @@ import os
 import webbrowser
 
 class InventoryTab(QWidget):
-    def __init__(self):
+    def __init__(self, sales_tab=None):
         super().__init__()
+        self.sales_tab = sales_tab
         self.init_ui()
         self.refresh_table()
 
@@ -246,6 +247,11 @@ class InventoryTab(QWidget):
             self.search_title.clear()
             self.search_sku.clear()
             self.refresh_table()
+
+            # Auto-refresh Sales tab if available
+            if self.sales_tab:
+                self.sales_tab.refresh_table()
+
             QMessageBox.information(self, "Success", f"Sale recorded: {quantity_sold} unit(s) sold!")
 
 class AddItemDialog(QDialog):
@@ -541,6 +547,7 @@ class RecordSaleDialog(QDialog):
         layout.addWidget(QLabel("Platform:"))
         self.platform = QComboBox()
         self.platform.addItems(["eBay", "Poshmark", "Mercari", "Facebook", "Whatnot", "Other"])
+        self.platform.setEditable(True)
         layout.addWidget(self.platform)
 
         # Sale Date
