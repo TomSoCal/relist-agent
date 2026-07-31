@@ -31,7 +31,6 @@ def init_db():
             brand TEXT,
             cost REAL,
             notes TEXT,
-            xp INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -212,13 +211,13 @@ def dict_factory(cursor, row):
     return d
 
 # Inventory operations
-def add_inventory(listed_date, item_title, units, sku, bin, store, category, cost, notes, xp=0):
+def add_inventory(listed_date, item_title, units, sku, bin, store, category, cost, notes):
     conn = get_connection()
     c = conn.cursor()
     c.execute('''
-        INSERT INTO inventory (listed_date, item_title, units, sku, bin, store, category, cost, notes, xp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (listed_date, item_title, units, sku, bin, store, category, cost, notes, xp))
+        INSERT INTO inventory (listed_date, item_title, units, sku, bin, store, category, cost, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (listed_date, item_title, units, sku, bin, store, category, cost, notes))
     conn.commit()
     item_id = c.lastrowid
     conn.close()

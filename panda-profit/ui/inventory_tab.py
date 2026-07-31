@@ -21,6 +21,21 @@ class InventoryTab(QWidget):
     def init_ui(self):
         layout = QVBoxLayout()
 
+        # Search bar
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("Search by Title:"))
+        self.search_title = QLineEdit()
+        self.search_title.setPlaceholderText("Item title...")
+        self.search_title.textChanged.connect(self.filter_table)
+        search_layout.addWidget(self.search_title)
+
+        search_layout.addWidget(QLabel("SKU:"))
+        self.search_sku = QLineEdit()
+        self.search_sku.setPlaceholderText("SKU...")
+        self.search_sku.textChanged.connect(self.filter_table)
+        search_layout.addWidget(self.search_sku)
+        layout.addLayout(search_layout)
+
         # Button bar
         button_layout = QHBoxLayout()
 
@@ -33,21 +48,25 @@ class InventoryTab(QWidget):
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self.delete_item)
 
+        record_sale_btn = QPushButton("Record Sale")
+        record_sale_btn.clicked.connect(self.record_sale_dialog)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_table)
 
         button_layout.addWidget(add_btn)
         button_layout.addWidget(edit_btn)
         button_layout.addWidget(delete_btn)
+        button_layout.addWidget(record_sale_btn)
         button_layout.addStretch()
         button_layout.addWidget(refresh_btn)
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(11)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
             "✓", "ID", "Listed Date", "Item Title", "Units", "SKU",
-            "Store", "Category", "Cost", "Notes", "XP"
+            "Store", "Category", "Cost", "Notes"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # Disable inline editing - users must select and click Edit
@@ -61,10 +80,22 @@ class InventoryTab(QWidget):
         self.setLayout(layout)
 
     def refresh_table(self):
-        items = db.get_all_inventory()
-        self.table.setRowCount(len(items))
+        self.all_items = db.get_all_inventory()
+        self.filter_table()
 
-        for row, item in enumerate(items):
+    def filter_table(self):
+        search_title = self.search_title.text().lower()
+        search_sku = self.search_sku.text().lower()
+
+        filtered_items = [
+            item for item in self.all_items
+            if (search_title in item['item_title'].lower() and
+                search_sku in (item['sku'] or '').lower())
+        ]
+
+        self.table.setRowCount(len(filtered_items))
+
+        for row, item in enumerate(filtered_items):
             # Checkbox column
             checkbox = QCheckBox()
             self.table.setCellWidget(row, 0, checkbox)
@@ -78,7 +109,6 @@ class InventoryTab(QWidget):
             self.table.setItem(row, 7, QTableWidgetItem(item['category'] or ''))
             self.table.setItem(row, 8, QTableWidgetItem(f"${item['cost']:.2f}" if item['cost'] else ''))
             self.table.setItem(row, 9, QTableWidgetItem(item['notes'] or ''))
-            self.table.setItem(row, 10, QTableWidgetItem(str(item['xp'] or 0)))
 
     def add_item_dialog(self):
         dialog = AddItemDialog(self)
@@ -92,8 +122,7 @@ class InventoryTab(QWidget):
                 dialog.store.currentText(),
                 dialog.category.currentText(),
                 dialog.cost.value(),
-                dialog.notes.toPlainText(),
-                dialog.xp.value()
+                dialog.notes.toPlainText()
             )
             self.refresh_table()
             QMessageBox.information(self, "Success", "Item added successfully!")
@@ -125,8 +154,7 @@ class InventoryTab(QWidget):
                 store=dialog.store.currentText(),
                 category=dialog.category.currentText(),
                 cost=dialog.cost.value(),
-                notes=dialog.notes.toPlainText(),
-                xp=dialog.xp.value()
+                notes=dialog.notes.toPlainText()
             )
             self.refresh_table()
             QMessageBox.information(self, "Success", "Item updated successfully!")
@@ -151,6 +179,59 @@ class InventoryTab(QWidget):
             db.delete_inventory(item_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Item deleted successfully!")
+
+    def record_sale_dialog(self):
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the item you want to record as sold.")
+            return
+
+        item_id = int(self.table.item(checked_row, 1).text())
+        item = db.get_inventory_by_id(item_id)
+
+        dialog = RecordSaleDialog(self, item)
+        if dialog.exec_() == QDialog.Accepted:
+            # Update inventory
+            quantity_sold = dialog.quantity_sold.value()
+            remaining_units = item['units'] - quantity_sold
+
+            if remaining_units <= 0:
+                # Remove from inventory completely
+                db.delete_inventory(item_id)
+            else:
+                # Update units in inventory
+                db.update_inventory(item_id, units=remaining_units)
+
+            # Record the sale
+            db.add_sale(
+                year=datetime.now().year,
+                month=datetime.now().month,
+                platform=dialog.platform.currentText(),
+                sold_date=dialog.sale_date.text(),
+                listed_date=item['listed_date'],
+                item_title=item['item_title'],
+                units=quantity_sold,
+                bin=item['bin'],
+                sku=item['sku'],
+                store=item['store'],
+                category=item['category'],
+                sale_price=dialog.sale_price.value(),
+                shipping_cost=dialog.shipping_cost.value(),
+                transaction_fee=dialog.transaction_fee.value(),
+                promoted_fee=dialog.promoted_fee.value(),
+                cost_of_goods=item['cost'] * quantity_sold
+            )
+
+            self.search_title.clear()
+            self.search_sku.clear()
+            self.refresh_table()
+            QMessageBox.information(self, "Success", f"Sale recorded: {quantity_sold} unit(s) sold!")
 
 class AddItemDialog(QDialog):
     def __init__(self, parent=None):
@@ -204,10 +285,6 @@ class AddItemDialog(QDialog):
         layout.addWidget(QLabel("Notes:"))
         self.notes = QTextEdit()
         layout.addWidget(self.notes)
-
-        layout.addWidget(QLabel("XP:"))
-        self.xp = QSpinBox()
-        layout.addWidget(self.xp)
 
         button_layout = QHBoxLayout()
         ok_btn = QPushButton("OK")
@@ -277,10 +354,6 @@ class EditItemDialog(QDialog):
         self.notes = QTextEdit()
         layout.addWidget(self.notes)
 
-        layout.addWidget(QLabel("XP:"))
-        self.xp = QSpinBox()
-        layout.addWidget(self.xp)
-
         # Images section
         layout.addWidget(QLabel("Pictures:"))
 
@@ -338,7 +411,6 @@ class EditItemDialog(QDialog):
 
         self.cost.setValue(self.item['cost'] or 0)
         self.notes.setText(self.item['notes'] or '')
-        self.xp.setValue(self.item['xp'] or 0)
 
     def refresh_image_list(self):
         self.image_list.clear()
@@ -419,3 +491,109 @@ class EditItemDialog(QDialog):
             else:
                 import webbrowser
                 webbrowser.open(url)
+
+class RecordSaleDialog(QDialog):
+    def __init__(self, parent=None, item=None):
+        super().__init__(parent)
+        self.item = item
+        self.setWindowTitle("Record Sale")
+        self.setGeometry(150, 150, 500, 700)
+        self.init_ui()
+        self.populate_fields()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        # Item details (read-only)
+        layout.addWidget(QLabel("📦 Item Details"))
+        details_box = QVBoxLayout()
+        details_box.addWidget(QLabel(f"Title: {self.item['item_title']}"))
+        details_box.addWidget(QLabel(f"SKU: {self.item['sku'] or 'N/A'}"))
+        details_box.addWidget(QLabel(f"In Stock: {self.item['units']} units"))
+        details_box.addWidget(QLabel(f"Cost: ${self.item['cost']:.2f}"))
+        layout.addLayout(details_box)
+
+        layout.addWidget(QLabel("---"))
+
+        # Sale Price
+        layout.addWidget(QLabel("Sale Price ($):"))
+        self.sale_price = QDoubleSpinBox()
+        self.sale_price.setRange(0, 100000)
+        self.sale_price.setValue(self.item['cost'])
+        layout.addWidget(self.sale_price)
+
+        # Platform
+        layout.addWidget(QLabel("Platform:"))
+        self.platform = QComboBox()
+        self.platform.addItems(["eBay", "Poshmark", "Mercari", "Facebook", "Whatnot", "Other"])
+        layout.addWidget(self.platform)
+
+        # Sale Date
+        layout.addWidget(QLabel("Sale Date:"))
+        self.sale_date = QLineEdit()
+        self.sale_date.setText(datetime.now().strftime("%m/%d/%Y"))
+        layout.addWidget(self.sale_date)
+
+        # Quantity Sold (only if units > 1)
+        if self.item['units'] > 1:
+            layout.addWidget(QLabel(f"Quantity Sold (max {self.item['units']}):"))
+            self.quantity_sold = QSpinBox()
+            self.quantity_sold.setRange(1, self.item['units'])
+            self.quantity_sold.setValue(1)
+            layout.addWidget(self.quantity_sold)
+        else:
+            self.quantity_sold = QSpinBox()
+            self.quantity_sold.setValue(1)
+            self.quantity_sold.setVisible(False)
+
+        # Fees
+        layout.addWidget(QLabel("Fees"))
+
+        layout.addWidget(QLabel("Shipping Cost ($):"))
+        self.shipping_cost = QDoubleSpinBox()
+        self.shipping_cost.setRange(0, 10000)
+        layout.addWidget(self.shipping_cost)
+
+        layout.addWidget(QLabel("Transaction Fee ($):"))
+        self.transaction_fee = QDoubleSpinBox()
+        self.transaction_fee.setRange(0, 10000)
+        layout.addWidget(self.transaction_fee)
+
+        layout.addWidget(QLabel("Promoted Fee ($):"))
+        self.promoted_fee = QDoubleSpinBox()
+        self.promoted_fee.setRange(0, 10000)
+        layout.addWidget(self.promoted_fee)
+
+        layout.addWidget(QLabel("Other Fee ($):"))
+        self.other_fee = QDoubleSpinBox()
+        self.other_fee.setRange(0, 10000)
+        layout.addWidget(self.other_fee)
+
+        layout.addWidget(QLabel("---"))
+
+        # Buttons
+        button_layout = QHBoxLayout()
+
+        record_btn = QPushButton("Record Sale")
+        record_btn.clicked.connect(self.accept)
+        button_layout.addWidget(record_btn)
+
+        remove_btn = QPushButton("Remove from Inventory")
+        remove_btn.clicked.connect(self.remove_all)
+        button_layout.addWidget(remove_btn)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def populate_fields(self):
+        self.sale_price.setValue(self.item['cost'])
+
+    def remove_all(self):
+        # Set quantity to all units
+        self.quantity_sold.setValue(self.item['units'])
+        self.accept()
