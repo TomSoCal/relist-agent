@@ -25,6 +25,9 @@ from database import (
     get_mileage_by_date_range,
     delete_mileage_trip,
     get_total_mileage_for_period,
+    add_brand,
+    get_all_brands,
+    delete_brand,
     DB_PATH
 )
 
@@ -628,6 +631,126 @@ class TestMileage(unittest.TestCase):
         self.assertEqual(trip['odometer_start'], 15000)
         self.assertEqual(trip['odometer_end'], 15035)
         self.assertEqual(trip['miles'], 35.5)
+
+
+class TestBrands(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        """Create a test database before running tests."""
+        cls.test_db_path = os.path.join(os.path.dirname(__file__), 'test_panda_profit_brands.db')
+
+        # Remove old test database if it exists
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+        # Patch the DB_PATH in the database module
+        import database
+        database.DB_PATH = cls.test_db_path
+        global DB_PATH
+        DB_PATH = cls.test_db_path
+
+        init_db()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove test database after all tests."""
+        import time
+        time.sleep(0.5)
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+    def setUp(self):
+        """Clear brands table before each test."""
+        import time
+        import gc
+
+        # Force garbage collection to close any lingering connections
+        gc.collect()
+        time.sleep(0.2)
+
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                conn = get_connection()
+                try:
+                    c = conn.cursor()
+                    c.execute('DELETE FROM brands')
+                    conn.commit()
+                finally:
+                    conn.close()
+                break
+            except sqlite3.OperationalError as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.0)
+                else:
+                    raise
+
+    def test_add_brand(self):
+        """Test adding a new brand."""
+        brand_id = add_brand('Nike')
+        self.assertIsNotNone(brand_id)
+        self.assertIsInstance(brand_id, int)
+
+    def test_get_all_brands(self):
+        """Test retrieving all brands."""
+        add_brand('Nike')
+        add_brand('Adidas')
+        add_brand('Puma')
+
+        brands = get_all_brands()
+        self.assertEqual(len(brands), 3)
+        # Brands should be sorted by name (case-insensitive)
+        brand_names = [b['name'] for b in brands]
+        self.assertIn('Nike', brand_names)
+        self.assertIn('Adidas', brand_names)
+        self.assertIn('Puma', brand_names)
+
+    def test_delete_brand(self):
+        """Test deleting a brand."""
+        brand_id = add_brand('Nike')
+        delete_brand(brand_id)
+
+        brands = get_all_brands()
+        self.assertEqual(len(brands), 0)
+
+    def test_brand_has_required_fields(self):
+        """Test that brand has all required fields."""
+        add_brand('Nike')
+
+        brands = get_all_brands()
+        brand = brands[0]
+
+        self.assertIn('id', brand)
+        self.assertIn('name', brand)
+        self.assertIn('created_at', brand)
+
+    def test_brand_unique_constraint(self):
+        """Test that brand name is unique."""
+        add_brand('Nike')
+
+        # Attempting to add duplicate should raise an exception
+        with self.assertRaises(sqlite3.IntegrityError):
+            add_brand('Nike')
+
+    def test_brand_names_case_insensitive_sort(self):
+        """Test that brands are sorted case-insensitively."""
+        add_brand('zebra')
+        add_brand('Apple')
+        add_brand('BANANA')
+
+        brands = get_all_brands()
+        brand_names = [b['name'] for b in brands]
+        # Should be sorted: Apple, BANANA, zebra
+        self.assertEqual(brand_names[0], 'Apple')
+        self.assertEqual(brand_names[1], 'BANANA')
+        self.assertEqual(brand_names[2], 'zebra')
 
 
 if __name__ == '__main__':

@@ -8,6 +8,15 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    # Brands table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS brands (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Inventory table
     c.execute('''
         CREATE TABLE IF NOT EXISTS inventory (
@@ -19,6 +28,7 @@ def init_db():
             bin TEXT,
             store TEXT,
             category TEXT,
+            brand TEXT,
             cost REAL,
             notes TEXT,
             xp INTEGER DEFAULT 0,
@@ -168,6 +178,12 @@ def init_db():
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Add brand column to inventory if it doesn't exist
+    c.execute("PRAGMA table_info(inventory)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'brand' not in columns:
+        c.execute('ALTER TABLE inventory ADD COLUMN brand TEXT')
 
     conn.commit()
     conn.close()
@@ -524,6 +540,38 @@ def get_total_mileage_for_period(start_date, end_date, year=None):
             'total_miles': 0,
             'trip_count': 0
         }
+
+# Brands operations
+def add_brand(name):
+    """Add a new brand. Raises IntegrityError if name already exists."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO brands (name)
+        VALUES (?)
+    ''', (name,))
+    conn.commit()
+    brand_id = c.lastrowid
+    conn.close()
+    return brand_id
+
+def get_all_brands():
+    """Get all brands ordered by name."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('SELECT * FROM brands ORDER BY name COLLATE NOCASE ASC')
+    brands = c.fetchall()
+    conn.close()
+    return brands
+
+def delete_brand(brand_id):
+    """Delete a brand by id."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM brands WHERE id = ?', (brand_id,))
+    conn.commit()
+    conn.close()
 
 if __name__ == '__main__':
     init_db()
