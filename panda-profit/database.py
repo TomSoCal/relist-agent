@@ -185,6 +185,12 @@ def init_db():
     if 'brand' not in columns:
         c.execute('ALTER TABLE inventory ADD COLUMN brand TEXT')
 
+    # Add other_fee column to sales if it doesn't exist
+    c.execute("PRAGMA table_info(sales)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'other_fee' not in columns:
+        c.execute('ALTER TABLE sales ADD COLUMN other_fee REAL DEFAULT 0')
+
     # Inventory Images table
     c.execute('''
         CREATE TABLE IF NOT EXISTS inventory_images (
