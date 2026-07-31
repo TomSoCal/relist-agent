@@ -99,7 +99,12 @@ class SalesTab(QWidget):
             self.table.setCellWidget(row, 0, checkbox)
 
             # Data columns (shifted right by 1 for checkbox)
-            self.table.setItem(row, 1, QTableWidgetItem(str(sale['id'])))
+            # Show inventory_id (tracking which item was sold) instead of sales record ID
+            display_id = sale.get('inventory_id') or sale['id']
+            id_item = QTableWidgetItem(str(display_id))
+            # Store actual sale ID as user data for lookups
+            id_item.setData(Qt.UserRole, sale['id'])
+            self.table.setItem(row, 1, id_item)
             self.table.setItem(row, 2, QTableWidgetItem(sale['sold_date']))
             self.table.setItem(row, 3, QTableWidgetItem(sale['platform'] or ''))
             self.table.setItem(row, 4, QTableWidgetItem(sale['item_title']))
@@ -153,7 +158,8 @@ class SalesTab(QWidget):
             QMessageBox.warning(self, "Error", "Please check the box next to the sale you want to view.")
             return
 
-        sale_id = int(self.table.item(checked_row, 1).text())
+        # Get actual sale ID from user data (displayed column shows inventory_id)
+        sale_id = int(self.table.item(checked_row, 1).data(Qt.UserRole))
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -181,7 +187,8 @@ class SalesTab(QWidget):
                                      "Are you sure you want to delete this sale?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            sale_id = int(self.table.item(checked_row, 1).text())
+            # Get actual sale ID from user data (displayed column shows inventory_id)
+            sale_id = int(self.table.item(checked_row, 1).data(Qt.UserRole))
             db.delete_sale(sale_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Sale deleted successfully!")
@@ -198,7 +205,8 @@ class SalesTab(QWidget):
             QMessageBox.warning(self, "Error", "Please check the box next to the sale you want to return.")
             return
 
-        sale_id = int(self.table.item(checked_row, 1).text())
+        # Get actual sale ID from user data (displayed column shows inventory_id)
+        sale_id = int(self.table.item(checked_row, 1).data(Qt.UserRole))
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -300,7 +308,8 @@ class SalesTab(QWidget):
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             for r in sorted(checked_rows, reverse=True):
-                sale_id = int(self.table.item(r, 1).text())
+                # Get actual sale ID from user data (displayed column shows inventory_id)
+                sale_id = int(self.table.item(r, 1).data(Qt.UserRole))
                 conn = db.get_connection()
                 conn.row_factory = db.dict_factory
                 c = conn.cursor()
