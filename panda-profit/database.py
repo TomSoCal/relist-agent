@@ -59,6 +59,7 @@ def init_db():
             platform_fee REAL DEFAULT 0,
             promoted_fee REAL DEFAULT 0,
             transaction_fee REAL DEFAULT 0,
+            other_fee REAL DEFAULT 0,
             sales_tax_collected REAL DEFAULT 0,
             total_fees REAL DEFAULT 0,
             profit_loss REAL DEFAULT 0,

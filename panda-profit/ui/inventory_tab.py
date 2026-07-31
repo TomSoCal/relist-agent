@@ -209,9 +209,10 @@ class InventoryTab(QWidget):
                 db.update_inventory(item_id, units=remaining_units)
 
             # Calculate total fees and profit
-            total_fees = (dialog.transaction_fee.value() +
-                         dialog.promoted_fee.value() +
-                         dialog.other_fee.value())
+            transaction_fee = dialog.transaction_fee.value()
+            promoted_fee = dialog.promoted_fee.value()
+            other_fee = dialog.other_fee.value()
+            total_fees = transaction_fee + promoted_fee + other_fee
             profit_loss = (dialog.sale_price.value() -
                           dialog.shipping_cost.value() -
                           total_fees -
@@ -235,8 +236,9 @@ class InventoryTab(QWidget):
                 cost_of_goods=item['cost'] * quantity_sold,
                 shipping_cost=dialog.shipping_cost.value(),
                 platform_fee=0,
-                promoted_fee=dialog.promoted_fee.value(),
-                transaction_fee=dialog.transaction_fee.value(),
+                promoted_fee=promoted_fee,
+                transaction_fee=transaction_fee,
+                other_fee=other_fee,
                 total_fees=total_fees,
                 profit_loss=profit_loss
             )
