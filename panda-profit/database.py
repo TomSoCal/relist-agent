@@ -395,23 +395,17 @@ def add_expense(expense_date, category_id, amount, description='', receipt_path=
     conn.close()
     return expense_id
 
-def get_expenses_by_date_range(start_date, end_date, year=None):
-    """Get expenses within a date range, optionally filtered by year."""
+def get_expenses_by_date_range(start_date, end_date):
+    """Get expenses within a date range for the current calendar year only."""
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    if year is not None:
-        c.execute('''
-            SELECT * FROM expenses
-            WHERE expense_date BETWEEN ? AND ? AND year = ?
-            ORDER BY expense_date DESC
-        ''', (start_date, end_date, year))
-    else:
-        c.execute('''
-            SELECT * FROM expenses
-            WHERE expense_date BETWEEN ? AND ?
-            ORDER BY expense_date DESC
-        ''', (start_date, end_date))
+    current_year = datetime.now().year
+    c.execute('''
+        SELECT * FROM expenses
+        WHERE expense_date BETWEEN ? AND ? AND year = ?
+        ORDER BY expense_date DESC
+    ''', (start_date, end_date, current_year))
     expenses = c.fetchall()
     conn.close()
     return expenses
@@ -424,39 +418,25 @@ def delete_expense(expense_id):
     conn.commit()
     conn.close()
 
-def get_total_expenses_by_category(start_date, end_date, year=None):
-    """Get total expenses grouped by category for a date range, optionally filtered by year."""
+def get_total_expenses_by_category(start_date, end_date):
+    """Get total expenses grouped by category for a date range in the current calendar year only."""
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    if year is not None:
-        c.execute('''
-            SELECT
-                ec.id,
-                ec.name,
-                ec.category_type,
-                SUM(e.amount) as total_amount,
-                COUNT(e.id) as count
-            FROM expenses e
-            JOIN expense_categories ec ON e.category_id = ec.id
-            WHERE e.expense_date BETWEEN ? AND ? AND e.year = ?
-            GROUP BY ec.id
-            ORDER BY total_amount DESC
-        ''', (start_date, end_date, year))
-    else:
-        c.execute('''
-            SELECT
-                ec.id,
-                ec.name,
-                ec.category_type,
-                SUM(e.amount) as total_amount,
-                COUNT(e.id) as count
-            FROM expenses e
-            JOIN expense_categories ec ON e.category_id = ec.id
-            WHERE e.expense_date BETWEEN ? AND ?
-            GROUP BY ec.id
-            ORDER BY total_amount DESC
-        ''', (start_date, end_date))
+    current_year = datetime.now().year
+    c.execute('''
+        SELECT
+            ec.id,
+            ec.name,
+            ec.category_type,
+            SUM(e.amount) as total_amount,
+            COUNT(e.id) as count
+        FROM expenses e
+        JOIN expense_categories ec ON e.category_id = ec.id
+        WHERE e.expense_date BETWEEN ? AND ? AND e.year = ?
+        GROUP BY ec.id
+        ORDER BY total_amount DESC
+    ''', (start_date, end_date, current_year))
     results = c.fetchall()
     conn.close()
     return results

@@ -347,21 +347,6 @@ class TestExpenses(unittest.TestCase):
         self.assertEqual(expenses[1]['expense_date'], '2026-07-20')
         self.assertEqual(expenses[2]['expense_date'], '2026-07-15')
 
-    def test_get_expenses_with_year_filter(self):
-        """Test retrieving expenses with optional year filter."""
-        # Add expenses with year field (they will be auto-populated with current year)
-        add_expense('2026-07-15', 1, 50.00)
-        add_expense('2026-07-20', 2, 100.00)
-
-        current_year = datetime.now().year
-
-        # Get expenses for current year
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31', year=current_year)
-        self.assertEqual(len(expenses), 2)
-
-        # Get expenses for different year (should be empty)
-        expenses_different_year = get_expenses_by_date_range('2026-07-01', '2026-07-31', year=2025)
-        self.assertEqual(len(expenses_different_year), 0)
 
     def test_delete_expense(self):
         """Test deleting an expense."""
@@ -413,21 +398,6 @@ class TestExpenses(unittest.TestCase):
         self.assertEqual(totals[1]['total_amount'], 100.00)
         self.assertEqual(totals[1]['count'], 1)
 
-    def test_get_total_expenses_with_year_filter(self):
-        """Test getting total expenses by category with year filter."""
-        # Add expenses
-        add_expense('2026-07-15', 1, 50.00)
-        add_expense('2026-07-20', 2, 100.00)
-
-        current_year = datetime.now().year
-
-        # Get totals for current year
-        totals = get_total_expenses_by_category('2026-07-01', '2026-07-31', year=current_year)
-        self.assertEqual(len(totals), 2)
-
-        # Get totals for different year (should be empty)
-        totals_different_year = get_total_expenses_by_category('2026-07-01', '2026-07-31', year=2025)
-        self.assertEqual(len(totals_different_year), 0)
 
     def test_expense_foreign_key_reference(self):
         """Test that expense category_id references expense_categories."""
