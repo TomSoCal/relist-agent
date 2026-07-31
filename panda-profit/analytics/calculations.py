@@ -45,14 +45,16 @@ def calculate_profit(sale):
     return revenue - costs
 
 
-def calculate_roi_by_category(start_date, end_date):
-    """Calculate ROI (Return on Investment) grouped by category for current year.
+def calculate_roi_by_category(start_date, end_date, year=None):
+    """Calculate ROI (Return on Investment) grouped by category.
 
-    Query filters to current year only using: WHERE year = ?
+    Query filters to specified year only using: WHERE year = ?
+    If year is None, defaults to current year.
 
     Args:
         start_date (str): Start date in YYYY-MM-DD format
         end_date (str): End date in YYYY-MM-DD format
+        year (int, optional): Year to filter by. Defaults to current year.
 
     Returns:
         list: List of dicts with keys:
@@ -66,7 +68,8 @@ def calculate_roi_by_category(start_date, end_date):
     conn.row_factory = dict_factory
     c = conn.cursor()
 
-    current_year = datetime.now().year
+    if year is None:
+        year = datetime.now().year
 
     c.execute('''
         SELECT
@@ -85,7 +88,7 @@ def calculate_roi_by_category(start_date, end_date):
         WHERE sold_date BETWEEN ? AND ? AND year = ? AND category IS NOT NULL
         GROUP BY category
         ORDER BY total_profit DESC
-    ''', (start_date, end_date, current_year))
+    ''', (start_date, end_date, year))
 
     results = c.fetchall()
     conn.close()
@@ -112,15 +115,17 @@ def calculate_roi_by_category(start_date, end_date):
     return roi_results
 
 
-def calculate_turnover_rate(category, start_date, end_date):
-    """Calculate average days from listing to sold (turnover rate) for a category in current year.
+def calculate_turnover_rate(category, start_date, end_date, year=None):
+    """Calculate average days from listing to sold (turnover rate) for a category.
 
-    Query filters to current year only using: WHERE year = ?
+    Query filters to specified year only using: WHERE year = ?
+    If year is None, defaults to current year.
 
     Args:
         category (str): Product category name
         start_date (str): Start date in YYYY-MM-DD format
         end_date (str): End date in YYYY-MM-DD format
+        year (int, optional): Year to filter by. Defaults to current year.
 
     Returns:
         float: Average days to sell (e.g., 14.5), or 0 if no matching sales
@@ -132,13 +137,14 @@ def calculate_turnover_rate(category, start_date, end_date):
     conn = get_connection()
     c = conn.cursor()
 
-    current_year = datetime.now().year
+    if year is None:
+        year = datetime.now().year
 
     c.execute('''
         SELECT AVG(days_to_sell) as avg_days
         FROM sales
         WHERE sold_date BETWEEN ? AND ? AND category = ? AND year = ? AND days_to_sell IS NOT NULL
-    ''', (start_date, end_date, category, current_year))
+    ''', (start_date, end_date, category, year))
 
     result = c.fetchone()
     conn.close()
@@ -147,15 +153,17 @@ def calculate_turnover_rate(category, start_date, end_date):
     return float(avg_days)
 
 
-def calculate_platform_impact(platform, start_date, end_date):
-    """Calculate fee impact and profitability by platform for current year.
+def calculate_platform_impact(platform, start_date, end_date, year=None):
+    """Calculate fee impact and profitability by platform.
 
-    Query filters to current year only using: WHERE year = ?
+    Query filters to specified year only using: WHERE year = ?
+    If year is None, defaults to current year.
 
     Args:
         platform (str): Platform name (e.g., 'eBay', 'Poshmark')
         start_date (str): Start date in YYYY-MM-DD format
         end_date (str): End date in YYYY-MM-DD format
+        year (int, optional): Year to filter by. Defaults to current year.
 
     Returns:
         dict: Platform impact metrics:
@@ -174,7 +182,8 @@ def calculate_platform_impact(platform, start_date, end_date):
     conn.row_factory = dict_factory
     c = conn.cursor()
 
-    current_year = datetime.now().year
+    if year is None:
+        year = datetime.now().year
 
     c.execute('''
         SELECT
@@ -186,7 +195,7 @@ def calculate_platform_impact(platform, start_date, end_date):
         FROM sales
         WHERE sold_date BETWEEN ? AND ? AND platform = ? AND year = ?
         GROUP BY platform
-    ''', (start_date, end_date, platform, current_year))
+    ''', (start_date, end_date, platform, year))
 
     result = c.fetchone()
     conn.close()

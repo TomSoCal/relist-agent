@@ -165,10 +165,10 @@ class MonthTab(QWidget):
         # Load Sales by Platform data
         self._populate_platform_table(start_date, end_date, selected_year)
 
-    def _populate_roi_table(self, start_date, end_date, current_year):
+    def _populate_roi_table(self, start_date, end_date, selected_year):
         """Populate the ROI by Category table."""
         # Get ROI data from analytics module
-        roi_data = calculate_roi_by_category(start_date, end_date)
+        roi_data = calculate_roi_by_category(start_date, end_date, selected_year)
 
         # Populate table
         self.roi_table.setRowCount(len(roi_data))

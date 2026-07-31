@@ -334,6 +334,47 @@ class TestROIByCategory(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['cost'], 30.00)
 
+    def test_roi_by_category_respects_year_parameter(self):
+        """Test that ROI calculation respects the year parameter for historical data."""
+        current_year = datetime.now().year
+        past_year = 2024
+
+        # Add sale from 2024
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO sales (year, month, platform, sold_date, item_title, units, category, sale_price, cost_of_goods)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (past_year, 7, 'eBay', '2024-07-15', 'Past Year Sale', 1, 'Electronics', 100.00, 30.00))
+        conn.commit()
+        conn.close()
+
+        # Add sale from current year
+        add_sale(
+            year=current_year,
+            month=7,
+            platform='eBay',
+            sold_date='2026-07-15',
+            item_title='Current Year Sale',
+            units=1,
+            category='Electronics',
+            sale_price=200.00,
+            cost_of_goods=50.00,
+        )
+
+        # Query 2024 data explicitly
+        results_2024 = calculate_roi_by_category('2024-07-01', '2024-07-31', year=2024)
+        # Query current year data
+        results_current = calculate_roi_by_category('2026-07-01', '2026-07-31', year=current_year)
+
+        # 2024 should only have the 2024 sale
+        self.assertEqual(len(results_2024), 1)
+        self.assertAlmostEqual(results_2024[0]['cost'], 30.00, places=2)
+
+        # Current year should only have the current year sale
+        self.assertEqual(len(results_current), 1)
+        self.assertAlmostEqual(results_current[0]['cost'], 50.00, places=2)
+
 
 class TestTurnoverRate(unittest.TestCase):
     """Tests for calculate_turnover_rate function."""
@@ -506,6 +547,46 @@ class TestTurnoverRate(unittest.TestCase):
 
         # Should only average current year (10, not (10+30)/2=20)
         self.assertAlmostEqual(rate, 10.0, places=1)
+
+    def test_turnover_rate_respects_year_parameter(self):
+        """Test that turnover calculation respects the year parameter for historical data."""
+        current_year = datetime.now().year
+        past_year = 2024
+
+        # Add sale from 2024 with 10 days
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO sales (year, month, platform, sold_date, item_title, units, category, sale_price, cost_of_goods, days_to_sell)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (past_year, 7, 'eBay', '2024-07-20', 'Past Year Sale', 1, 'Electronics', 100.00, 30.00, 10))
+        conn.commit()
+        conn.close()
+
+        # Add sale from current year with 20 days
+        add_sale(
+            year=current_year,
+            month=7,
+            platform='eBay',
+            sold_date='2026-07-20',
+            item_title='Current Year Sale',
+            units=1,
+            category='Electronics',
+            sale_price=100.00,
+            cost_of_goods=30.00,
+            days_to_sell=20,
+        )
+
+        # Query 2024 data explicitly
+        rate_2024 = calculate_turnover_rate('Electronics', '2024-07-01', '2024-07-31', year=2024)
+        # Query current year data
+        rate_current = calculate_turnover_rate('Electronics', '2026-07-01', '2026-07-31', year=current_year)
+
+        # 2024 should only include 2024 sales (10 days)
+        self.assertAlmostEqual(rate_2024, 10.0, places=1)
+
+        # Current year should only include current year sales (20 days)
+        self.assertAlmostEqual(rate_current, 20.0, places=1)
 
 
 class TestPlatformImpact(unittest.TestCase):
@@ -725,6 +806,48 @@ class TestPlatformImpact(unittest.TestCase):
         # Should only include current year sales (100 revenue, not 300)
         self.assertEqual(impact['sales_count'], 1)
         self.assertAlmostEqual(impact['total_revenue'], 100.00, places=2)
+
+    def test_platform_impact_respects_year_parameter(self):
+        """Test that platform impact respects the year parameter for historical data."""
+        current_year = datetime.now().year
+        past_year = 2024
+
+        # Add sale from 2024
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO sales (year, month, platform, sold_date, item_title, units, category, sale_price, cost_of_goods, platform_fee)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (past_year, 7, 'eBay', '2024-07-15', 'Past Year Sale', 1, 'Electronics', 100.00, 30.00, 5.00))
+        conn.commit()
+        conn.close()
+
+        # Add sale from current year
+        add_sale(
+            year=current_year,
+            month=7,
+            platform='eBay',
+            sold_date='2026-07-15',
+            item_title='Current Year Sale',
+            units=1,
+            category='Electronics',
+            sale_price=200.00,
+            cost_of_goods=50.00,
+            platform_fee=10.00,
+        )
+
+        # Query 2024 data explicitly
+        impact_2024 = calculate_platform_impact('eBay', '2024-07-01', '2024-07-31', year=2024)
+        # Query current year data
+        impact_current = calculate_platform_impact('eBay', '2026-07-01', '2026-07-31', year=current_year)
+
+        # 2024 should only include 2024 sales
+        self.assertEqual(impact_2024['sales_count'], 1)
+        self.assertAlmostEqual(impact_2024['total_revenue'], 100.00, places=2)
+
+        # Current year should only include current year sales
+        self.assertEqual(impact_current['sales_count'], 1)
+        self.assertAlmostEqual(impact_current['total_revenue'], 200.00, places=2)
 
 
 if __name__ == '__main__':
