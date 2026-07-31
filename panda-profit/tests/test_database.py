@@ -503,21 +503,6 @@ class TestMileage(unittest.TestCase):
         self.assertEqual(trips[1]['trip_date'], '2026-07-20')
         self.assertEqual(trips[2]['trip_date'], '2026-07-15')
 
-    def test_get_mileage_with_year_filter(self):
-        """Test retrieving mileage with optional year filter."""
-        # Add trips with year field (they will be auto-populated with current year)
-        add_mileage_trip('2026-07-15', 25.0)
-        add_mileage_trip('2026-07-20', 35.5)
-
-        current_year = datetime.now().year
-
-        # Get trips for current year
-        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31', year=current_year)
-        self.assertEqual(len(trips), 2)
-
-        # Get trips for different year (should be empty)
-        trips_different_year = get_mileage_by_date_range('2026-07-01', '2026-07-31', year=2025)
-        self.assertEqual(len(trips_different_year), 0)
 
     def test_delete_mileage_trip(self):
         """Test deleting a mileage trip."""
@@ -565,23 +550,6 @@ class TestMileage(unittest.TestCase):
         self.assertEqual(totals['total_miles'], 100.5)
         self.assertEqual(totals['trip_count'], 3)
 
-    def test_get_total_mileage_for_period_with_year_filter(self):
-        """Test getting total mileage with year filter."""
-        # Add trips
-        add_mileage_trip('2026-07-15', 25.0)
-        add_mileage_trip('2026-07-20', 35.5)
-
-        current_year = datetime.now().year
-
-        # Get totals for current year
-        totals = get_total_mileage_for_period('2026-07-01', '2026-07-31', year=current_year)
-        self.assertEqual(totals['total_miles'], 60.5)
-        self.assertEqual(totals['trip_count'], 2)
-
-        # Get totals for different year (should be empty)
-        totals_different_year = get_total_mileage_for_period('2026-07-01', '2026-07-31', year=2025)
-        self.assertEqual(totals_different_year['total_miles'], 0)
-        self.assertEqual(totals_different_year['trip_count'], 0)
 
     def test_get_total_mileage_empty_range(self):
         """Test getting total mileage for empty range returns zeros."""

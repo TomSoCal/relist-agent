@@ -456,23 +456,17 @@ def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', no
     conn.close()
     return mileage_id
 
-def get_mileage_by_date_range(start_date, end_date, year=None):
-    """Get mileage trips within a date range, optionally filtered by year."""
+def get_mileage_by_date_range(start_date, end_date):
+    """Get mileage trips within a date range for the current calendar year only."""
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    if year is not None:
-        c.execute('''
-            SELECT * FROM mileage
-            WHERE trip_date BETWEEN ? AND ? AND year = ?
-            ORDER BY trip_date DESC
-        ''', (start_date, end_date, year))
-    else:
-        c.execute('''
-            SELECT * FROM mileage
-            WHERE trip_date BETWEEN ? AND ?
-            ORDER BY trip_date DESC
-        ''', (start_date, end_date))
+    current_year = datetime.now().year
+    c.execute('''
+        SELECT * FROM mileage
+        WHERE trip_date BETWEEN ? AND ? AND year = ?
+        ORDER BY trip_date DESC
+    ''', (start_date, end_date, current_year))
     trips = c.fetchall()
     conn.close()
     return trips
@@ -485,27 +479,19 @@ def delete_mileage_trip(trip_id):
     conn.commit()
     conn.close()
 
-def get_total_mileage_for_period(start_date, end_date, year=None):
-    """Get total miles and trip count for a date range, optionally filtered by year."""
+def get_total_mileage_for_period(start_date, end_date):
+    """Get total miles and trip count for a date range in the current calendar year only."""
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    if year is not None:
-        c.execute('''
-            SELECT
-                SUM(miles) as total_miles,
-                COUNT(id) as trip_count
-            FROM mileage
-            WHERE trip_date BETWEEN ? AND ? AND year = ?
-        ''', (start_date, end_date, year))
-    else:
-        c.execute('''
-            SELECT
-                SUM(miles) as total_miles,
-                COUNT(id) as trip_count
-            FROM mileage
-            WHERE trip_date BETWEEN ? AND ?
-        ''', (start_date, end_date))
+    current_year = datetime.now().year
+    c.execute('''
+        SELECT
+            SUM(miles) as total_miles,
+            COUNT(id) as trip_count
+        FROM mileage
+        WHERE trip_date BETWEEN ? AND ? AND year = ?
+    ''', (start_date, end_date, current_year))
     result = c.fetchone()
     conn.close()
 
