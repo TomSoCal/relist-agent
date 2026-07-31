@@ -3,9 +3,9 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox,
                             QTextEdit, QMessageBox, QDateEdit, QHeaderView,
                             QScrollArea, QListWidget, QListWidgetItem, QFileDialog,
-                            QCheckBox)
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QPixmap
+                            QCheckBox, QGridLayout, QTabWidget)
+from PyQt5.QtCore import Qt, QDate, QUrl, QSize
+from PyQt5.QtGui import QPixmap, QFont
 from datetime import datetime
 import database as db
 from constants import CATEGORIES, STORES
@@ -47,6 +47,9 @@ class InventoryTab(QWidget):
         edit_btn = QPushButton("Edit")
         edit_btn.clicked.connect(self.edit_item_dialog)
 
+        view_btn = QPushButton("View Item")
+        view_btn.clicked.connect(self.view_item_dialog)
+
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self.delete_item)
 
@@ -70,6 +73,7 @@ class InventoryTab(QWidget):
 
         button_layout.addWidget(add_btn)
         button_layout.addWidget(edit_btn)
+        button_layout.addWidget(view_btn)
         button_layout.addWidget(delete_btn)
         button_layout.addWidget(record_sale_btn)
         button_layout.addWidget(self.bulk_btn)
@@ -244,6 +248,24 @@ class InventoryTab(QWidget):
             )
             self.refresh_table()
             QMessageBox.information(self, "Success", "Item updated successfully!")
+
+    def view_item_dialog(self):
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the item you want to view.")
+            return
+
+        item_id = int(self.table.item(checked_row, 1).text())
+        item = db.get_inventory_by_id(item_id)
+
+        dialog = ViewItemDialog(self, item)
+        dialog.exec_()
 
     def delete_item(self):
         checked_row = None
@@ -712,3 +734,120 @@ class RecordSaleDialog(QDialog):
         # Set quantity to all units
         self.quantity_sold.setValue(self.item['units'])
         self.accept()
+
+class ViewItemDialog(QDialog):
+    def __init__(self, parent=None, item=None):
+        super().__init__(parent)
+        self.item = item
+        self.images = db.get_inventory_images(item['id'])
+        self.setWindowTitle(f"View Item: {item['item_title']}")
+        self.setGeometry(100, 100, 900, 700)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        # Item details header
+        details_font = QFont()
+        details_font.setPointSize(11)
+        details_font.setBold(True)
+
+        title_lbl = QLabel(self.item['item_title'])
+        title_lbl.setFont(details_font)
+        layout.addWidget(title_lbl)
+
+        # Item info grid
+        info_layout = QGridLayout()
+        info_layout.addWidget(QLabel("ID:"), 0, 0)
+        info_layout.addWidget(QLabel(str(self.item['id'])), 0, 1)
+        info_layout.addWidget(QLabel("SKU:"), 0, 2)
+        info_layout.addWidget(QLabel(self.item['sku'] or 'N/A'), 0, 3)
+
+        info_layout.addWidget(QLabel("Units:"), 1, 0)
+        info_layout.addWidget(QLabel(str(self.item['units'])), 1, 1)
+        info_layout.addWidget(QLabel("Cost:"), 1, 2)
+        info_layout.addWidget(QLabel(f"${self.item['cost']:.2f}"), 1, 3)
+
+        info_layout.addWidget(QLabel("Store:"), 2, 0)
+        info_layout.addWidget(QLabel(self.item['store'] or 'N/A'), 2, 1)
+        info_layout.addWidget(QLabel("Category:"), 2, 2)
+        info_layout.addWidget(QLabel(self.item['category'] or 'N/A'), 2, 3)
+
+        layout.addLayout(info_layout)
+        layout.addWidget(QLabel("---"))
+
+        # Images section
+        img_count = len(self.images)
+        layout.addWidget(QLabel(f"Pictures ({img_count}/26)"))
+
+        # Image gallery
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout()
+
+        if self.images:
+            for i, img in enumerate(self.images, 1):
+                # Image thumbnail + info
+                img_frame_layout = QHBoxLayout()
+
+                # Try to load and display thumbnail
+                pixmap = None
+                if img['image_url'].startswith('file://'):
+                    file_path = img['image_url'].replace('file:///', '').replace('/', '\\')
+                    if os.path.exists(file_path):
+                        pixmap = QPixmap(file_path)
+                else:
+                    # For web URLs, just show placeholder
+                    pixmap = None
+
+                if pixmap and not pixmap.isNull():
+                    pixmap = pixmap.scaledToHeight(100, Qt.SmoothTransformation)
+                    thumb_label = QLabel()
+                    thumb_label.setPixmap(pixmap)
+                    img_frame_layout.addWidget(thumb_label)
+
+                # Image info
+                info_text = f"[{i}] {img['image_url']}"
+                url_label = QLabel(info_text)
+                url_label.setWordWrap(True)
+                url_label.setFont(QFont("Courier", 9))
+                img_frame_layout.addWidget(url_label, 1)
+
+                # Open button
+                open_btn = QPushButton("Open")
+                open_btn.clicked.connect(lambda checked, url=img['image_url']: self.open_image(url))
+                img_frame_layout.addWidget(open_btn)
+
+                scroll_layout.addLayout(img_frame_layout)
+                scroll_layout.addWidget(QLabel("---"))
+        else:
+            scroll_layout.addWidget(QLabel("No pictures added yet"))
+
+        scroll_layout.addStretch()
+        scroll_widget.setLayout(scroll_layout)
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll, 1)
+
+        # Notes section
+        layout.addWidget(QLabel("Notes:"))
+        notes_label = QLabel(self.item['notes'] or '(No notes)')
+        notes_label.setWordWrap(True)
+        layout.addWidget(notes_label)
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+        self.setLayout(layout)
+
+    def open_image(self, url):
+        if url.startswith('file://'):
+            file_path = url.replace('file:///', '').replace('/', '\\')
+            if os.path.exists(file_path):
+                os.startfile(file_path)
+            else:
+                QMessageBox.warning(self, "Error", f"File not found: {file_path}")
+        else:
+            webbrowser.open(url)
