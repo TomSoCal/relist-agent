@@ -9,6 +9,7 @@ from ui.inventory_tab import InventoryTab
 from ui.sales_tab import SalesTab
 from ui.settings_tab import SettingsTab
 from ui.analytics_tab import AnalyticsTab
+from ui.reports_tab import ReportsTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -28,12 +29,14 @@ class MainWindow(QMainWindow):
         self.inventory_tab = InventoryTab()
         self.sales_tab = SalesTab()
         self.analytics_tab = AnalyticsTab()
+        self.reports_tab = ReportsTab()
         self.settings_tab = SettingsTab()
 
         self.tabs.addTab(self.dashboard_tab, "Dashboard")
         self.tabs.addTab(self.inventory_tab, "Inventory")
         self.tabs.addTab(self.sales_tab, "Sales")
         self.tabs.addTab(self.analytics_tab, "Analytics")
+        self.tabs.addTab(self.reports_tab, "Reports")
         self.tabs.addTab(self.settings_tab, "Settings")
 
         layout.addWidget(self.tabs)
