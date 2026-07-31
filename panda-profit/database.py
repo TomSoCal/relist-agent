@@ -136,6 +136,22 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes))
 
+    # Expenses table (for logging actual expenses)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            year INTEGER NOT NULL,
+            expense_date TEXT NOT NULL,
+            category_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            description TEXT DEFAULT '',
+            receipt_path TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES expense_categories (id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -330,6 +346,87 @@ def update_platform_fee(platform, **kwargs):
     c.execute(f'UPDATE platform_fees SET {set_clause} WHERE platform = ?', values)
     conn.commit()
     conn.close()
+
+# Expenses operations
+def add_expense(expense_date, category_id, amount, description='', receipt_path=''):
+    """Add a new expense entry. Year is auto-populated from current system year."""
+    conn = get_connection()
+    c = conn.cursor()
+    year = datetime.now().year
+    c.execute('''
+        INSERT INTO expenses (year, expense_date, category_id, amount, description, receipt_path)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (year, expense_date, category_id, amount, description, receipt_path))
+    conn.commit()
+    expense_id = c.lastrowid
+    conn.close()
+    return expense_id
+
+def get_expenses_by_date_range(start_date, end_date, year=None):
+    """Get expenses within a date range, optionally filtered by year."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    if year is not None:
+        c.execute('''
+            SELECT * FROM expenses
+            WHERE expense_date BETWEEN ? AND ? AND year = ?
+            ORDER BY expense_date DESC
+        ''', (start_date, end_date, year))
+    else:
+        c.execute('''
+            SELECT * FROM expenses
+            WHERE expense_date BETWEEN ? AND ?
+            ORDER BY expense_date DESC
+        ''', (start_date, end_date))
+    expenses = c.fetchall()
+    conn.close()
+    return expenses
+
+def delete_expense(expense_id):
+    """Delete an expense entry."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+    conn.commit()
+    conn.close()
+
+def get_total_expenses_by_category(start_date, end_date, year=None):
+    """Get total expenses grouped by category for a date range, optionally filtered by year."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    if year is not None:
+        c.execute('''
+            SELECT
+                ec.id,
+                ec.name,
+                ec.category_type,
+                SUM(e.amount) as total_amount,
+                COUNT(e.id) as count
+            FROM expenses e
+            JOIN expense_categories ec ON e.category_id = ec.id
+            WHERE e.expense_date BETWEEN ? AND ? AND e.year = ?
+            GROUP BY ec.id
+            ORDER BY total_amount DESC
+        ''', (start_date, end_date, year))
+    else:
+        c.execute('''
+            SELECT
+                ec.id,
+                ec.name,
+                ec.category_type,
+                SUM(e.amount) as total_amount,
+                COUNT(e.id) as count
+            FROM expenses e
+            JOIN expense_categories ec ON e.category_id = ec.id
+            WHERE e.expense_date BETWEEN ? AND ?
+            GROUP BY ec.id
+            ORDER BY total_amount DESC
+        ''', (start_date, end_date))
+    results = c.fetchall()
+    conn.close()
+    return results
 
 if __name__ == '__main__':
     init_db()

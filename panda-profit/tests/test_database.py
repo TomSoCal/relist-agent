@@ -17,6 +17,10 @@ from database import (
     get_platform_fee,
     get_all_platform_fees,
     update_platform_fee,
+    add_expense,
+    get_expenses_by_date_range,
+    delete_expense,
+    get_total_expenses_by_category,
     DB_PATH
 )
 
@@ -245,6 +249,190 @@ class TestPlatformFees(unittest.TestCase):
         # Attempting to add duplicate should raise an exception
         with self.assertRaises(sqlite3.IntegrityError):
             add_platform_fee('AlibabaTest', 0.35, 13.5, 0, 2.5, None)
+
+
+class TestExpenses(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        """Create a test database before running tests."""
+        cls.test_db_path = os.path.join(os.path.dirname(__file__), 'test_panda_profit_expenses.db')
+
+        # Remove old test database if it exists
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+        # Patch the DB_PATH in the database module
+        import database
+        database.DB_PATH = cls.test_db_path
+        global DB_PATH
+        DB_PATH = cls.test_db_path
+
+        init_db()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove test database after all tests."""
+        import time
+        time.sleep(0.5)
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+    def setUp(self):
+        """Clear expenses table before each test."""
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute('DELETE FROM expenses')
+        conn.commit()
+        conn.close()
+
+    def test_add_expense(self):
+        """Test adding a new expense."""
+        # Add an expense
+        expense_id = add_expense('2026-07-30', 1, 50.00, 'Office supplies', '')
+        self.assertIsNotNone(expense_id)
+        self.assertIsInstance(expense_id, int)
+
+    def test_add_expense_year_auto_populated(self):
+        """Test that year is auto-populated when adding expense."""
+        expense_id = add_expense('2026-07-30', 1, 50.00, 'Test expense', '')
+
+        # Retrieve the expense
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses), 1)
+
+        expense = expenses[0]
+        # Year should be current system year
+        expected_year = datetime.now().year
+        self.assertEqual(expense['year'], expected_year)
+
+    def test_add_expense_with_default_fields(self):
+        """Test adding expense with default values for optional fields."""
+        expense_id = add_expense('2026-07-30', 1, 75.00)
+
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses), 1)
+
+        expense = expenses[0]
+        self.assertEqual(expense['amount'], 75.00)
+        self.assertEqual(expense['description'], '')
+        self.assertEqual(expense['receipt_path'], '')
+
+    def test_get_expenses_by_date_range(self):
+        """Test retrieving expenses within a date range."""
+        # Add multiple expenses
+        add_expense('2026-07-15', 1, 50.00)
+        add_expense('2026-07-20', 2, 100.00)
+        add_expense('2026-07-25', 1, 75.00)
+
+        # Get expenses in range
+        expenses = get_expenses_by_date_range('2026-07-10', '2026-07-31')
+        self.assertEqual(len(expenses), 3)
+
+        # Verify order is DESC
+        self.assertEqual(expenses[0]['expense_date'], '2026-07-25')
+        self.assertEqual(expenses[1]['expense_date'], '2026-07-20')
+        self.assertEqual(expenses[2]['expense_date'], '2026-07-15')
+
+    def test_get_expenses_with_year_filter(self):
+        """Test retrieving expenses with optional year filter."""
+        # Add expenses with year field (they will be auto-populated with current year)
+        add_expense('2026-07-15', 1, 50.00)
+        add_expense('2026-07-20', 2, 100.00)
+
+        current_year = datetime.now().year
+
+        # Get expenses for current year
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31', year=current_year)
+        self.assertEqual(len(expenses), 2)
+
+        # Get expenses for different year (should be empty)
+        expenses_different_year = get_expenses_by_date_range('2026-07-01', '2026-07-31', year=2025)
+        self.assertEqual(len(expenses_different_year), 0)
+
+    def test_delete_expense(self):
+        """Test deleting an expense."""
+        expense_id = add_expense('2026-07-30', 1, 50.00)
+
+        # Verify it exists
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses), 1)
+
+        # Delete it
+        delete_expense(expense_id)
+
+        # Verify it's deleted
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses), 0)
+
+    def test_expense_has_required_fields(self):
+        """Test that expense has all required fields."""
+        add_expense('2026-07-30', 1, 50.00, 'Test expense', '/path/to/receipt.pdf')
+
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expense = expenses[0]
+
+        self.assertIn('id', expense)
+        self.assertIn('year', expense)
+        self.assertIn('expense_date', expense)
+        self.assertIn('category_id', expense)
+        self.assertIn('amount', expense)
+        self.assertIn('description', expense)
+        self.assertIn('receipt_path', expense)
+        self.assertIn('created_at', expense)
+        self.assertIn('updated_at', expense)
+
+    def test_get_total_expenses_by_category(self):
+        """Test getting total expenses grouped by category."""
+        # Add expenses from multiple categories
+        add_expense('2026-07-15', 1, 50.00)  # Category 1
+        add_expense('2026-07-20', 1, 75.00)  # Category 1
+        add_expense('2026-07-25', 2, 100.00)  # Category 2
+
+        # Get totals by category
+        totals = get_total_expenses_by_category('2026-07-01', '2026-07-31')
+        self.assertEqual(len(totals), 2)
+
+        # Verify totals are calculated correctly
+        # Should be ordered by total_amount DESC
+        self.assertEqual(totals[0]['total_amount'], 125.00)
+        self.assertEqual(totals[0]['count'], 2)
+        self.assertEqual(totals[1]['total_amount'], 100.00)
+        self.assertEqual(totals[1]['count'], 1)
+
+    def test_get_total_expenses_with_year_filter(self):
+        """Test getting total expenses by category with year filter."""
+        # Add expenses
+        add_expense('2026-07-15', 1, 50.00)
+        add_expense('2026-07-20', 2, 100.00)
+
+        current_year = datetime.now().year
+
+        # Get totals for current year
+        totals = get_total_expenses_by_category('2026-07-01', '2026-07-31', year=current_year)
+        self.assertEqual(len(totals), 2)
+
+        # Get totals for different year (should be empty)
+        totals_different_year = get_total_expenses_by_category('2026-07-01', '2026-07-31', year=2025)
+        self.assertEqual(len(totals_different_year), 0)
+
+    def test_expense_foreign_key_reference(self):
+        """Test that expense category_id references expense_categories."""
+        # Add an expense with a valid category_id
+        add_expense('2026-07-30', 1, 50.00)
+
+        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses), 1)
+
+        expense = expenses[0]
+        # category_id should reference a valid category
+        self.assertIsNotNone(expense['category_id'])
 
 
 if __name__ == '__main__':
