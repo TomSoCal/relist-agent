@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QTableWidget, QTableWidgetItem, QDialog, QLabel,
                             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox,
-                            QTextEdit, QMessageBox, QHeaderView, QFileDialog)
+                            QTextEdit, QMessageBox, QHeaderView, QFileDialog, QCheckBox)
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
 from datetime import datetime
 import database as db
 import csv
@@ -11,6 +12,7 @@ from constants import CATEGORIES, PLATFORMS
 class SalesTab(QWidget):
     def __init__(self):
         super().__init__()
+        self.bulk_mode = False
         self.init_ui()
         self.refresh_table()
 
@@ -32,6 +34,18 @@ class SalesTab(QWidget):
         return_btn = QPushButton("Return to Inventory")
         return_btn.clicked.connect(self.return_to_inventory)
 
+        self.bulk_btn = QPushButton("Bulk Actions")
+        self.bulk_btn.clicked.connect(self.toggle_bulk_mode)
+        self.bulk_btn.setStyleSheet("background-color: lightblue")
+
+        self.bulk_return_btn = QPushButton("Return Selected")
+        self.bulk_return_btn.clicked.connect(self.bulk_return_items)
+        self.bulk_return_btn.setVisible(False)
+
+        self.bulk_cancel_btn = QPushButton("Cancel Bulk")
+        self.bulk_cancel_btn.clicked.connect(self.toggle_bulk_mode)
+        self.bulk_cancel_btn.setVisible(False)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_table)
 
@@ -42,15 +56,18 @@ class SalesTab(QWidget):
         button_layout.addWidget(view_btn)
         button_layout.addWidget(delete_btn)
         button_layout.addWidget(return_btn)
+        button_layout.addWidget(self.bulk_btn)
+        button_layout.addWidget(self.bulk_return_btn)
+        button_layout.addWidget(self.bulk_cancel_btn)
         button_layout.addStretch()
         button_layout.addWidget(export_btn)
         button_layout.addWidget(refresh_btn)
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(16)
+        self.table.setColumnCount(17)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Sold Date", "Platform", "Item Title", "Sale Price",
+            "Checkbox", "ID", "Sold Date", "Platform", "Item Title", "Sale Price",
             "Cost", "Shipping", "Transaction Fee", "Promoted Fee", "Other Fee",
             "Total Fees", "Profit/Loss Per Unit", "Total Profit/Loss", "Category", "Days to Sell", "Units"
         ])
@@ -75,29 +92,35 @@ class SalesTab(QWidget):
         total_units = 0
 
         for row, sale in enumerate(sales):
-            self.table.setItem(row, 0, QTableWidgetItem(str(sale['id'])))
-            self.table.setItem(row, 1, QTableWidgetItem(sale['sold_date']))
-            self.table.setItem(row, 2, QTableWidgetItem(sale['platform'] or ''))
-            self.table.setItem(row, 3, QTableWidgetItem(sale['item_title']))
-            self.table.setItem(row, 4, QTableWidgetItem(f"${sale['sale_price']:.2f}" if sale['sale_price'] else '$0'))
-            self.table.setItem(row, 5, QTableWidgetItem(f"${sale['cost_of_goods']:.2f}" if sale['cost_of_goods'] else '$0'))
+            # Checkbox column
+            checkbox = QCheckBox()
+            checkbox.stateChanged.connect(lambda state, r=row: self.on_checkbox_changed(r, state))
+            self.table.setCellWidget(row, 0, checkbox)
+
+            # Data columns (shifted right by 1 for checkbox)
+            self.table.setItem(row, 1, QTableWidgetItem(str(sale['id'])))
+            self.table.setItem(row, 2, QTableWidgetItem(sale['sold_date']))
+            self.table.setItem(row, 3, QTableWidgetItem(sale['platform'] or ''))
+            self.table.setItem(row, 4, QTableWidgetItem(sale['item_title']))
+            self.table.setItem(row, 5, QTableWidgetItem(f"${sale['sale_price']:.2f}" if sale['sale_price'] else '$0'))
+            self.table.setItem(row, 6, QTableWidgetItem(f"${sale['cost_of_goods']:.2f}" if sale['cost_of_goods'] else '$0'))
             shipping = (sale['shipping_collected'] or 0) - (sale['shipping_cost'] or 0)
-            self.table.setItem(row, 6, QTableWidgetItem(f"${shipping:.2f}"))
-            self.table.setItem(row, 7, QTableWidgetItem(f"${sale['transaction_fee']:.2f}" if sale['transaction_fee'] else '$0'))
-            self.table.setItem(row, 8, QTableWidgetItem(f"${sale['promoted_fee']:.2f}" if sale['promoted_fee'] else '$0'))
-            self.table.setItem(row, 9, QTableWidgetItem(f"${sale.get('other_fee', 0):.2f}"))
-            self.table.setItem(row, 10, QTableWidgetItem(f"${sale['total_fees']:.2f}" if sale['total_fees'] else '$0'))
+            self.table.setItem(row, 7, QTableWidgetItem(f"${shipping:.2f}"))
+            self.table.setItem(row, 8, QTableWidgetItem(f"${sale['transaction_fee']:.2f}" if sale['transaction_fee'] else '$0'))
+            self.table.setItem(row, 9, QTableWidgetItem(f"${sale['promoted_fee']:.2f}" if sale['promoted_fee'] else '$0'))
+            self.table.setItem(row, 10, QTableWidgetItem(f"${sale.get('other_fee', 0):.2f}"))
+            self.table.setItem(row, 11, QTableWidgetItem(f"${sale['total_fees']:.2f}" if sale['total_fees'] else '$0'))
 
             # Profit/Loss per unit
             units = sale['units'] or 1
             profit_per_unit = (sale['profit_loss'] or 0) / units
-            self.table.setItem(row, 11, QTableWidgetItem(f"${profit_per_unit:.2f}"))
+            self.table.setItem(row, 12, QTableWidgetItem(f"${profit_per_unit:.2f}"))
 
             # Total Profit/Loss
-            self.table.setItem(row, 12, QTableWidgetItem(f"${sale['profit_loss']:.2f}" if sale['profit_loss'] else '$0'))
-            self.table.setItem(row, 13, QTableWidgetItem(sale['category'] or ''))
-            self.table.setItem(row, 14, QTableWidgetItem(str(sale['days_to_sell'] or 0)))
-            self.table.setItem(row, 15, QTableWidgetItem(str(sale['units'])))
+            self.table.setItem(row, 13, QTableWidgetItem(f"${sale['profit_loss']:.2f}" if sale['profit_loss'] else '$0'))
+            self.table.setItem(row, 14, QTableWidgetItem(sale['category'] or ''))
+            self.table.setItem(row, 15, QTableWidgetItem(str(sale['days_to_sell'] or 0)))
+            self.table.setItem(row, 16, QTableWidgetItem(str(sale['units'])))
 
             total_sales += sale['sale_price'] or 0
             total_profit += sale['profit_loss'] or 0
@@ -123,7 +146,7 @@ class SalesTab(QWidget):
             QMessageBox.warning(self, "Error", "Please select a sale to view.")
             return
 
-        sale_id = int(self.table.item(selected_rows[0].row(), 0).text())
+        sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -145,7 +168,7 @@ class SalesTab(QWidget):
                                      "Are you sure you want to delete this sale?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            sale_id = int(self.table.item(selected_rows[0].row(), 0).text())
+            sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
             db.delete_sale(sale_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Sale deleted successfully!")
@@ -156,7 +179,7 @@ class SalesTab(QWidget):
             QMessageBox.warning(self, "Error", "Please select a sale to return.")
             return
 
-        sale_id = int(self.table.item(selected_rows[0].row(), 0).text())
+        sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -192,6 +215,94 @@ class SalesTab(QWidget):
 
             QMessageBox.information(self, "Success",
                                    f"Sale reversed! {sale['units']} unit(s) returned to inventory.")
+
+    def on_checkbox_changed(self, row, state):
+        # Highlight row when checked
+        for col in range(self.table.columnCount()):
+            item = self.table.item(row, col) if col > 0 else None
+            if item:
+                if state == Qt.Checked:
+                    item.setBackground(QColor("yellow"))
+                else:
+                    item.setBackground(QColor("white"))
+
+        # In single-select mode, uncheck other rows
+        if not self.bulk_mode:
+            for r in range(self.table.rowCount()):
+                if r != row:
+                    checkbox = self.table.cellWidget(r, 0)
+                    if checkbox and checkbox.isChecked():
+                        checkbox.blockSignals(True)
+                        checkbox.setChecked(False)
+                        checkbox.blockSignals(False)
+                        # Reset highlight
+                        for col in range(self.table.columnCount()):
+                            item = self.table.item(r, col) if col > 0 else None
+                            if item:
+                                item.setBackground(QColor("white"))
+
+    def toggle_bulk_mode(self):
+        self.bulk_mode = not self.bulk_mode
+        self.bulk_btn.setVisible(not self.bulk_mode)
+        self.bulk_return_btn.setVisible(self.bulk_mode)
+        self.bulk_cancel_btn.setVisible(self.bulk_mode)
+
+        # Clear selections when exiting bulk mode
+        if not self.bulk_mode:
+            for r in range(self.table.rowCount()):
+                checkbox = self.table.cellWidget(r, 0)
+                if checkbox:
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(False)
+                    checkbox.blockSignals(False)
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(r, col) if col > 0 else None
+                        if item:
+                            item.setBackground(QColor("white"))
+
+    def bulk_return_items(self):
+        # Get all checked items
+        checked_rows = []
+        for r in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(r, 0)
+            if checkbox and checkbox.isChecked():
+                checked_rows.append(r)
+
+        if not checked_rows:
+            QMessageBox.warning(self, "Error", "Please select sales to return.")
+            return
+
+        reply = QMessageBox.question(self, "Return to Inventory",
+                                     f"Return {len(checked_rows)} sale(s) back to inventory?",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            for r in sorted(checked_rows, reverse=True):
+                sale_id = int(self.table.item(r, 1).text())
+                conn = db.get_connection()
+                conn.row_factory = db.dict_factory
+                c = conn.cursor()
+                c.execute('SELECT * FROM sales WHERE id = ?', (sale_id,))
+                sale = c.fetchone()
+                conn.close()
+
+                if sale:
+                    # Add item back to inventory
+                    db.add_inventory(
+                        listed_date=sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                        item_title=sale['item_title'],
+                        units=sale['units'],
+                        sku=sale['sku'],
+                        bin=sale['bin'],
+                        store=sale['store'],
+                        category=sale['category'],
+                        cost=sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                        notes=f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
+                    )
+                    db.delete_sale(sale_id)
+
+            self.refresh_table()
+            self.toggle_bulk_mode()
+            QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!")
 
     def export_to_csv(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Export Sales", "", "CSV Files (*.csv)")
