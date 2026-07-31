@@ -32,6 +32,8 @@ class MainWindow(QMainWindow):
         self.dashboard_tab = DashboardTab()
         self.sales_tab = SalesTab()
         self.inventory_tab = InventoryTab(sales_tab=self.sales_tab)
+        # Pass inventory_tab reference to sales_tab for auto-refresh on return
+        self.sales_tab.inventory_tab = self.inventory_tab
         self.day_tab = DayTab()
         self.month_tab = MonthTab()
         self.year_tab = YearTab()

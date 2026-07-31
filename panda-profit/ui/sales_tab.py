@@ -13,6 +13,7 @@ class SalesTab(QWidget):
     def __init__(self):
         super().__init__()
         self.bulk_mode = False
+        self.inventory_tab = None
         self.init_ui()
         self.refresh_table()
 
@@ -141,12 +142,18 @@ class SalesTab(QWidget):
             QMessageBox.information(self, "Success", "Sale added successfully!")
 
     def view_sale_details(self):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select a sale to view.")
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the sale you want to view.")
             return
 
-        sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
+        sale_id = int(self.table.item(checked_row, 1).text())
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -159,27 +166,39 @@ class SalesTab(QWidget):
             QMessageBox.information(self, "Sale Details", details)
 
     def delete_sale(self):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select a sale to delete.")
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the sale you want to delete.")
             return
 
         reply = QMessageBox.question(self, "Confirm Delete",
                                      "Are you sure you want to delete this sale?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
+            sale_id = int(self.table.item(checked_row, 1).text())
             db.delete_sale(sale_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Sale deleted successfully!")
 
     def return_to_inventory(self):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select a sale to return.")
+        checked_row = None
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                checked_row = row
+                break
+
+        if checked_row is None:
+            QMessageBox.warning(self, "Error", "Please check the box next to the sale you want to return.")
             return
 
-        sale_id = int(self.table.item(selected_rows[0].row(), 1).text())
+        sale_id = int(self.table.item(checked_row, 1).text())
         conn = db.get_connection()
         conn.row_factory = db.dict_factory
         c = conn.cursor()
@@ -212,6 +231,10 @@ class SalesTab(QWidget):
             # Delete the sale
             db.delete_sale(sale_id)
             self.refresh_table()
+
+            # Auto-refresh Inventory tab if available
+            if self.inventory_tab:
+                self.inventory_tab.refresh_table()
 
             QMessageBox.information(self, "Success",
                                    f"Sale reversed! {sale['units']} unit(s) returned to inventory.")
@@ -301,6 +324,11 @@ class SalesTab(QWidget):
                     db.delete_sale(sale_id)
 
             self.refresh_table()
+
+            # Auto-refresh Inventory tab if available
+            if self.inventory_tab:
+                self.inventory_tab.refresh_table()
+
             self.toggle_bulk_mode()
             QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!")
 
