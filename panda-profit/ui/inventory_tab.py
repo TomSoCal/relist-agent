@@ -287,12 +287,8 @@ class InventoryTab(QWidget):
             quantity_sold = dialog.quantity_sold.value()
             remaining_units = item['units'] - quantity_sold
 
-            if remaining_units <= 0:
-                # Remove from inventory completely
-                db.delete_inventory(item_id)
-            else:
-                # Update units in inventory
-                db.update_inventory(item_id, units=remaining_units)
+            # Always update instead of deleting - keeps item ID stable for returns
+            db.update_inventory(item_id, units=max(0, remaining_units))
 
             # Calculate total fees and profit
             transaction_fee = dialog.transaction_fee.value()
