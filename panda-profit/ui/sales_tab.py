@@ -44,11 +44,11 @@ class SalesTab(QWidget):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(15)
+        self.table.setColumnCount(16)
         self.table.setHorizontalHeaderLabels([
             "ID", "Sold Date", "Platform", "Item Title", "Sale Price",
             "Cost", "Shipping", "Transaction Fee", "Promoted Fee", "Other Fee",
-            "Total Fees", "Profit/Loss", "Category", "Days to Sell", "Units"
+            "Total Fees", "Profit/Loss Per Unit", "Total Profit/Loss", "Category", "Days to Sell", "Units"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
@@ -83,10 +83,17 @@ class SalesTab(QWidget):
             self.table.setItem(row, 8, QTableWidgetItem(f"${sale['promoted_fee']:.2f}" if sale['promoted_fee'] else '$0'))
             self.table.setItem(row, 9, QTableWidgetItem(f"${sale.get('other_fee', 0):.2f}"))
             self.table.setItem(row, 10, QTableWidgetItem(f"${sale['total_fees']:.2f}" if sale['total_fees'] else '$0'))
-            self.table.setItem(row, 11, QTableWidgetItem(f"${sale['profit_loss']:.2f}" if sale['profit_loss'] else '$0'))
-            self.table.setItem(row, 12, QTableWidgetItem(sale['category'] or ''))
-            self.table.setItem(row, 13, QTableWidgetItem(str(sale['days_to_sell'] or 0)))
-            self.table.setItem(row, 14, QTableWidgetItem(str(sale['units'])))
+
+            # Profit/Loss per unit
+            units = sale['units'] or 1
+            profit_per_unit = (sale['profit_loss'] or 0) / units
+            self.table.setItem(row, 11, QTableWidgetItem(f"${profit_per_unit:.2f}"))
+
+            # Total Profit/Loss
+            self.table.setItem(row, 12, QTableWidgetItem(f"${sale['profit_loss']:.2f}" if sale['profit_loss'] else '$0'))
+            self.table.setItem(row, 13, QTableWidgetItem(sale['category'] or ''))
+            self.table.setItem(row, 14, QTableWidgetItem(str(sale['days_to_sell'] or 0)))
+            self.table.setItem(row, 15, QTableWidgetItem(str(sale['units'])))
 
             total_sales += sale['sale_price'] or 0
             total_profit += sale['profit_loss'] or 0
