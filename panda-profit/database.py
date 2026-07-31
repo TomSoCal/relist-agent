@@ -381,11 +381,36 @@ def update_platform_fee(platform, **kwargs):
     conn.close()
 
 # Expenses operations
-def add_expense(expense_date, category_id, amount, description='', receipt_path=''):
-    """Add a new expense entry. Year is auto-populated from current system year."""
+def add_expense(expense_date, category_id, amount, description='', receipt_path='', year=None):
+    """Add a new expense entry. Year defaults to current system year if not provided.
+
+    Args:
+        expense_date: Date of the expense (YYYY-MM-DD format)
+        category_id: ID of the expense category
+        amount: Expense amount
+        description: Optional description
+        receipt_path: Optional path to receipt file
+        year: Optional year for the expense. If provided and != current year, raises ValueError (write protection)
+
+    Returns:
+        expense_id: ID of the newly created expense
+
+    Raises:
+        ValueError: If year is provided and != current year (only current year can be edited)
+    """
     conn = get_connection()
     c = conn.cursor()
-    year = datetime.now().year
+    current_year = datetime.now().year
+
+    # If year is provided, validate it matches current year (write protection)
+    if year is not None and year != current_year:
+        conn.close()
+        raise ValueError(f"Can only add expenses for the current year ({current_year}). Cannot add expenses for year {year}.")
+
+    # Use current year if not provided
+    if year is None:
+        year = current_year
+
     c.execute('''
         INSERT INTO expenses (year, expense_date, category_id, amount, description, receipt_path)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -395,35 +420,72 @@ def add_expense(expense_date, category_id, amount, description='', receipt_path=
     conn.close()
     return expense_id
 
-def get_expenses_by_date_range(start_date, end_date):
-    """Get expenses within a date range for the current calendar year only."""
+def get_expenses_by_date_range(start_date, end_date, year=None):
+    """Get expenses within a date range. Defaults to current calendar year if year not specified.
+
+    Args:
+        start_date: Start date for the range (YYYY-MM-DD format)
+        end_date: End date for the range (YYYY-MM-DD format)
+        year: Optional year filter. If None, defaults to current year. Can be any year (read-only access to past years).
+
+    Returns:
+        List of expense records ordered by expense_date DESC
+    """
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    current_year = datetime.now().year
+
+    # If year not specified, use current year
+    if year is None:
+        year = datetime.now().year
+
     c.execute('''
         SELECT * FROM expenses
         WHERE expense_date BETWEEN ? AND ? AND year = ?
         ORDER BY expense_date DESC
-    ''', (start_date, end_date, current_year))
+    ''', (start_date, end_date, year))
     expenses = c.fetchall()
     conn.close()
     return expenses
 
 def delete_expense(expense_id):
-    """Delete an expense entry."""
+    """Delete an expense entry. Only allows deletion of current year expenses (write protection).
+
+    Args:
+        expense_id: ID of the expense to delete
+
+    Returns:
+        Number of rows deleted (0 if expense doesn't exist or is from past year, 1 if success)
+    """
     conn = get_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+    current_year = datetime.now().year
+    # Only delete if expense is from current year (prevents deleting past years)
+    c.execute('DELETE FROM expenses WHERE id = ? AND year = ?', (expense_id, current_year))
     conn.commit()
+    rows_deleted = c.rowcount
     conn.close()
+    return rows_deleted
 
-def get_total_expenses_by_category(start_date, end_date):
-    """Get total expenses grouped by category for a date range in the current calendar year only."""
+def get_total_expenses_by_category(start_date, end_date, year=None):
+    """Get total expenses grouped by category for a date range. Defaults to current calendar year if year not specified.
+
+    Args:
+        start_date: Start date for the range (YYYY-MM-DD format)
+        end_date: End date for the range (YYYY-MM-DD format)
+        year: Optional year filter. If None, defaults to current year. Can be any year (read-only access to past years).
+
+    Returns:
+        List of category totals ordered by total_amount DESC
+    """
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
-    current_year = datetime.now().year
+
+    # If year not specified, use current year
+    if year is None:
+        year = datetime.now().year
+
     c.execute('''
         SELECT
             ec.id,
@@ -436,7 +498,7 @@ def get_total_expenses_by_category(start_date, end_date):
         WHERE e.expense_date BETWEEN ? AND ? AND e.year = ?
         GROUP BY ec.id
         ORDER BY total_amount DESC
-    ''', (start_date, end_date, current_year))
+    ''', (start_date, end_date, year))
     results = c.fetchall()
     conn.close()
     return results

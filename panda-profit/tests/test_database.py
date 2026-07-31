@@ -398,6 +398,88 @@ class TestExpenses(unittest.TestCase):
         self.assertEqual(totals[1]['total_amount'], 100.00)
         self.assertEqual(totals[1]['count'], 1)
 
+    def test_add_expense_with_past_year_rejected(self):
+        """Test that adding expense with past year is rejected (write protection)."""
+        past_year = datetime.now().year - 1
+
+        # Attempting to add expense with past year should raise ValueError
+        with self.assertRaises(ValueError) as context:
+            add_expense('2025-07-30', 1, 50.00, year=past_year)
+
+        # Verify error message mentions current year
+        self.assertIn(str(datetime.now().year), str(context.exception))
+
+    def test_delete_expense_from_past_year_fails(self):
+        """Test that deleting expense from past year fails (no rows match)."""
+        # First, add an expense to current year
+        expense_id = add_expense('2026-07-30', 1, 50.00)
+
+        # Manually update the expense to have a past year
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = datetime.now().year - 1
+        c.execute('UPDATE expenses SET year = ? WHERE id = ?', (past_year, expense_id))
+        conn.commit()
+        conn.close()
+
+        # Now try to delete it - should fail (no rows match because WHERE includes year check)
+        rows_deleted = delete_expense(expense_id)
+        self.assertEqual(rows_deleted, 0)
+
+    def test_get_expenses_by_date_range_with_explicit_year(self):
+        """Test that querying with explicit year parameter works for read-only access."""
+        # Add an expense to current year
+        current_year = datetime.now().year
+        add_expense('2026-07-30', 1, 50.00, year=current_year)
+
+        # Add an expense to past year directly (simulating historical data)
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = current_year - 1
+        c.execute('''
+            INSERT INTO expenses (year, expense_date, category_id, amount, description, receipt_path)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (past_year, '2025-07-30', 1, 75.00, 'Past year expense', ''))
+        conn.commit()
+        conn.close()
+
+        # Query current year (default)
+        expenses_current = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(expenses_current), 1)
+        self.assertEqual(expenses_current[0]['amount'], 50.00)
+
+        # Query past year explicitly
+        expenses_past = get_expenses_by_date_range('2025-07-01', '2025-07-31', year=past_year)
+        self.assertEqual(len(expenses_past), 1)
+        self.assertEqual(expenses_past[0]['amount'], 75.00)
+
+    def test_get_total_expenses_by_category_with_explicit_year(self):
+        """Test that get_total_expenses_by_category works with explicit year for read-only access."""
+        current_year = datetime.now().year
+
+        # Add an expense to current year
+        add_expense('2026-07-30', 1, 50.00, year=current_year)
+
+        # Add an expense to past year directly
+        conn = get_connection()
+        c = conn.cursor()
+        past_year = current_year - 1
+        c.execute('''
+            INSERT INTO expenses (year, expense_date, category_id, amount, description, receipt_path)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (past_year, '2025-07-30', 1, 100.00, 'Past year expense', ''))
+        conn.commit()
+        conn.close()
+
+        # Query current year (default)
+        totals_current = get_total_expenses_by_category('2026-07-01', '2026-07-31')
+        self.assertEqual(len(totals_current), 1)
+        self.assertEqual(totals_current[0]['total_amount'], 50.00)
+
+        # Query past year explicitly
+        totals_past = get_total_expenses_by_category('2025-07-01', '2025-07-31', year=past_year)
+        self.assertEqual(len(totals_past), 1)
+        self.assertEqual(totals_past[0]['total_amount'], 100.00)
 
     def test_expense_foreign_key_reference(self):
         """Test that expense category_id references expense_categories."""
