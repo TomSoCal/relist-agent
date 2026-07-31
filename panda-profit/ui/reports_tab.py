@@ -112,7 +112,7 @@ class ReportsTab(QWidget):
 
         if report_type == "Monthly Summary":
             # First day of current month to today
-            start_date = today.replace(day=1)
+            start_date = QDate(today.year(), today.month(), 1)
             end_date = today
         elif report_type == "Year-to-Date":
             # First day of current year to today
