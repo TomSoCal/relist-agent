@@ -215,18 +215,8 @@ class SalesTab(QWidget):
                                      "This will reverse the sale and add the item back to active inventory.",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            # Merge item back to inventory (will add to existing if same item exists)
-            db.merge_inventory(
-                sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
-                sale['item_title'],
-                sale['units'],
-                sale['sku'],
-                sale['bin'],
-                sale['store'],
-                sale['category'],
-                sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
-                f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
-            )
+            # Restore item to inventory (maintains item ID or creates new if original was deleted)
+            db.restore_inventory_from_sale(sale)
 
             # Delete the sale
             db.delete_sale(sale_id)
@@ -319,18 +309,8 @@ class SalesTab(QWidget):
                 conn.close()
 
                 if sale:
-                    # Merge item back to inventory (will add to existing if same item exists)
-                    db.merge_inventory(
-                        sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
-                        sale['item_title'],
-                        sale['units'],
-                        sale['sku'],
-                        sale['bin'],
-                        sale['store'],
-                        sale['category'],
-                        sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
-                        f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
-                    )
+                    # Restore item to inventory (maintains item ID or creates new if original was deleted)
+                    db.restore_inventory_from_sale(sale)
                     db.delete_sale(sale_id)
 
             self.refresh_table()

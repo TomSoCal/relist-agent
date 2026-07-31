@@ -191,6 +191,12 @@ def init_db():
     if 'other_fee' not in columns:
         c.execute('ALTER TABLE sales ADD COLUMN other_fee REAL DEFAULT 0')
 
+    # Add inventory_id column to sales if it doesn't exist (tracks original inventory item)
+    c.execute("PRAGMA table_info(sales)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'inventory_id' not in columns:
+        c.execute('ALTER TABLE sales ADD COLUMN inventory_id INTEGER')
+
     # Inventory Images table
     c.execute('''
         CREATE TABLE IF NOT EXISTS inventory_images (
@@ -229,6 +235,64 @@ def add_inventory(listed_date, item_title, units, sku, bin, store, category, cos
     item_id = c.lastrowid
     conn.close()
     return item_id
+
+def restore_inventory_from_sale(sale):
+    """
+    Restore a sale back to inventory. If the sale has an inventory_id,
+    restore it to the original item (increase units). Otherwise, create a new item.
+    """
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+
+    if sale['inventory_id']:
+        # Restore to original inventory item
+        c.execute('''SELECT * FROM inventory WHERE id = ?''', (sale['inventory_id'],))
+        original_item = c.fetchone()
+
+        if original_item:
+            # Item still exists - add units back to it
+            new_units = original_item['units'] + sale['units']
+            new_cost_total = (original_item['cost'] * original_item['units']) + (sale['cost_of_goods'])
+            new_cost = new_cost_total / new_units if new_units > 0 else 0
+
+            c.execute('''UPDATE inventory
+                         SET units = ?, cost = ?, notes = ?
+                         WHERE id = ?''',
+                      (new_units, new_cost,
+                       f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)",
+                       sale['inventory_id']))
+            conn.commit()
+            result_id = sale['inventory_id']
+        else:
+            # Original item was deleted - create new one with the same ID
+            # Note: We can't reuse the same ID (auto-increment), so we'll create a new one
+            # but the notes will indicate it's a restored item from sale
+            c.execute('''INSERT INTO inventory
+                         (listed_date, item_title, units, sku, bin, store, category, cost, notes)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                       sale['item_title'], sale['units'], sale['sku'], sale['bin'],
+                       sale['store'], sale['category'],
+                       sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                       f"Restored from sale (Original ID: {sale['inventory_id']}) - Sold on {sale['sold_date']}"))
+            conn.commit()
+            result_id = c.lastrowid
+    else:
+        # No inventory_id - create a new item (legacy behavior)
+        c.execute('''INSERT INTO inventory
+                     (listed_date, item_title, units, sku, bin, store, category, cost, notes)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                   sale['item_title'], sale['units'], sale['sku'], sale['bin'],
+                   sale['store'], sale['category'],
+                   sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                   f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"))
+        conn.commit()
+        result_id = c.lastrowid
+
+    conn.close()
+    return result_id
 
 def merge_inventory(listed_date, item_title, units, sku, bin, store, category, cost, notes):
     """Add item to inventory or update existing item if title+SKU match"""

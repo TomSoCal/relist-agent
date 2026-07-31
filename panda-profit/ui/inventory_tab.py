@@ -16,6 +16,7 @@ class InventoryTab(QWidget):
     def __init__(self, sales_tab=None):
         super().__init__()
         self.sales_tab = sales_tab
+        self.bulk_mode = False
         self.init_ui()
         self.refresh_table()
 
@@ -52,6 +53,18 @@ class InventoryTab(QWidget):
         record_sale_btn = QPushButton("Record Sale")
         record_sale_btn.clicked.connect(self.record_sale_dialog)
 
+        self.bulk_btn = QPushButton("Bulk Actions")
+        self.bulk_btn.clicked.connect(self.toggle_bulk_mode)
+        self.bulk_btn.setStyleSheet("background-color: lightblue")
+
+        self.bulk_delete_btn = QPushButton("Delete Selected")
+        self.bulk_delete_btn.clicked.connect(self.bulk_delete_items)
+        self.bulk_delete_btn.setVisible(False)
+
+        self.bulk_cancel_btn = QPushButton("Cancel Bulk")
+        self.bulk_cancel_btn.clicked.connect(self.toggle_bulk_mode)
+        self.bulk_cancel_btn.setVisible(False)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_table)
 
@@ -59,6 +72,9 @@ class InventoryTab(QWidget):
         button_layout.addWidget(edit_btn)
         button_layout.addWidget(delete_btn)
         button_layout.addWidget(record_sale_btn)
+        button_layout.addWidget(self.bulk_btn)
+        button_layout.addWidget(self.bulk_delete_btn)
+        button_layout.addWidget(self.bulk_cancel_btn)
         button_layout.addStretch()
         button_layout.addWidget(refresh_btn)
 
@@ -99,6 +115,7 @@ class InventoryTab(QWidget):
         for row, item in enumerate(filtered_items):
             # Checkbox column
             checkbox = QCheckBox()
+            checkbox.stateChanged.connect(lambda state, r=row: self.on_checkbox_changed(r, state))
             self.table.setCellWidget(row, 0, checkbox)
 
             self.table.setItem(row, 1, QTableWidgetItem(str(item['id'])))
@@ -110,6 +127,74 @@ class InventoryTab(QWidget):
             self.table.setItem(row, 7, QTableWidgetItem(item['category'] or ''))
             self.table.setItem(row, 8, QTableWidgetItem(f"${item['cost']:.2f}" if item['cost'] else ''))
             self.table.setItem(row, 9, QTableWidgetItem(item['notes'] or ''))
+
+    def on_checkbox_changed(self, row, state):
+        # Highlight row when checked
+        for col in range(self.table.columnCount()):
+            item = self.table.item(row, col)
+            if item:
+                if state == Qt.Checked:
+                    item.setBackground(Qt.yellow)
+                else:
+                    item.setBackground(Qt.white)
+
+        # In single-select mode, uncheck other rows
+        if not self.bulk_mode:
+            for r in range(self.table.rowCount()):
+                if r != row:
+                    checkbox = self.table.cellWidget(r, 0)
+                    if checkbox and checkbox.isChecked():
+                        checkbox.blockSignals(True)
+                        checkbox.setChecked(False)
+                        checkbox.blockSignals(False)
+                        # Reset highlight
+                        for col in range(self.table.columnCount()):
+                            item = self.table.item(r, col)
+                            if item:
+                                item.setBackground(Qt.white)
+
+    def toggle_bulk_mode(self):
+        self.bulk_mode = not self.bulk_mode
+        self.bulk_btn.setVisible(not self.bulk_mode)
+        self.bulk_delete_btn.setVisible(self.bulk_mode)
+        self.bulk_cancel_btn.setVisible(self.bulk_mode)
+
+        # Clear selections when exiting bulk mode
+        if not self.bulk_mode:
+            for r in range(self.table.rowCount()):
+                checkbox = self.table.cellWidget(r, 0)
+                if checkbox:
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(False)
+                    checkbox.blockSignals(False)
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(r, col)
+                        if item:
+                            item.setBackground(Qt.white)
+
+    def bulk_delete_items(self):
+        # Get all checked items
+        checked_rows = []
+        for r in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(r, 0)
+            if checkbox and checkbox.isChecked():
+                checked_rows.append(r)
+
+        if not checked_rows:
+            QMessageBox.warning(self, "Error", "Please select items to delete.")
+            return
+
+        reply = QMessageBox.question(self, "Confirm Bulk Delete",
+                                     f"Delete {len(checked_rows)} item(s)? This cannot be undone.",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            for r in sorted(checked_rows, reverse=True):
+                item_id = int(self.table.item(r, 1).text())
+                db.delete_inventory(item_id)
+
+            self.refresh_table()
+            self.toggle_bulk_mode()
+            QMessageBox.information(self, "Success", f"Deleted {len(checked_rows)} item(s)!")
 
     def add_item_dialog(self):
         dialog = AddItemDialog(self)
@@ -241,7 +326,8 @@ class InventoryTab(QWidget):
                 transaction_fee=transaction_fee,
                 other_fee=other_fee,
                 total_fees=total_fees,
-                profit_loss=profit_loss
+                profit_loss=profit_loss,
+                inventory_id=item_id
             )
 
             self.search_title.clear()
