@@ -252,6 +252,17 @@ class InventoryTab(QWidget):
             if self.sales_tab:
                 self.sales_tab.refresh_table()
 
+            # If custom platform was entered, offer to save it
+            platform_text = dialog.platform.currentText()
+            if platform_text not in ["eBay", "Poshmark", "Mercari", "Facebook", "Whatnot", "Other"]:
+                reply = QMessageBox.question(self, "Save Platform",
+                                            f"Save '{platform_text}' as a quick-select option?",
+                                            QMessageBox.Yes | QMessageBox.No)
+                if reply == QMessageBox.Yes:
+                    # Add to the dropdown
+                    if dialog.platform.findText(platform_text) == -1:
+                        dialog.platform.insertItem(5, platform_text)  # Insert before "Other"
+
             QMessageBox.information(self, "Success", f"Sale recorded: {quantity_sold} unit(s) sold!")
 
 class AddItemDialog(QDialog):

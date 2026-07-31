@@ -29,6 +29,9 @@ class SalesTab(QWidget):
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self.delete_sale)
 
+        return_btn = QPushButton("Return to Inventory")
+        return_btn.clicked.connect(self.return_to_inventory)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_table)
 
@@ -38,6 +41,7 @@ class SalesTab(QWidget):
         button_layout.addWidget(add_btn)
         button_layout.addWidget(view_btn)
         button_layout.addWidget(delete_btn)
+        button_layout.addWidget(return_btn)
         button_layout.addStretch()
         button_layout.addWidget(export_btn)
         button_layout.addWidget(refresh_btn)
@@ -145,6 +149,49 @@ class SalesTab(QWidget):
             db.delete_sale(sale_id)
             self.refresh_table()
             QMessageBox.information(self, "Success", "Sale deleted successfully!")
+
+    def return_to_inventory(self):
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            QMessageBox.warning(self, "Error", "Please select a sale to return.")
+            return
+
+        sale_id = int(self.table.item(selected_rows[0].row(), 0).text())
+        conn = db.get_connection()
+        conn.row_factory = db.dict_factory
+        c = conn.cursor()
+        c.execute('SELECT * FROM sales WHERE id = ?', (sale_id,))
+        sale = c.fetchone()
+        conn.close()
+
+        if not sale:
+            QMessageBox.warning(self, "Error", "Sale not found.")
+            return
+
+        reply = QMessageBox.question(self, "Return to Inventory",
+                                     f"Return {sale['units']} unit(s) of '{sale['item_title']}' to inventory?\n\n"
+                                     "This will reverse the sale and add the item back to active inventory.",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            # Add item back to inventory
+            db.add_inventory(
+                listed_date=sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                item_title=sale['item_title'],
+                units=sale['units'],
+                sku=sale['sku'],
+                bin=sale['bin'],
+                store=sale['store'],
+                category=sale['category'],
+                cost=sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                notes=f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
+            )
+
+            # Delete the sale
+            db.delete_sale(sale_id)
+            self.refresh_table()
+
+            QMessageBox.information(self, "Success",
+                                   f"Sale reversed! {sale['units']} unit(s) returned to inventory.")
 
     def export_to_csv(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Export Sales", "", "CSV Files (*.csv)")
