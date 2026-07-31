@@ -106,11 +106,43 @@ def init_db():
             VALUES (?, ?)
         ''', (name, category_type))
 
+    # Platform Fees table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS platform_fees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL UNIQUE,
+            listing_fee REAL DEFAULT 0,
+            transaction_fee_pct REAL DEFAULT 0,
+            shipping_fee_pct REAL DEFAULT 0,
+            payment_fee_pct REAL DEFAULT 0,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Insert default platform fees
+    default_platforms = [
+        ('eBay', 0.30, 12.9, 0, 2.2, None),
+        ('Poshmark', 0, 20, 0, 0, 'Commission-based'),
+        ('Facebook Marketplace', 0, 0, 0, 0, 'No fees'),
+        ('Mercari', 0, 10, 0, 0, 'Commission-based'),
+        ('Whatnot', 0, 8, 0, 0, 'Commission-based'),
+    ]
+
+    for platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes in default_platforms:
+        c.execute('''
+            INSERT OR IGNORE INTO platform_fees (platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes))
+
     conn.commit()
     conn.close()
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+    conn.execute('PRAGMA journal_mode=WAL')
+    return conn
 
 def dict_factory(cursor, row):
     d = {}
@@ -255,6 +287,47 @@ def delete_expense_category(category_id):
     conn = get_connection()
     c = conn.cursor()
     c.execute('DELETE FROM expense_categories WHERE id = ?', (category_id,))
+    conn.commit()
+    conn.close()
+
+# Platform Fees operations
+def add_platform_fee(platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes=None):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO platform_fees (platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (platform, listing_fee, transaction_fee_pct, shipping_fee_pct, payment_fee_pct, notes))
+    conn.commit()
+    fee_id = c.lastrowid
+    conn.close()
+    return fee_id
+
+def get_platform_fee(platform):
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('SELECT * FROM platform_fees WHERE platform = ?', (platform,))
+    fee = c.fetchone()
+    conn.close()
+    return fee
+
+def get_all_platform_fees():
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('SELECT * FROM platform_fees ORDER BY platform COLLATE NOCASE ASC')
+    fees = c.fetchall()
+    conn.close()
+    return fees
+
+def update_platform_fee(platform, **kwargs):
+    conn = get_connection()
+    c = conn.cursor()
+    kwargs['updated_at'] = datetime.now().isoformat()
+    set_clause = ', '.join([f'{k} = ?' for k in kwargs.keys()])
+    values = list(kwargs.values()) + [platform]
+    c.execute(f'UPDATE platform_fees SET {set_clause} WHERE platform = ?', values)
     conn.commit()
     conn.close()
 
