@@ -152,6 +152,23 @@ def init_db():
         )
     ''')
 
+    # Mileage table (for tracking business trips and sourcing miles)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS mileage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            year INTEGER NOT NULL,
+            trip_date TEXT NOT NULL,
+            odometer_start INTEGER DEFAULT 0,
+            odometer_end INTEGER DEFAULT 0,
+            miles REAL NOT NULL,
+            purpose TEXT DEFAULT 'sourcing',
+            stores_visited TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -427,6 +444,86 @@ def get_total_expenses_by_category(start_date, end_date, year=None):
     results = c.fetchall()
     conn.close()
     return results
+
+# Mileage operations
+def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', notes='', odometer_start=0, odometer_end=0):
+    """Add a new mileage trip. Year is auto-populated from current system year."""
+    conn = get_connection()
+    c = conn.cursor()
+    year = datetime.now().year
+    c.execute('''
+        INSERT INTO mileage (year, trip_date, odometer_start, odometer_end, miles, purpose, stores_visited, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (year, trip_date, odometer_start, odometer_end, miles, purpose, stores_visited, notes))
+    conn.commit()
+    mileage_id = c.lastrowid
+    conn.close()
+    return mileage_id
+
+def get_mileage_by_date_range(start_date, end_date, year=None):
+    """Get mileage trips within a date range, optionally filtered by year."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    if year is not None:
+        c.execute('''
+            SELECT * FROM mileage
+            WHERE trip_date BETWEEN ? AND ? AND year = ?
+            ORDER BY trip_date DESC
+        ''', (start_date, end_date, year))
+    else:
+        c.execute('''
+            SELECT * FROM mileage
+            WHERE trip_date BETWEEN ? AND ?
+            ORDER BY trip_date DESC
+        ''', (start_date, end_date))
+    trips = c.fetchall()
+    conn.close()
+    return trips
+
+def delete_mileage_trip(trip_id):
+    """Delete a mileage trip."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM mileage WHERE id = ?', (trip_id,))
+    conn.commit()
+    conn.close()
+
+def get_total_mileage_for_period(start_date, end_date, year=None):
+    """Get total miles and trip count for a date range, optionally filtered by year."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    if year is not None:
+        c.execute('''
+            SELECT
+                SUM(miles) as total_miles,
+                COUNT(id) as trip_count
+            FROM mileage
+            WHERE trip_date BETWEEN ? AND ? AND year = ?
+        ''', (start_date, end_date, year))
+    else:
+        c.execute('''
+            SELECT
+                SUM(miles) as total_miles,
+                COUNT(id) as trip_count
+            FROM mileage
+            WHERE trip_date BETWEEN ? AND ?
+        ''', (start_date, end_date))
+    result = c.fetchone()
+    conn.close()
+
+    # Handle null results (no trips in range)
+    if result and result['total_miles'] is not None:
+        return {
+            'total_miles': result['total_miles'],
+            'trip_count': result['trip_count']
+        }
+    else:
+        return {
+            'total_miles': 0,
+            'trip_count': 0
+        }
 
 if __name__ == '__main__':
     init_db()

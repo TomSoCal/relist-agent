@@ -21,6 +21,10 @@ from database import (
     get_expenses_by_date_range,
     delete_expense,
     get_total_expenses_by_category,
+    add_mileage_trip,
+    get_mileage_by_date_range,
+    delete_mileage_trip,
+    get_total_mileage_for_period,
     DB_PATH
 )
 
@@ -433,6 +437,197 @@ class TestExpenses(unittest.TestCase):
         expense = expenses[0]
         # category_id should reference a valid category
         self.assertIsNotNone(expense['category_id'])
+
+
+class TestMileage(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        """Create a test database before running tests."""
+        cls.test_db_path = os.path.join(os.path.dirname(__file__), 'test_panda_profit_mileage.db')
+
+        # Remove old test database if it exists
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+        # Patch the DB_PATH in the database module
+        import database
+        database.DB_PATH = cls.test_db_path
+        global DB_PATH
+        DB_PATH = cls.test_db_path
+
+        init_db()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove test database after all tests."""
+        import time
+        time.sleep(0.5)
+        if os.path.exists(cls.test_db_path):
+            try:
+                os.remove(cls.test_db_path)
+            except Exception:
+                pass
+
+    def setUp(self):
+        """Clear mileage table before each test."""
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute('DELETE FROM mileage')
+        conn.commit()
+        conn.close()
+
+    def test_add_mileage_trip(self):
+        """Test adding a new mileage trip."""
+        trip_id = add_mileage_trip('2026-07-30', 45.5, 'sourcing', 'Goodwill, Salvation Army', 'Found great deals')
+        self.assertIsNotNone(trip_id)
+        self.assertIsInstance(trip_id, int)
+
+    def test_add_mileage_trip_year_auto_populated(self):
+        """Test that year is auto-populated when adding mileage trip."""
+        trip_id = add_mileage_trip('2026-07-30', 25.3)
+
+        # Retrieve the trip
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips), 1)
+
+        trip = trips[0]
+        # Year should be current system year
+        expected_year = datetime.now().year
+        self.assertEqual(trip['year'], expected_year)
+
+    def test_add_mileage_trip_with_default_fields(self):
+        """Test adding mileage trip with default values for optional fields."""
+        trip_id = add_mileage_trip('2026-07-30', 30.0)
+
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips), 1)
+
+        trip = trips[0]
+        self.assertEqual(trip['miles'], 30.0)
+        self.assertEqual(trip['purpose'], 'sourcing')
+        self.assertEqual(trip['stores_visited'], '')
+        self.assertEqual(trip['notes'], '')
+        self.assertEqual(trip['odometer_start'], 0)
+        self.assertEqual(trip['odometer_end'], 0)
+
+    def test_get_mileage_by_date_range(self):
+        """Test retrieving mileage trips within a date range."""
+        # Add multiple trips
+        add_mileage_trip('2026-07-15', 25.0)
+        add_mileage_trip('2026-07-20', 35.5)
+        add_mileage_trip('2026-07-25', 40.0)
+
+        # Get trips in range
+        trips = get_mileage_by_date_range('2026-07-10', '2026-07-31')
+        self.assertEqual(len(trips), 3)
+
+        # Verify order is DESC
+        self.assertEqual(trips[0]['trip_date'], '2026-07-25')
+        self.assertEqual(trips[1]['trip_date'], '2026-07-20')
+        self.assertEqual(trips[2]['trip_date'], '2026-07-15')
+
+    def test_get_mileage_with_year_filter(self):
+        """Test retrieving mileage with optional year filter."""
+        # Add trips with year field (they will be auto-populated with current year)
+        add_mileage_trip('2026-07-15', 25.0)
+        add_mileage_trip('2026-07-20', 35.5)
+
+        current_year = datetime.now().year
+
+        # Get trips for current year
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31', year=current_year)
+        self.assertEqual(len(trips), 2)
+
+        # Get trips for different year (should be empty)
+        trips_different_year = get_mileage_by_date_range('2026-07-01', '2026-07-31', year=2025)
+        self.assertEqual(len(trips_different_year), 0)
+
+    def test_delete_mileage_trip(self):
+        """Test deleting a mileage trip."""
+        trip_id = add_mileage_trip('2026-07-30', 25.0)
+
+        # Verify it exists
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips), 1)
+
+        # Delete it
+        delete_mileage_trip(trip_id)
+
+        # Verify it's deleted
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips), 0)
+
+    def test_mileage_trip_has_required_fields(self):
+        """Test that mileage trip has all required fields."""
+        add_mileage_trip('2026-07-30', 35.5, 'sourcing', 'Goodwill', 'Productive trip', 15000, 15035)
+
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        trip = trips[0]
+
+        self.assertIn('id', trip)
+        self.assertIn('year', trip)
+        self.assertIn('trip_date', trip)
+        self.assertIn('odometer_start', trip)
+        self.assertIn('odometer_end', trip)
+        self.assertIn('miles', trip)
+        self.assertIn('purpose', trip)
+        self.assertIn('stores_visited', trip)
+        self.assertIn('notes', trip)
+        self.assertIn('created_at', trip)
+        self.assertIn('updated_at', trip)
+
+    def test_get_total_mileage_for_period(self):
+        """Test getting total mileage and trip count for a period."""
+        # Add multiple trips
+        add_mileage_trip('2026-07-15', 25.0)
+        add_mileage_trip('2026-07-20', 35.5)
+        add_mileage_trip('2026-07-25', 40.0)
+
+        # Get totals
+        totals = get_total_mileage_for_period('2026-07-01', '2026-07-31')
+        self.assertEqual(totals['total_miles'], 100.5)
+        self.assertEqual(totals['trip_count'], 3)
+
+    def test_get_total_mileage_for_period_with_year_filter(self):
+        """Test getting total mileage with year filter."""
+        # Add trips
+        add_mileage_trip('2026-07-15', 25.0)
+        add_mileage_trip('2026-07-20', 35.5)
+
+        current_year = datetime.now().year
+
+        # Get totals for current year
+        totals = get_total_mileage_for_period('2026-07-01', '2026-07-31', year=current_year)
+        self.assertEqual(totals['total_miles'], 60.5)
+        self.assertEqual(totals['trip_count'], 2)
+
+        # Get totals for different year (should be empty)
+        totals_different_year = get_total_mileage_for_period('2026-07-01', '2026-07-31', year=2025)
+        self.assertEqual(totals_different_year['total_miles'], 0)
+        self.assertEqual(totals_different_year['trip_count'], 0)
+
+    def test_get_total_mileage_empty_range(self):
+        """Test getting total mileage for empty range returns zeros."""
+        # Get totals for a range with no trips
+        totals = get_total_mileage_for_period('2026-06-01', '2026-06-30')
+        self.assertEqual(totals['total_miles'], 0)
+        self.assertEqual(totals['trip_count'], 0)
+
+    def test_mileage_trip_with_odometer_readings(self):
+        """Test adding and retrieving trip with odometer start and end readings."""
+        trip_id = add_mileage_trip('2026-07-30', 35.5, 'sourcing', 'Goodwill, Salvation Army', 'Found deals', 15000, 15035)
+
+        trips = get_mileage_by_date_range('2026-07-01', '2026-07-31')
+        self.assertEqual(len(trips), 1)
+
+        trip = trips[0]
+        self.assertEqual(trip['odometer_start'], 15000)
+        self.assertEqual(trip['odometer_end'], 15035)
+        self.assertEqual(trip['miles'], 35.5)
 
 
 if __name__ == '__main__':
