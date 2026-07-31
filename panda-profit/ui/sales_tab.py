@@ -215,8 +215,8 @@ class SalesTab(QWidget):
                                      "This will reverse the sale and add the item back to active inventory.",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            # Add item back to inventory
-            db.add_inventory(
+            # Merge item back to inventory (will add to existing if same item exists)
+            db.merge_inventory(
                 sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
                 sale['item_title'],
                 sale['units'],
@@ -233,11 +233,14 @@ class SalesTab(QWidget):
             self.refresh_table()
 
             # Auto-refresh Inventory tab if available
+            print(f"DEBUG: inventory_tab is {self.inventory_tab}")
             if self.inventory_tab:
+                print("DEBUG: Calling refresh_table on inventory_tab")
                 # Clear search filters to show the returned item
                 self.inventory_tab.search_title.clear()
                 self.inventory_tab.search_sku.clear()
                 self.inventory_tab.refresh_table()
+                print("DEBUG: Refresh complete")
                 QMessageBox.information(self, "Success",
                                        f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
                                        "Inventory tab has been refreshed. Search filters cleared.")
@@ -316,8 +319,8 @@ class SalesTab(QWidget):
                 conn.close()
 
                 if sale:
-                    # Add item back to inventory
-                    db.add_inventory(
+                    # Merge item back to inventory (will add to existing if same item exists)
+                    db.merge_inventory(
                         sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
                         sale['item_title'],
                         sale['units'],

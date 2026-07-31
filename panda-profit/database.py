@@ -230,6 +230,48 @@ def add_inventory(listed_date, item_title, units, sku, bin, store, category, cos
     conn.close()
     return item_id
 
+def merge_inventory(listed_date, item_title, units, sku, bin, store, category, cost, notes):
+    """Add item to inventory or update existing item if title+SKU match"""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+
+    # Check if item with same title and SKU exists
+    c.execute('''SELECT id, units, cost FROM inventory
+                 WHERE item_title = ? AND sku = ?''',
+              (item_title, sku or ''))
+    existing = c.fetchone()
+
+    if existing:
+        # Update existing item: add units and average the cost
+        existing_units = existing['units']
+        existing_cost = existing['cost'] or 0
+        new_total_units = existing_units + units
+
+        # Calculate weighted average cost
+        if new_total_units > 0:
+            avg_cost = ((existing_cost * existing_units) + (cost * units)) / new_total_units
+        else:
+            avg_cost = cost
+
+        # Update the existing item
+        c.execute('''UPDATE inventory
+                     SET units = ?, cost = ?, notes = ?
+                     WHERE id = ?''',
+                  (new_total_units, avg_cost, notes, existing['id']))
+        conn.commit()
+        item_id = existing['id']
+    else:
+        # Create new item
+        c.execute('''INSERT INTO inventory (listed_date, item_title, units, sku, bin, store, category, cost, notes)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (listed_date, item_title, units, sku, bin, store, category, cost, notes))
+        conn.commit()
+        item_id = c.lastrowid
+
+    conn.close()
+    return item_id
+
 def get_all_inventory():
     conn = get_connection()
     conn.row_factory = dict_factory
