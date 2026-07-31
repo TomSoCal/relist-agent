@@ -217,15 +217,15 @@ class SalesTab(QWidget):
         if reply == QMessageBox.Yes:
             # Add item back to inventory
             db.add_inventory(
-                listed_date=sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
-                item_title=sale['item_title'],
-                units=sale['units'],
-                sku=sale['sku'],
-                bin=sale['bin'],
-                store=sale['store'],
-                category=sale['category'],
-                cost=sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
-                notes=f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
+                sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                sale['item_title'],
+                sale['units'],
+                sale['sku'],
+                sale['bin'],
+                sale['store'],
+                sale['category'],
+                sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
             )
 
             # Delete the sale
@@ -234,10 +234,17 @@ class SalesTab(QWidget):
 
             # Auto-refresh Inventory tab if available
             if self.inventory_tab:
+                # Clear search filters to show the returned item
+                self.inventory_tab.search_title.clear()
+                self.inventory_tab.search_sku.clear()
                 self.inventory_tab.refresh_table()
-
-            QMessageBox.information(self, "Success",
-                                   f"Sale reversed! {sale['units']} unit(s) returned to inventory.")
+                QMessageBox.information(self, "Success",
+                                       f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
+                                       "Inventory tab has been refreshed. Search filters cleared.")
+            else:
+                QMessageBox.information(self, "Success",
+                                       f"Sale reversed! {sale['units']} unit(s) returned to inventory.\n\n"
+                                       "Note: Inventory tab reference not found. Please click on Inventory tab to refresh.")
 
     def on_checkbox_changed(self, row, state):
         # Highlight row when checked
@@ -311,15 +318,15 @@ class SalesTab(QWidget):
                 if sale:
                     # Add item back to inventory
                     db.add_inventory(
-                        listed_date=sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
-                        item_title=sale['item_title'],
-                        units=sale['units'],
-                        sku=sale['sku'],
-                        bin=sale['bin'],
-                        store=sale['store'],
-                        category=sale['category'],
-                        cost=sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
-                        notes=f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
+                        sale['listed_date'] or datetime.now().strftime("%m/%d/%Y"),
+                        sale['item_title'],
+                        sale['units'],
+                        sale['sku'],
+                        sale['bin'],
+                        sale['store'],
+                        sale['category'],
+                        sale['cost_of_goods'] / sale['units'] if sale['units'] > 0 else 0,
+                        f"Returned from sale on {sale['sold_date']} (Reason: Mistake or Customer Return)"
                     )
                     db.delete_sale(sale_id)
 
@@ -327,10 +334,17 @@ class SalesTab(QWidget):
 
             # Auto-refresh Inventory tab if available
             if self.inventory_tab:
+                # Clear search filters to show the returned items
+                self.inventory_tab.search_title.clear()
+                self.inventory_tab.search_sku.clear()
                 self.inventory_tab.refresh_table()
 
             self.toggle_bulk_mode()
-            QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!")
+
+            if self.inventory_tab:
+                QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nInventory tab has been refreshed. Search filters cleared.")
+            else:
+                QMessageBox.information(self, "Success", f"Returned {len(checked_rows)} sale(s) to inventory!\n\nNote: Inventory tab reference not found. Please click on Inventory tab to refresh.")
 
     def export_to_csv(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Export Sales", "", "CSV Files (*.csv)")
