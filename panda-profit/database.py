@@ -380,6 +380,13 @@ def update_platform_fee(platform, **kwargs):
     conn.commit()
     conn.close()
 
+def delete_platform_fee(fee_id):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM platform_fees WHERE id = ?', (fee_id,))
+    conn.commit()
+    conn.close()
+
 # Expenses operations
 def add_expense(expense_date, category_id, amount, description='', receipt_path='', year=None):
     """Add a new expense entry. Year defaults to current system year if not provided.
