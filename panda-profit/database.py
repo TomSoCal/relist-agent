@@ -185,6 +185,18 @@ def init_db():
     if 'brand' not in columns:
         c.execute('ALTER TABLE inventory ADD COLUMN brand TEXT')
 
+    # Inventory Images table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventory_id INTEGER NOT NULL,
+            image_url TEXT NOT NULL,
+            display_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (inventory_id) REFERENCES inventory (id) ON DELETE CASCADE
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -244,6 +256,42 @@ def delete_inventory(item_id):
     conn = get_connection()
     c = conn.cursor()
     c.execute('DELETE FROM inventory WHERE id = ?', (item_id,))
+    conn.commit()
+    conn.close()
+
+# Inventory Images operations
+def add_inventory_image(inventory_id, image_url, display_order=0):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO inventory_images (inventory_id, image_url, display_order)
+        VALUES (?, ?, ?)
+    ''', (inventory_id, image_url, display_order))
+    conn.commit()
+    image_id = c.lastrowid
+    conn.close()
+    return image_id
+
+def get_inventory_images(inventory_id):
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('SELECT * FROM inventory_images WHERE inventory_id = ? ORDER BY display_order', (inventory_id,))
+    images = c.fetchall()
+    conn.close()
+    return images
+
+def delete_inventory_image(image_id):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM inventory_images WHERE id = ?', (image_id,))
+    conn.commit()
+    conn.close()
+
+def delete_all_inventory_images(inventory_id):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM inventory_images WHERE inventory_id = ?', (inventory_id,))
     conn.commit()
     conn.close()
 
