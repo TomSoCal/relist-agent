@@ -208,6 +208,15 @@ class InventoryTab(QWidget):
                 # Update units in inventory
                 db.update_inventory(item_id, units=remaining_units)
 
+            # Calculate total fees and profit
+            total_fees = (dialog.transaction_fee.value() +
+                         dialog.promoted_fee.value() +
+                         dialog.other_fee.value())
+            profit_loss = (dialog.sale_price.value() -
+                          dialog.shipping_cost.value() -
+                          total_fees -
+                          (item['cost'] * quantity_sold))
+
             # Record the sale
             db.add_sale(
                 year=datetime.now().year,
@@ -222,10 +231,14 @@ class InventoryTab(QWidget):
                 store=item['store'],
                 category=item['category'],
                 sale_price=dialog.sale_price.value(),
+                shipping_collected=0,
+                cost_of_goods=item['cost'] * quantity_sold,
                 shipping_cost=dialog.shipping_cost.value(),
-                transaction_fee=dialog.transaction_fee.value(),
+                platform_fee=0,
                 promoted_fee=dialog.promoted_fee.value(),
-                cost_of_goods=item['cost'] * quantity_sold
+                transaction_fee=dialog.transaction_fee.value(),
+                total_fees=total_fees,
+                profit_loss=profit_loss
             )
 
             self.search_title.clear()
