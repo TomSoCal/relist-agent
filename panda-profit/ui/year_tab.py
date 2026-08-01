@@ -6,6 +6,7 @@ from datetime import datetime
 import calendar
 import database as db
 from analytics.calculations import calculate_profit
+from ui.dark_header import DarkHeaderView
 
 
 class YearTab(QWidget):
@@ -67,7 +68,12 @@ class YearTab(QWidget):
         self.monthly_table.setHorizontalHeaderLabels([
             "Month", "Sales", "Revenue", "Expenses", "Profit"
         ])
-        self.monthly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Use custom dark header view
+        dark_h_header = DarkHeaderView(Qt.Horizontal, self.monthly_table)
+        self.monthly_table.setHorizontalHeader(dark_h_header)
+        dark_v_header = DarkHeaderView(Qt.Vertical, self.monthly_table)
+        self.monthly_table.setVerticalHeader(dark_v_header)
+        dark_h_header.setSectionResizeMode(QHeaderView.Stretch)
         self.monthly_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.monthly_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.monthly_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
@@ -87,7 +93,12 @@ class YearTab(QWidget):
         self.yoy_table.setHorizontalHeaderLabels([
             "Metric", "Last Year", "This Year", "Growth %"
         ])
-        self.yoy_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Use custom dark header view
+        dark_h_header2 = DarkHeaderView(Qt.Horizontal, self.yoy_table)
+        self.yoy_table.setHorizontalHeader(dark_h_header2)
+        dark_v_header2 = DarkHeaderView(Qt.Vertical, self.yoy_table)
+        self.yoy_table.setVerticalHeader(dark_v_header2)
+        dark_h_header2.setSectionResizeMode(QHeaderView.Stretch)
         self.yoy_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.yoy_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.yoy_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")

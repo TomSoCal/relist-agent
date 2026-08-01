@@ -6,6 +6,7 @@ from datetime import datetime
 import calendar
 import database as db
 from analytics.calculations import calculate_roi_by_category, calculate_profit
+from ui.dark_header import DarkHeaderView
 
 
 class MonthTab(QWidget):
@@ -75,7 +76,12 @@ class MonthTab(QWidget):
         self.roi_table.setHorizontalHeaderLabels([
             "Category", "Cost", "Profit", "ROI %"
         ])
-        self.roi_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Use custom dark header view
+        dark_h_header = DarkHeaderView(Qt.Horizontal, self.roi_table)
+        self.roi_table.setHorizontalHeader(dark_h_header)
+        dark_v_header = DarkHeaderView(Qt.Vertical, self.roi_table)
+        self.roi_table.setVerticalHeader(dark_v_header)
+        dark_h_header.setSectionResizeMode(QHeaderView.Stretch)
         self.roi_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.roi_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.roi_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
@@ -94,7 +100,12 @@ class MonthTab(QWidget):
         self.platform_table.setHorizontalHeaderLabels([
             "Platform", "Units Sold", "Revenue", "Fees"
         ])
-        self.platform_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Use custom dark header view
+        dark_h_header2 = DarkHeaderView(Qt.Horizontal, self.platform_table)
+        self.platform_table.setHorizontalHeader(dark_h_header2)
+        dark_v_header2 = DarkHeaderView(Qt.Vertical, self.platform_table)
+        self.platform_table.setVerticalHeader(dark_v_header2)
+        dark_h_header2.setSectionResizeMode(QHeaderView.Stretch)
         self.platform_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.platform_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.platform_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
