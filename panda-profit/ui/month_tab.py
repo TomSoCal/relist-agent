@@ -288,6 +288,5 @@ class MonthTab(QWidget):
                     palette.setColor(role, dark_color)
             button.setPalette(palette)
             button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88; margin: 0px; padding: 0px;")
-            button.setFlat(True)
-            # Try to hide the button by setting its size to 0
+            # Hide the button by setting its size to 0
             button.setMaximumSize(0, 0)
