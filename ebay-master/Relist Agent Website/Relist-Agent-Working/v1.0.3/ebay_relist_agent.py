@@ -110,6 +110,24 @@ def run() -> None:
             log_entries.append({"date": today, "start_time": start_time, "end_time": end_time, "item_id": iid, "title": item["title"], "status": "error", "reason": str(e)})
             continue
 
+        # VALIDATION: Check quantity before relisting
+        qty_str = fields.get("quantity", "0")
+        try:
+            qty_val = int(qty_str or "0")
+        except (ValueError, TypeError):
+            qty_val = 0
+
+        if qty_val == 0:
+            log(f"  Ended (sold out): {iid} — {item['title']}")
+            try:
+                end_item(cfg, token, iid)
+            except Exception as e:
+                log(f"  WARNING: Could not end sold-out item {iid}: {e}")
+            end_time = datetime.now().isoformat()
+            log_entries.append({"date": today, "start_time": start_time, "end_time": end_time, "item_id": iid, "title": item["title"], "status": "ended-sold-out"})
+            completed += 1
+            continue
+
         # Stage 2: Delisting old
         with open(PROGRESS_FILE, "w") as f:
             json.dump({

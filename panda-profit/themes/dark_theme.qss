@@ -155,6 +155,12 @@ QHeaderView::section:vertical {
     border-bottom: 1px solid #222222;
 }
 
+/* Ensure all header view areas are dark */
+QAbstractItemView {
+    background-color: #0d0d1a;
+    alternate-background-color: #1a1a2e;
+}
+
 QScrollBar:vertical {
     background-color: #1a1a2e;
     border: 1px solid #333333;

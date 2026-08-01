@@ -9,19 +9,21 @@ from pathlib import Path
 
 import requests
 
-# PandaSuite Shared API Configuration
-PANDA_SUITE_PATH = Path(os.environ['APPDATA']) / 'PandaSuite' / 'ebay'
-PANDA_SUITE_PATH.mkdir(parents=True, exist_ok=True)
-
-CONFIG_FILE = PANDA_SUITE_PATH / "config.json"
-TOKEN_FILE = PANDA_SUITE_PATH / "tokens.json"
-
-# Fallback to local config if it exists (for backward compatibility)
+# Handle both source and compiled EXE paths
 if getattr(sys, 'frozen', False):
+    # Running as compiled EXE - use directory of the running executable
     BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 else:
+    # Running as .py script - use script directory
     BASE_DIR = Path(__file__).parent
-LOCAL_CONFIG_FILE = BASE_DIR / "config.json"
+CONFIG_FILE = BASE_DIR / "config.json"
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
+# Make folder hidden on Windows
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+TOKEN_FILE = DATA_DIR / "tokens.json"
 
 OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 OAUTH_AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
@@ -34,24 +36,10 @@ SCOPES = " ".join([
 
 
 def load_config() -> dict:
-    """Load config from PandaSuite, fallback to local config if exists"""
-    # Check PandaSuite location first
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, encoding="utf-8") as f:
-            return json.load(f)
-
-    # Fallback to local config for backward compatibility
-    if LOCAL_CONFIG_FILE.exists():
-        with open(LOCAL_CONFIG_FILE, encoding="utf-8") as f:
-            config = json.load(f)
-        # Copy to PandaSuite for future use
-        save_config(config)
-        return config
-
-    raise FileNotFoundError(
-        f"No config found. Run: python ebay_relist_agent.py --setup\n"
-        f"Config will be saved to: {CONFIG_FILE}"
-    )
+    if not CONFIG_FILE.exists():
+        raise FileNotFoundError(f"No config at {CONFIG_FILE}. Run: python ebay_relist_agent.py --setup")
+    with open(CONFIG_FILE, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def save_config(cfg: dict) -> None:

@@ -208,9 +208,19 @@ def run() -> None:
             continue
 
         # Check if item sold out between fetch and now
-        if fields["quantity"] == "0":
-            log(f"  Skipped (sold out): {iid} — {title}")
-            log_entries.append({"date": today, "start_time": start_time, "end_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "item_id": iid, "title": title, "status": "skipped-sold-out"})
+        qty_str = fields.get("quantity", "0")
+        try:
+            qty_val = int(qty_str or "0")
+        except (ValueError, TypeError):
+            qty_val = 0
+
+        if qty_val == 0:
+            log(f"  Ended (sold out): {iid} — {title}")
+            try:
+                end_item(cfg, token, iid)
+            except Exception as e:
+                log(f"  WARNING: Could not end sold-out item {iid}: {e}")
+            log_entries.append({"date": today, "start_time": start_time, "end_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "item_id": iid, "title": title, "status": "ended-sold-out"})
             update_progress("Completed", iid, title, idx, len(to_relist))
             continue
 

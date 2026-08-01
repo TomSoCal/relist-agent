@@ -92,7 +92,13 @@ def run() -> None:
             log_entries.append({"date": today, "item_id": iid, "title": item["title"], "status": "error", "reason": str(e)})
             continue
 
-        if fields["quantity"] == "0":
+        qty_str = fields.get("quantity", "0")
+        try:
+            qty_val = int(qty_str or "0")
+        except (ValueError, TypeError):
+            qty_val = 0
+
+        if qty_val == 0:
             try:
                 end_item(cfg, token, iid)
                 log(f"  Ended (sold out): {iid} — {item['title']}")

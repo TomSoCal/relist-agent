@@ -12,7 +12,7 @@
 This Commercial License Agreement ("Agreement") governs the use of **Relist Agent**, a component of **PandaSuite**, a suite of e-commerce automation applications designed by **The Trashed Panda**.
 
 **Product Name:** Relist Agent  
-**Product Version:** 2.0.0 and later  
+**Product Version:** 2.5.0 and later  
 **Publisher:** The Trashed Panda  
 **Product Category:** eBay Automation & Listing Management  
 
@@ -348,11 +348,11 @@ This Agreement constitutes the entire agreement between you and The Trashed Pand
 ## SCHEDULE A: PRODUCT VERSIONS
 
 ### Current Version
-- **v2.0.0:** July 2026 (current)
-- **v2.0.1:** August 2026 (planned)
-- **v2.1.0:** December 2026 (planned)
+- **v2.5.0:** July 2026 (current)
 
-### Legacy Versions
+### Previous Versions
+- **v2.0.1:** August 2026 (supported)
+- **v2.0.0:** July 2026 (supported)
 - **v1.5.0:** No longer supported (but licenses still valid)
 - **v1.0.x:** No longer supported (but licenses still valid)
 
@@ -395,6 +395,7 @@ By installing and using Relist Agent, you acknowledge that you have:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-07-28 | Updated for v2.5.0 release |
 | 1.0 | 2026-07-27 | Initial commercial license |
 
 ---

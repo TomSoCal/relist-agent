@@ -2,17 +2,47 @@
 import json
 import subprocess
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from tkinter import scrolledtext
 from pathlib import Path
 import threading
 import webbrowser
+import sys
+import os
+import urllib.request
 from theme import *
 from PIL import Image, ImageTk
+from update_checker import check_for_updates
 
-BASE_DIR = Path(__file__).parent
+# Try to use curl_cffi for WAF bypass (TLS fingerprint spoofing)
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
+# Handle both source and compiled EXE paths
+if getattr(sys, 'frozen', False):
+    # Running as compiled EXE (PyInstaller)
+    # Bundled files (like ERA_Logo.png) are in sys._MEIPASS
+    if hasattr(sys, '_MEIPASS'):
+        ASSETS_DIR = Path(sys._MEIPASS)
+    else:
+        ASSETS_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
+    # User config and data go in actual EXE directory
+    BASE_DIR = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
+else:
+    # Running as .py script - both are in script directory
+    BASE_DIR = Path(__file__).parent
+    ASSETS_DIR = BASE_DIR
 CONFIG_FILE = BASE_DIR / "config.json"
-LOG_FILE = BASE_DIR / "relist_log.json"
+DATA_DIR = BASE_DIR / ".ebay_relist_agent_data"
+DATA_DIR.mkdir(exist_ok=True)  # Create hidden folder if it doesn't exist
+# Make folder hidden on Windows
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(DATA_DIR), 2)  # 2 = FILE_ATTRIBUTE_HIDDEN
+LOG_FILE = DATA_DIR / "relist_log.json"
 
 # Cache for info icon
 _info_icon_cache = None
@@ -42,10 +72,7 @@ def load_config():
         "app_id": "",
         "dev_id": "",
         "cert_id": "",
-        "email_address": "",
-        "email_password": "",
-        "smtp_server": "smtp.gmail.com",
-        "smtp_port": 465,
+        "gmail_app_password": "",
         "store_name": "",
     }
 
@@ -53,6 +80,44 @@ def load_config():
 def save_config(cfg):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
+
+
+def get_admin_prefs_file():
+    """Get path to admin preferences file"""
+    return DATA_DIR / "admin_prefs.json"
+
+
+def load_admin_prefs():
+    """Load admin preferences from config.json"""
+    try:
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                return {
+                    "skip_admin_prompt": cfg.get("skip_admin_prompt", False),
+                    "schedule_updated_before": cfg.get("schedule_updated_before", False)
+                }
+    except:
+        pass
+    return {"skip_admin_prompt": False, "schedule_updated_before": False}
+
+
+def save_admin_prefs(prefs):
+    """Save admin preferences to config.json"""
+    try:
+        cfg = {}
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+
+        # Update with new prefs
+        cfg.update(prefs)
+
+        # Save back
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        pass
 
 
 def is_admin():
@@ -71,14 +136,18 @@ def restart_as_admin():
         import sys
         import os
 
-        # Get the path to the current script
-        script_path = os.path.abspath(__file__)
+        # Get the path to the current script or EXE
+        if getattr(sys, 'frozen', False):
+            # Running as EXE
+            app_path = sys.executable
+        else:
+            # Running as script
+            app_path = os.path.abspath(__file__)
 
         # Use ShellExecuteW to restart as admin
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script_path}"', None, 1)
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", app_path, "", None, 1)
 
         # Exit current process
-        import sys
         sys.exit(0)
     except Exception as e:
         messagebox.showerror("Error", f"Could not restart as admin:\n{e}")
@@ -86,29 +155,103 @@ def restart_as_admin():
 
 def check_admin_on_startup():
     """Check if admin is needed and show popup if necessary"""
+    # Log startup
+    debug_file = DATA_DIR / "admin_debug.log"
+    try:
+        with open(debug_file, "a", encoding="utf-8") as f:
+            f.write(f"[{__import__('datetime').datetime.now()}] check_admin_on_startup() called\n")
+    except:
+        pass
+
+    admin_prefs = load_admin_prefs()
+
+    # Log prefs
+    try:
+        with open(debug_file, "a", encoding="utf-8") as f:
+            f.write(f"[{__import__('datetime').datetime.now()}] admin_prefs: {admin_prefs}\n")
+    except:
+        pass
+
+    # Skip if user previously selected "Don't Ask Again"
+    if admin_prefs.get("skip_admin_prompt"):
+        try:
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"[{__import__('datetime').datetime.now()}] Skipping admin prompt (user chose not to ask again)\n")
+        except:
+            pass
+        return
+
     if not is_admin():
-        result = messagebox.askyesno(
-            "Admin Setup Required",
+        msg = (
             "eBay Relist Agent needs admin privileges to configure\n"
             "Windows Task Scheduler for automatic runs.\n\n"
-            "Restart the app as admin? (one-time only)\n\n"
-            "After restart, settings changes will update automatically.",
+            "Yes = Restart as admin\n"
+            "No = Skip this check (and don't ask again)\n\n"
+            "After restart, settings changes will update automatically."
+        )
+        result = messagebox.askyesno(
+            "Admin Setup Required",
+            msg,
             icon=messagebox.QUESTION
         )
+
+        try:
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"[{__import__('datetime').datetime.now()}] User selected: {result}\n")
+        except:
+            pass
+
         if result:
+            # User clicked "Yes" - save preference before restarting (don't ask again after admin restart)
+            admin_prefs["skip_admin_prompt"] = True
+            try:
+                with open(debug_file, "a", encoding="utf-8") as f:
+                    f.write(f"[{__import__('datetime').datetime.now()}] Saving prefs: skip_admin_prompt=True (user chose Yes)\n")
+            except:
+                pass
+            save_admin_prefs(admin_prefs)
             restart_as_admin()
         else:
+            # User clicked "No" - do NOT save preference (will ask again next time)
+
             messagebox.showinfo(
                 "Limited Functionality",
+                "Admin check disabled.\n\n"
                 "The app will run, but you won't be able to\n"
                 "configure automatic scheduling.\n\n"
                 "You can still use 'Run Now' manually."
             )
 
 
+_icon_photo = None
+
+def set_window_icon(window):
+    """Set ERA icon on window using iconphoto"""
+    global _icon_photo
+    try:
+        ico_path = BASE_DIR / "ERA_Icon.ico"
+        if ico_path.exists():
+            window.iconbitmap(str(ico_path))
+    except Exception as e:
+        pass
+
+
 class QuickGuideWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, title, guide_text):
+        if QuickGuideWindow.instance is not None:
+            try:
+                QuickGuideWindow.instance.lift()
+                QuickGuideWindow.instance.focus()
+                return
+            except:
+                QuickGuideWindow.instance = None
+
         super().__init__(parent)
+        QuickGuideWindow.instance = self
+        set_window_icon(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title(f"Quick Guide - {title}")
         self.geometry("600x500")
         self.config(bg=BG_PRIMARY)
@@ -119,10 +262,27 @@ class QuickGuideWindow(tk.Toplevel):
         text_widget.insert("end", guide_text)
         text_widget.config(state="disabled")
 
+    def _on_close(self):
+        QuickGuideWindow.instance = None
+        self.destroy()
+
 
 class SettingsWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, config, on_save):
+        if SettingsWindow.instance is not None:
+            try:
+                SettingsWindow.instance.lift()
+                SettingsWindow.instance.focus()
+                return
+            except:
+                SettingsWindow.instance = None
+
         super().__init__(parent)
+        SettingsWindow.instance = self
+        set_window_icon(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Settings")
         self.geometry("550x700")
         self.config_dict = config
@@ -174,53 +334,48 @@ class SettingsWindow(tk.Toplevel):
         self.cert_id.grid(row=2, column=1, padx=10, pady=5)
         self.cert_id.insert(0, config.get("cert_id", ""))
 
-        # Email Configuration
-        ttk.Label(form_frame, text="Email Address:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
-        self.email_address = ttk.Entry(form_frame, width=40)
-        self.email_address.grid(row=3, column=1, padx=10, pady=5)
-        self.email_address.insert(0, config.get("email_address", config.get("gmail_email", "")))
+        ttk.Label(form_frame, text="RU Name:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        self.ru_name = ttk.Entry(form_frame, width=40)
+        self.ru_name.grid(row=3, column=1, padx=10, pady=5)
+        self.ru_name.insert(0, config.get("ru_name", ""))
 
-        ttk.Label(form_frame, text="Email Password:").grid(row=4, column=0, sticky="w", padx=10, pady=5)
-        self.email_password = ttk.Entry(form_frame, width=40, show="*")
-        self.email_password.grid(row=4, column=1, padx=10, pady=5)
-        self.email_password.insert(0, config.get("email_password", config.get("gmail_app_password", "")))
+        # Gmail
+        ttk.Label(form_frame, text="Gmail Email:").grid(row=4, column=0, sticky="w", padx=10, pady=5)
+        self.gmail_email = ttk.Entry(form_frame, width=40)
+        self.gmail_email.grid(row=4, column=1, padx=10, pady=5)
+        self.gmail_email.insert(0, config.get("gmail_email", ""))
 
-        ttk.Label(form_frame, text="SMTP Server:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
-        self.smtp_server = ttk.Entry(form_frame, width=40)
-        self.smtp_server.grid(row=5, column=1, padx=10, pady=5)
-        self.smtp_server.insert(0, config.get("smtp_server", "smtp.gmail.com"))
+        ttk.Label(form_frame, text="Gmail App Password:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
+        self.gmail_pass = ttk.Entry(form_frame, width=40, show="*")
+        self.gmail_pass.grid(row=5, column=1, padx=10, pady=5)
+        self.gmail_pass.insert(0, config.get("gmail_app_password", ""))
 
-        ttk.Label(form_frame, text="SMTP Port:").grid(row=6, column=0, sticky="w", padx=10, pady=5)
-        self.smtp_port = ttk.Spinbox(form_frame, from_=1, to=65535, width=10)
-        self.smtp_port.grid(row=6, column=1, sticky="w", padx=10, pady=5)
-        self.smtp_port.set(config.get("smtp_port", 465))
-
-        ttk.Label(form_frame, text="Report Sent To:").grid(row=7, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Report Sent To:").grid(row=6, column=0, sticky="w", padx=10, pady=5)
         self.report_email = ttk.Entry(form_frame, width=40)
-        self.report_email.grid(row=7, column=1, padx=10, pady=5)
+        self.report_email.grid(row=6, column=1, padx=10, pady=5)
         self.report_email.insert(0, config.get("report_email", ""))
 
         # Store Name
-        ttk.Label(form_frame, text="Store Name:").grid(row=8, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Store Name:").grid(row=7, column=0, sticky="w", padx=10, pady=5)
         self.store_name = ttk.Entry(form_frame, width=40)
-        self.store_name.grid(row=8, column=1, padx=10, pady=5)
+        self.store_name.grid(row=7, column=1, padx=10, pady=5)
         self.store_name.insert(0, config.get("store_name", ""))
 
         # Log Days
-        ttk.Label(form_frame, text="Log Days to Display:").grid(row=9, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Log Days to Display:").grid(row=8, column=0, sticky="w", padx=10, pady=5)
         self.log_days = ttk.Spinbox(form_frame, from_=1, to=30, width=10)
-        self.log_days.grid(row=9, column=1, sticky="w", padx=10, pady=5)
+        self.log_days.grid(row=8, column=1, sticky="w", padx=10, pady=5)
         self.log_days.set(config.get("log_days", 3))
 
         # Listings to Execute
-        ttk.Label(form_frame, text="Listings to Execute Per Run:").grid(row=10, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(form_frame, text="Listings to Execute Per Run:").grid(row=9, column=0, sticky="w", padx=10, pady=5)
         self.listings_per_run = ttk.Spinbox(form_frame, from_=1, to=50, width=10)
-        self.listings_per_run.grid(row=10, column=1, sticky="w", padx=10, pady=5)
+        self.listings_per_run.grid(row=9, column=1, sticky="w", padx=10, pady=5)
         self.listings_per_run.set(config.get("listings_per_run", 10))
 
         # Schedule Frame
         schedule_frame = tk.LabelFrame(form_frame, text="Schedule", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
-        schedule_frame.grid(row=11, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        schedule_frame.grid(row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
 
         # Time
         ttk.Label(schedule_frame, text="Run Time (HH:MM):").grid(row=0, column=0, sticky="w")
@@ -259,6 +414,7 @@ class SettingsWindow(tk.Toplevel):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=20)
         ttk.Button(btn_frame, text="Save", command=self.save_settings).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="Authorize Now", command=self.do_oauth_auth).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Clear Cache", command=self.clear_progress_cache).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side="left", padx=5)
 
@@ -275,10 +431,9 @@ class SettingsWindow(tk.Toplevel):
             "app_id": self.app_id.get(),
             "dev_id": self.dev_id.get(),
             "cert_id": self.cert_id.get(),
-            "email_address": self.email_address.get(),
-            "email_password": self.email_password.get(),
-            "smtp_server": self.smtp_server.get(),
-            "smtp_port": int(self.smtp_port.get()),
+            "ru_name": self.ru_name.get(),
+            "gmail_email": self.gmail_email.get(),
+            "gmail_app_password": self.gmail_pass.get(),
             "report_email": self.report_email.get(),
             "store_name": self.store_name.get(),
             "log_days": int(self.log_days.get()),
@@ -293,30 +448,52 @@ class SettingsWindow(tk.Toplevel):
 
         messagebox.showinfo("Success", "Settings saved and schedule updated!")
         self.on_save()
-        self.destroy()
+        self._on_close()
 
     def apply_schedule(self, run_time, run_days):
-        """Apply the schedule to Windows Task Scheduler"""
+        """Apply the schedule to Windows Task Scheduler via inline PowerShell"""
         import subprocess
+        import sys
 
-        # Show confirmation (informational, not asking for permission since we're admin)
-        messagebox.showinfo(
-            "Schedule Updated",
-            f"✓ Schedule configured:\n\n"
-            f"⏰ Run Time: {run_time}\n"
-            f"📅 Days: {', '.join(run_days)}\n\n"
-            f"Changes take effect immediately."
-        )
+        admin_prefs = load_admin_prefs()
+        schedule_updated_before = admin_prefs.get("schedule_updated_before", False)
+
+        if not schedule_updated_before:
+            msg = (
+                "✓ Schedule configured:\n\n"
+                f"⏰ Run Time: {run_time}\n"
+                f"📅 Days: {', '.join(run_days)}\n\n"
+                "A security prompt will appear (Windows UAC).\n\n"
+                "✓ Check 'Apply to all' in the UAC dialog so this won't ask again.\n\n"
+                "Changes take effect immediately."
+            )
+        else:
+            msg = (
+                "✓ Schedule updated:\n\n"
+                f"⏰ Run Time: {run_time}\n"
+                f"📅 Days: {', '.join(run_days)}\n\n"
+                "Changes take effect immediately."
+            )
+
+        messagebox.showinfo("Schedule Updated", msg)
 
         try:
-            script_path = BASE_DIR / "update_schedule.ps1"
-            if not script_path.exists():
-                messagebox.showwarning("Error", "Schedule update script not found.")
-                return
+            exe_path = str(BASE_DIR / "Relist Agent.exe")
+            script_dir = str(BASE_DIR)
 
-            # Call update_schedule.ps1 directly (we're running as admin)
-            days_str = "', '".join(run_days)
-            ps_cmd = f"& '{script_path}' -Time '{run_time}' -Days @('{days_str}')"
+            # Build PowerShell command inline (no external files)
+            # Run the EXE with --run flag for headless relisting
+            ps_cmd = f"""
+$taskName = 'eBayRelistAgent'
+$exe = '"{exe_path}"'
+$scriptDir = '{script_dir}'
+
+$action = New-ScheduledTaskAction -Execute $exe -Argument "--run" -WorkingDirectory $scriptDir
+$trigger = New-ScheduledTaskTrigger -Daily -At '{run_time}'
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+"""
 
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
@@ -328,6 +505,10 @@ class SettingsWindow(tk.Toplevel):
             if result.returncode != 0:
                 messagebox.showwarning("Warning", f"Schedule update had issues:\n{result.stderr}")
             else:
+                # Mark that schedule has been updated at least once
+                if not schedule_updated_before:
+                    admin_prefs["schedule_updated_before"] = True
+                    save_admin_prefs(admin_prefs)
                 print(f"[SETTINGS] Schedule updated: {run_time} on {', '.join(run_days)}")
 
         except Exception as e:
@@ -411,17 +592,604 @@ Windows Task Scheduler with your new schedule.
 """
         QuickGuideWindow(self, "Settings", guide_text)
 
+    def do_oauth_auth(self):
+        """OAuth authorization - exactly mirrors interactive_setup() flow from auth.py"""
+        try:
+            from tkinter import simpledialog as sd
+            import webbrowser
+            import urllib.parse
+            import requests
+            import base64
+            from datetime import datetime, timezone, timedelta
+            from auth import save_tokens, OAUTH_AUTH_URL, OAUTH_TOKEN_URL, SCOPES
+
+            # Verify all required credentials are present
+            required = ["app_id", "cert_id", "dev_id", "ru_name"]
+            missing = [f for f in required if not self.config_dict.get(f)]
+            if missing:
+                messagebox.showerror("Missing Credentials", f"Please fill in all required fields:\n{', '.join(missing)}")
+                return
+
+            # Build OAuth URL (exactly as _do_oauth() does in auth.py)
+            auth_url = (
+                f"{OAUTH_AUTH_URL}?client_id={urllib.parse.quote(self.config_dict['app_id'])}"
+                f"&response_type=code"
+                f"&redirect_uri={urllib.parse.quote(self.config_dict['ru_name'])}"
+                f"&scope={urllib.parse.quote(SCOPES)}"
+            )
+
+            # Open browser
+            messagebox.showinfo(
+                "OAuth Authorization",
+                "A browser window will open for eBay authorization.\n\n"
+                "After you authorize the app, your browser will redirect to a page that fails to load.\n"
+                "Copy the full URL from the address bar and paste it in the next dialog."
+            )
+            webbrowser.open(auth_url)
+
+            # Ask user to paste redirect URL
+            raw = sd.askstring(
+                "Paste Authorization URL",
+                "Copy the full URL from your browser's address bar and paste it below:"
+            )
+            if not raw:
+                messagebox.showwarning("Cancelled", "OAuth authorization was cancelled.")
+                return
+
+            # Extract authorization code
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+            if "code" not in params:
+                messagebox.showerror("Error", "No 'code' found in the URL.\nMake sure you copied the entire URL from the address bar.")
+                return
+            code = params["code"][0]
+
+            # Exchange code for tokens (exactly as _do_oauth() does)
+            creds = base64.b64encode(f"{self.config_dict['app_id']}:{self.config_dict['cert_id']}".encode()).decode()
+            resp = requests.post(
+                OAUTH_TOKEN_URL,
+                headers={"Authorization": f"Basic {creds}", "Content-Type": "application/x-www-form-urlencoded"},
+                data={"grant_type": "authorization_code", "code": code, "redirect_uri": self.config_dict["ru_name"]},
+                timeout=30,
+            )
+            if not resp.ok:
+                messagebox.showerror("Error", f"Token exchange failed ({resp.status_code}):\n{resp.text}")
+                return
+
+            data = resp.json()
+            if not data.get("refresh_token"):
+                messagebox.showerror("Error", "eBay did not return a refresh token.\nCheck your app credentials and OAuth scopes are correct.")
+                return
+
+            # Save tokens (exactly as _do_oauth() does)
+            now = datetime.now(timezone.utc)
+            save_tokens({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "expires_at": (now + timedelta(seconds=data["expires_in"])).isoformat(),
+            })
+
+            messagebox.showinfo("Success", "✓ Authorization complete!\n\nTokens saved. You're ready to use the app.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"OAuth failed: {str(e)}")
+
+    def _on_close(self):
+        SettingsWindow.instance = None
+        self.destroy()
+
+
+class ExclusionsWindow(tk.Toplevel):
+    instance = None
+
+    def __init__(self, parent, config_dict, on_save=None, refresh_inventory_callback=None):
+        if ExclusionsWindow.instance is not None:
+            try:
+                ExclusionsWindow.instance.lift()
+                ExclusionsWindow.instance.focus()
+                return
+            except:
+                ExclusionsWindow.instance = None
+
+        super().__init__(parent)
+        ExclusionsWindow.instance = self
+        set_window_icon(self)
+        self.title("Exclude from Relist")
+        self.geometry("1000x700")
+        self.config_dict = config_dict
+        self.on_save = on_save
+        self.refresh_inventory_callback = refresh_inventory_callback
+        self.resizable(False, False)
+        self.config(bg=BG_PRIMARY)
+        self.sku_display_map = {}  # Map display text to SKU
+        self.excluded_skus_set = set()  # Keep a reliable set of excluded SKUs in memory
+        self.has_unsaved_changes = False
+
+        # Warn if closing with unsaved changes
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+
+        # Header
+        header = ttk.Frame(self)
+        header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(header, text="Exclude from Relist", font=("Arial", 12, "bold")).pack(side="left")
+        ttk.Button(header, text="Save", command=self.save_exclusions).pack(side="right", padx=2)
+        ttk.Button(header, text="Upload CSV/XLS", command=self.upload_exclusion_file).pack(side="right", padx=5)
+        ttk.Button(header, text="Refresh Data", command=self.refresh_data).pack(side="right", padx=5)
+
+        # Description
+        desc = tk.Label(self, text="Upload a CSV/XLS file with SKUs, or manually select from the list below. Excel template: columns 'SKU' and 'Notes (optional)'.",
+                       bg="#1a1a1a", fg=TEXT_PRIMARY, font=("Arial", 9), justify="left", wraplength=900)
+        desc.pack(anchor="w", padx=20, pady=(0, 10))
+
+        # Progress bar
+        progress_frame = ttk.Frame(self)
+        progress_frame.pack(fill="x", padx=15, pady=(0, 10))
+        self.progress_bar = ttk.Progressbar(progress_frame, mode="determinate", length=300, value=0)
+        self.progress_bar.pack(side="left", padx=5, fill="x", expand=True)
+        self.progress_text = ttk.Label(progress_frame, text="Ready")
+        self.progress_text.pack(side="left", padx=5)
+
+        # Main content - SKUs only
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # ===== SKU SECTION =====
+        sku_section = tk.LabelFrame(main_frame, text="SKUs", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                    font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
+                                    highlightthickness=0)
+        sku_section.pack(fill="both", expand=True)
+
+        sku_frame = ttk.Frame(sku_section)
+        sku_frame.pack(fill="both", expand=True)
+
+        # Available SKUs (left)
+        left_sku_frame = tk.LabelFrame(sku_frame, text="Available", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                       font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        left_sku_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Search field
+        ttk.Label(left_sku_frame, text="Search:").pack(anchor="w")
+        self.sku_search = ttk.Entry(left_sku_frame, width=20)
+        self.sku_search.pack(anchor="w", pady=(0, 5))
+        self.sku_search.bind("<KeyRelease>", self.filter_available_skus)
+
+        sku_scrollbar_left = ttk.Scrollbar(left_sku_frame)
+        sku_scrollbar_left.pack(side="right", fill="y")
+
+        self.available_skus = tk.Listbox(left_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                         yscrollcommand=sku_scrollbar_left.set, height=12)
+        self.available_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_left.config(command=self.available_skus.yview)
+
+        # Buttons in middle
+        middle_sku_frame = ttk.Frame(sku_frame)
+        middle_sku_frame.pack(side="left", padx=5)
+        ttk.Button(middle_sku_frame, text="Select All\nExcluded", command=self.select_all_excluded, width=10).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="← Include", command=self.include_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="→ Exclude", command=self.exclude_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="Select All\nAvailable", command=self.select_all_skus, width=10).pack(fill="x", pady=3)
+
+        # Excluded SKUs (right)
+        right_sku_frame = tk.LabelFrame(sku_frame, text="Excluded", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                        font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        right_sku_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
+
+        sku_scrollbar_right = ttk.Scrollbar(right_sku_frame)
+        sku_scrollbar_right.pack(side="right", fill="y")
+
+        self.excluded_skus = tk.Listbox(right_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                        yscrollcommand=sku_scrollbar_right.set, height=12)
+        self.excluded_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_right.config(command=self.excluded_skus.yview)
+
+        # Load initial data (load excluded first so they're excluded from available list)
+        self.load_excluded_from_config()  # Load previously saved exclusions
+        self.load_skus_from_store()
+        self.has_unsaved_changes = False  # Track if user has made changes without saving
+
+    def _on_closing(self):
+        """Handle window close - warn if unsaved changes"""
+        if self.has_unsaved_changes:
+            if messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Close without saving?"):
+                ExclusionsWindow.instance = None
+                self.destroy()
+        else:
+            ExclusionsWindow.instance = None
+            self.destroy()
+
+    def refresh_data(self):
+        """Refresh data from store (with or without Inventory window)"""
+        self.progress_bar.config(value=0)
+        self.progress_text.config(text="Refreshing...")
+        self.update_idletasks()
+        try:
+            if self.refresh_inventory_callback:
+                # Use callback if Inventory window is open (for efficiency)
+                self.refresh_inventory_callback(force_refresh=True)
+            else:
+                # Fetch inventory directly if Inventory window not open
+                from auth import get_access_token, load_config
+                from ebay_api import fetch_all_active_listings
+                cfg = load_config()
+                token = get_access_token(cfg)
+                self.progress_text.config(text="Fetching inventory...")
+                self.update_idletasks()
+                items = fetch_all_active_listings(cfg, token)
+                # Save full items with title for display
+                cache_file = self._get_cache_file()
+                cache_data = {"items": items}
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(cache_data, f, indent=2)
+
+            # Reload from cache after refresh
+            self.load_skus_from_store()
+            self.refresh_excluded_titles()  # Also refresh titles for excluded items
+            self.progress_bar.config(value=100)
+            self.progress_text.config(text="Done")
+            messagebox.showinfo("Success", "Data refreshed from store")
+        except Exception as e:
+            self.progress_bar.config(value=0)
+            self.progress_text.config(text="Ready")
+            messagebox.showerror("Error", f"Refresh failed: {str(e)}")
+
+    def _get_cache_file(self):
+        return DATA_DIR / "available_for_exclusions.json"
+
+    def refresh_excluded_titles(self):
+        """Update excluded items display with titles from refreshed cache"""
+        try:
+            cache = self._load_cache()
+            items = cache.get("items", [])
+
+            # Build SKU -> Title map from cache
+            sku_to_title = {}
+            for item in items:
+                sku = item.get("sku", "").strip()
+                if sku:
+                    sku_to_title[sku] = item.get("title", "").strip()[:60]
+
+            # Update excluded items display with titles
+            excluded_count = self.excluded_skus.size()
+            new_items = []
+            for idx in range(excluded_count):
+                display_text = self.excluded_skus.get(idx)
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+
+                # Try to get title from cache
+                title = sku_to_title.get(sku, "")
+                if title:
+                    new_display = f"{sku} - {title}"
+                else:
+                    new_display = sku
+
+                new_items.append(new_display)
+                self.sku_display_map[new_display] = sku
+
+            # Rebuild excluded list with new titles
+            self.excluded_skus.delete(0, tk.END)
+            for item in new_items:
+                self.excluded_skus.insert(tk.END, item)
+        except:
+            pass  # Graceful failure if cache doesn't have items
+
+    def _write_debug_log(self, log_lines):
+        """Write debug logs to file"""
+        try:
+            debug_file = DATA_DIR / "exclusions_debug.log"
+            with open(debug_file, "a", encoding="utf-8") as f:
+                import datetime
+                f.write(f"\n=== {datetime.datetime.now().isoformat()} ===\n")
+                for line in log_lines:
+                    f.write(line + "\n")
+        except:
+            pass
+
+    def _load_cache(self):
+        """Load cached items (SKU + Title)"""
+        cache_file = self._get_cache_file()
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"items": []}
+
+    def select_all_skus(self):
+        """Select all available SKUs"""
+        self.available_skus.select_set(0, tk.END)
+
+    def select_all_excluded(self):
+        """Select all excluded SKUs"""
+        self.excluded_skus.select_set(0, tk.END)
+
+    def upload_exclusion_file(self):
+        """Upload CSV or XLS file with SKUs to exclude"""
+        from tkinter import filedialog
+        file = filedialog.askopenfile(
+            title="Select CSV or XLS file with SKUs",
+            filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
+        if not file:
+            return
+
+        try:
+            skus_to_add = []
+            filename = file.name
+            file.close()
+
+            if filename.endswith('.csv'):
+                import csv
+                with open(filename, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        sku = row.get('SKU', row.get('sku', '')).strip()
+                        title = row.get('Title', row.get('title', '')).strip()
+                        if sku:
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+            else:  # XLS/XLSX
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(filename)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        sku = str(row[0] or '').strip()
+                        title = str(row[1] or '').strip() if len(row) > 1 else ''
+                        if sku and sku.lower() != 'sku':
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+                except ImportError:
+                    messagebox.showerror("Error", "openpyxl not installed. Please use CSV format instead.")
+                    return
+
+            # Add to excluded list
+            for sku, display_text in skus_to_add:
+                if sku not in [s.split(" - ")[0] if " - " in s else s for s in self.excluded_skus.get(0, tk.END)]:
+                    self.excluded_skus.insert(tk.END, display_text)
+
+            messagebox.showinfo("Success", f"Added {len(skus_to_add)} SKUs from file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read file: {str(e)}")
+
+    def load_skus_from_store(self):
+        """Load SKUs with titles from cache"""
+        debug_log = []
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        debug_log.append(f"load_skus_from_store: Found {len(items)} items in cache")
+
+        # Use in-memory excluded SKUs set instead of extracting from display text
+        excluded_skus = getattr(self, 'excluded_skus_set', set())
+        debug_log.append(f"load_skus_from_store: Using in-memory excluded set with {len(excluded_skus)} SKUs")
+        debug_log.append(f"  Excluded SKUs in memory: {list(excluded_skus)[:5]}")
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}  # Map display text back to SKU
+
+        added_count = 0
+        excluded_count = 0
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]  # Truncate long titles
+            if sku:
+                display_text = f"{sku} - {title}" if title else sku
+                if sku not in excluded_skus:
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+                    added_count += 1
+                else:
+                    excluded_count += 1
+
+        debug_log.append(f"load_skus_from_store: Added {added_count} to available, excluded {excluded_count}")
+        self._write_debug_log(debug_log)
+
+        if not items:
+            self.available_skus.insert(tk.END, "(No SKUs found in store)")
+
+    def load_excluded_from_config(self):
+        """Load previously saved excluded items from persistent file (with titles)"""
+        debug_log = []
+        try:
+            # First try to load from excluded_items.json (has titles)
+            excluded_items_file = DATA_DIR / "excluded_items.json"
+            excluded_display_texts = []
+
+            if excluded_items_file.exists():
+                try:
+                    with open(excluded_items_file, "r", encoding="utf-8") as f:
+                        excluded_data = json.load(f)
+                        excluded_display_texts = excluded_data.get("items", [])
+                    debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} items from excluded_items.json")
+                except:
+                    debug_log.append("load_excluded_from_config: Failed to load excluded_items.json, falling back to config")
+
+            # If excluded_items.json doesn't exist, fall back to config (SKU only)
+            if not excluded_display_texts:
+                excluded_skus_list = self.config_dict.get("excluded_skus", [])
+                excluded_display_texts = excluded_skus_list
+                debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} SKUs from config (no titles)")
+
+            # Populate excluded_skus listbox with saved exclusions
+            self.excluded_skus.delete(0, tk.END)
+            self.sku_display_map = getattr(self, 'sku_display_map', {})
+            self.excluded_skus_set = set()  # Clear and rebuild the in-memory set
+
+            loaded_count = 0
+            for display_text in excluded_display_texts:
+                self.excluded_skus.insert(tk.END, display_text)
+                # Extract SKU and add to set
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+                self.sku_display_map[display_text] = sku
+                self.excluded_skus_set.add(sku)
+                loaded_count += 1
+            debug_log.append(f"load_excluded_from_config: Loaded {loaded_count} items into UI and memory set")
+
+            # Write logs to file
+            self._write_debug_log(debug_log)
+        except Exception as e:
+            debug_log.append(f"load_excluded_from_config ERROR: {e}")
+            import traceback
+            debug_log.append(traceback.format_exc())
+            self._write_debug_log(debug_log)
+
+    def refresh_skus_cache(self):
+        """Trigger complete refresh (inventory + exclusions cache)"""
+        self.progress_bar.config(value=0)
+        self.progress_text.config(text="Loading...")
+        self.update_idletasks()
+
+        if self.refresh_inventory_callback:
+            try:
+                self.refresh_inventory_callback(force_refresh=True)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.progress_bar.config(value=0)
+                self.progress_text.config(text="Ready")
+                messagebox.showinfo("Success", "Refreshed all data: Inventory, Categories, and SKUs")
+            except Exception as e:
+                self.progress_bar.config(value=0)
+                self.progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Refresh failed: {str(e)[:100]}")
+        else:
+            # Fallback: fetch directly without updating inventory
+            try:
+                categories, skus = self._fetch_from_store()
+                self._save_cache(categories, skus)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.progress_bar.config(value=0)
+                self.progress_text.config(text="Ready")
+                messagebox.showinfo("Success", f"Loaded {len(categories)} categories and {len(skus)} SKUs\n(Open Inventory for full sync)")
+            except Exception as e:
+                self.progress_bar.config(value=0)
+                self.progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Fetch failed: {str(e)[:100]}")
+
+    def filter_available_skus(self, event=None):
+        """Filter SKUs based on search (SKU or title)"""
+        search_term = self.sku_search.get().lower()
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        # Use in-memory excluded SKUs set (raw SKU values, not display text)
+        excluded_skus = self.excluded_skus_set
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}
+
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]
+            if sku and sku not in excluded_skus:
+                if search_term in sku.lower() or search_term in title.lower():
+                    display_text = f"{sku} - {title}" if title else sku
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+
+        if not self.available_skus.get(0, tk.END):
+            self.available_skus.insert(tk.END, "(No matches)")
+
+    def exclude_sku(self):
+        """Move selected SKUs from available to excluded"""
+        selection = self.available_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to exclude.")
+            return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            display_text = self.available_skus.get(idx)
+            if display_text.startswith("Error") or display_text.startswith("("):
+                continue
+            # Extract actual SKU from display text
+            sku = self.sku_display_map.get(display_text, display_text.split(" - ")[0])
+            self.available_skus.delete(idx)
+            if sku not in self.excluded_skus.get(0, tk.END):
+                # Display with title in excluded list too
+                title_part = display_text.split(" - ", 1)[1] if " - " in display_text else ""
+                excluded_display = f"{sku} - {title_part}" if title_part else sku
+                self.excluded_skus.insert(tk.END, excluded_display)
+                self.excluded_skus_set.add(sku)  # Add to in-memory set
+        self.has_unsaved_changes = True
+
+    def include_sku(self):
+        """Move selected SKUs from excluded to available"""
+        selection = self.excluded_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to include.")
+            return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            excluded_display = self.excluded_skus.get(idx)
+            # Extract SKU from display text
+            sku = excluded_display.split(" - ")[0] if " - " in excluded_display else excluded_display
+            self.excluded_skus.delete(idx)
+            self.excluded_skus_set.discard(sku)  # Remove from in-memory set
+            # Add back to available list with title if present
+            if sku not in self.available_skus.get(0, tk.END):
+                self.available_skus.insert(tk.END, excluded_display)
+                self.sku_display_map[excluded_display] = sku
+        self.has_unsaved_changes = True
+
+    def save_exclusions(self):
+        """Save exclusions with confirmation"""
+        excluded_displays = list(self.excluded_skus.get(0, tk.END))
+        excluded_displays = [s for s in excluded_displays if not s.startswith("Error") and not s.startswith("(No")]
+
+        # Extract SKUs from display text
+        excluded_skus = []
+        for display in excluded_displays:
+            sku = display.split(" - ")[0] if " - " in display else display
+            excluded_skus.append(sku)
+
+        # DEBUG: Log what we're about to save
+        debug_info = [
+            f"SAVE_EXCLUSIONS - Listbox has {self.excluded_skus.size()} items",
+            f"  Displays to save: {excluded_displays}",
+            f"  SKUs to save: {excluded_skus}",
+            f"  excluded_skus_set in memory: {self.excluded_skus_set}"
+        ]
+        self._write_debug_log(debug_info)
+
+        # Show confirmation
+        msg = f"""Save these exclusions?
+
+SKUs to exclude ({len(excluded_skus)}):
+{', '.join(excluded_skus[:5])}{'...' if len(excluded_skus) > 5 else ''}
+"""
+        if messagebox.askyesno("Confirm Exclusions", msg):
+            self.config_dict.update({
+                "excluded_skus": sorted(set(excluded_skus)),
+            })
+            save_config(self.config_dict)
+
+            # Also save the display format (SKU - Title) to persistent file
+            # This way titles load without needing to refresh data from store
+            try:
+                excluded_items_file = DATA_DIR / "excluded_items.json"
+                with open(excluded_items_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": excluded_displays}, f, indent=2)
+                self._write_debug_log([f"  Saved to {excluded_items_file.name}: {len(excluded_displays)} items"])
+            except Exception as e:
+                self._write_debug_log([f"  ERROR saving to {excluded_items_file.name}: {e}"])
+
+            messagebox.showinfo("Success", "Exclusion settings saved!")
+            self.has_unsaved_changes = False
+            if self.on_save:
+                self.on_save()
+            ExclusionsWindow.instance = None
+            self.destroy()
+
 
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        set_window_icon(self)
         self.title("Relist Agent")
 
         # Bring window to front after admin dialog - call multiple times to overcome UAC
         self.after(500, self.bring_to_front)
         self.after(1000, self.bring_to_front)
         self.after(1500, self.bring_to_front)
-        self.geometry("700x500")
+        self.geometry("1400x850")
         self.app_config = load_config()
 
         # Configure window background
@@ -444,6 +1212,16 @@ class MainApp(tk.Tk):
         style.map('TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
         style.map('Vertical.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
         style.map('Horizontal.TScrollbar', background=[('active', SCROLLBAR_ACTIVE)])
+        style.configure('TNotebook', background=BG_PRIMARY, borderwidth=0)
+        style.configure('TNotebook.Tab', background=BG_TERTIARY, foreground=TEXT_SECONDARY,
+                         padding=[14, 7], font=("Arial", 9, "bold"), borderwidth=0)
+        style.map('TNotebook.Tab',
+                  background=[('selected', BLUE_PRIMARY), ('active', BLUE_HOVER)],
+                  foreground=[('selected', TEXT_PRIMARY), ('active', TEXT_PRIMARY)])
+        # Hide the Notebook's built-in tab strip — navigation now happens via
+        # buttons in the right sidebar (see "Navigate" section below). The
+        # tabs still exist and are switched programmatically with self.tabs.select().
+        style.layout('TNotebook.Tab', [])
 
         # Set window icon
         icon_path = BASE_DIR / "ERA_Icon.png"
@@ -453,39 +1231,265 @@ class MainApp(tk.Tk):
             except Exception:
                 pass
 
-        # Configure grid layout
-        self.columnconfigure(0, weight=0, minsize=180)  # Left column
-        self.columnconfigure(1, weight=1)              # Center column (expands)
-        self.columnconfigure(2, weight=0, minsize=150) # Right column
+        # ===== 3-COLUMN LAYOUT (restored from v1.5.0, upgraded to v2.0.0) =====
+        self.columnconfigure(0, weight=0, minsize=180)  # Left sidebar
+        self.columnconfigure(1, weight=1)               # Center column (tabs, expands)
+        self.columnconfigure(2, weight=0, minsize=150)  # Right sidebar
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
 
-        # ===== LEFT COLUMN =====
+        # ===== LEFT SIDEBAR (persistent across all tabs: logo, store, live status) =====
         left_frame = ttk.Frame(self)
         left_frame.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
 
+        # ===== RIGHT SIDEBAR (persistent across all tabs: quick actions, settings) =====
+        right_frame = ttk.Frame(self)
+        right_frame.grid(row=0, column=2, sticky="new", padx=10, pady=10)
+
+        # ===== CENTER: TAB NOTEBOOK =====
+        self.tabs = ttk.Notebook(self)
+        self.tabs.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
+
+        # Create 5 tab frames
+        self.configure_tab = ttk.Frame(self.tabs)
+        self.exclusions_tab = ttk.Frame(self.tabs)
+        self.logs_tab = ttk.Frame(self.tabs)
+        self.inventory_tab = ttk.Frame(self.tabs)
+        self.viewlog_tab = ttk.Frame(self.tabs)
+
+        # Add tabs to notebook
+        self.tabs.add(self.logs_tab, text="Main")
+        self.tabs.add(self.inventory_tab, text="Inventory")
+        self.tabs.add(self.exclusions_tab, text="Exclusions")
+        self.tabs.add(self.viewlog_tab, text="View Log")
+        self.tabs.add(self.configure_tab, text="Configure")
+
+        # ===== RIGHT SIDEBAR CONTENT: Tab Navigation (replaces the notebook tab bar) =====
+        self.tab_frames = {
+            "configure": self.configure_tab,
+            "exclusions": self.exclusions_tab,
+            "logs": self.logs_tab,
+            "inventory": self.inventory_tab,
+            "viewlog": self.viewlog_tab,
+        }
+        self.nav_buttons = {}
+
+        ttk.Label(right_frame, text="Navigate", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        for key, label in (("logs", "Main"), ("inventory", "Inventory"),
+                            ("exclusions", "Exclusions"), ("viewlog", "View Log"),
+                            ("configure", "Configure")):
+            nav_btn = tk.Button(
+                right_frame, text=label, width=14, relief="flat", borderwidth=0,
+                bg=BG_TERTIARY, fg=TEXT_SECONDARY, activebackground=BLUE_HOVER,
+                activeforeground=TEXT_PRIMARY, font=("Arial", 9, "bold"),
+                command=lambda k=key: self.select_tab(k)
+            )
+            nav_btn.pack(fill="x", pady=3)
+            self.nav_buttons[key] = nav_btn
+
+        nav_divider = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
+        nav_divider.pack(fill="x", pady=10)
+
+        # ===== CONFIGURE TAB CONTENT =====
+        # 3-row horizontal layout: store name (top) / two columns (middle) / buttons (bottom)
+        # Wrapped in a scrollable canvas so nothing is clipped if the window is
+        # resized smaller than the content (same pattern as the Inventory tab's canvas).
+        configure_canvas = tk.Canvas(self.configure_tab, bg=BG_PRIMARY, highlightthickness=0)
+        configure_scrollbar = ttk.Scrollbar(self.configure_tab, orient="vertical", command=configure_canvas.yview)
+        configure_container = ttk.Frame(configure_canvas, padding=15)
+
+        def _configure_on_frame_configure(event=None):
+            configure_canvas.configure(scrollregion=configure_canvas.bbox("all"))
+            canvas_width = configure_canvas.winfo_width()
+            if canvas_width > 1:
+                configure_canvas.itemconfig(configure_canvas_window, width=canvas_width)
+
+        def _configure_on_mousewheel(event):
+            if event.num == 5 or getattr(event, "delta", 0) < 0:
+                configure_canvas.yview_scroll(3, "units")
+            elif event.num == 4 or getattr(event, "delta", 0) > 0:
+                configure_canvas.yview_scroll(-3, "units")
+
+        configure_container.bind("<Configure>", _configure_on_frame_configure)
+        configure_canvas_window = configure_canvas.create_window((0, 0), window=configure_container, anchor="nw")
+        configure_canvas.configure(yscrollcommand=configure_scrollbar.set)
+        configure_canvas.bind("<MouseWheel>", _configure_on_mousewheel)
+        configure_canvas.bind("<Button-4>", _configure_on_mousewheel)
+        configure_canvas.bind("<Button-5>", _configure_on_mousewheel)
+
+        configure_canvas.pack(side="left", fill="both", expand=True)
+        configure_scrollbar.pack(side="right", fill="y")
+
+        # ----- TOP ROW: Store Name (large, centered) -----
+        store_name_frame = ttk.Frame(configure_container)
+        store_name_frame.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(store_name_frame, text="Store Name", font=("Arial", 10, "bold")).pack(anchor="center")
+        self.configure_store_name = ttk.Entry(store_name_frame, width=40, font=("Arial", 16), justify="center")
+        self.configure_store_name.pack(anchor="center", pady=(5, 0))
+        self.configure_store_name.insert(0, self.app_config.get("store_name", ""))
+
+        top_divider = tk.Frame(configure_container, height=1, bg=BG_TERTIARY)
+        top_divider.pack(fill="x", pady=(0, 15))
+
+        # ----- MIDDLE ROW: Two columns -----
+        columns_frame = ttk.Frame(configure_container)
+        columns_frame.pack(fill="both", expand=True)
+        columns_frame.columnconfigure(0, weight=1, uniform="configure_col")
+        columns_frame.columnconfigure(1, weight=1, uniform="configure_col")
+
+        left_col = ttk.Frame(columns_frame)
+        left_col.grid(row=0, column=0, sticky="new", padx=(0, 25))
+
+        right_col = ttk.Frame(columns_frame)
+        right_col.grid(row=0, column=1, sticky="new", padx=(25, 0))
+
+        # --- LEFT COLUMN: Email Configuration + API Credentials ---
+        ttk.Label(left_col, text="Email Configuration", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(left_col, text="Email Provider:").pack(anchor="w", pady=(0, 3))
+        self.configure_email_provider = ttk.Combobox(left_col, values=["Gmail", "Outlook", "Custom SMTP"], width=32, state="readonly")
+        self.configure_email_provider.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_email_provider.set(self.app_config.get("email_provider", "Gmail"))
+        self.configure_email_provider.bind("<<ComboboxSelected>>", self.on_email_provider_changed)
+
+        ttk.Label(left_col, text="Email Address:").pack(anchor="w", pady=(0, 3))
+        self.configure_gmail_email = ttk.Entry(left_col, width=35)
+        self.configure_gmail_email.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_gmail_email.insert(0, self.app_config.get("gmail_email", ""))
+
+        ttk.Label(left_col, text="Password:").pack(anchor="w", pady=(0, 3))
+        self.configure_gmail_pass = ttk.Entry(left_col, width=35, show="*")
+        self.configure_gmail_pass.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_gmail_pass.insert(0, self.app_config.get("gmail_app_password", ""))
+
+        ttk.Label(left_col, text="SMTP Server:").pack(anchor="w", pady=(0, 3))
+        self.configure_smtp_server = ttk.Entry(left_col, width=35)
+        self.configure_smtp_server.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_smtp_server.insert(0, self.app_config.get("smtp_server", "smtp.gmail.com"))
+
+        ttk.Label(left_col, text="SMTP Port:").pack(anchor="w", pady=(0, 3))
+        self.configure_smtp_port = ttk.Entry(left_col, width=35)
+        self.configure_smtp_port.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_smtp_port.insert(0, self.app_config.get("smtp_port", "587"))
+
+        self.configure_use_tls = tk.BooleanVar(value=self.app_config.get("smtp_use_tls", True))
+        ttk.Checkbutton(left_col, text="Use TLS/SSL", variable=self.configure_use_tls).pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(left_col, text="Report Sent To:").pack(anchor="w", pady=(0, 3))
+        self.configure_report_email = ttk.Entry(left_col, width=35)
+        self.configure_report_email.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_report_email.insert(0, self.app_config.get("report_email", ""))
+
+        ttk.Label(left_col, text="API Credentials", font=("Arial", 10, "bold")).pack(anchor="w", pady=(12, 10))
+
+        ttk.Label(left_col, text="App ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_app_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_app_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_app_id.insert(0, self.app_config.get("app_id", ""))
+
+        ttk.Label(left_col, text="Dev ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_dev_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_dev_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_dev_id.insert(0, self.app_config.get("dev_id", ""))
+
+        ttk.Label(left_col, text="Cert ID:").pack(anchor="w", pady=(0, 3))
+        self.configure_cert_id = ttk.Entry(left_col, width=35, show="*")
+        self.configure_cert_id.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_cert_id.insert(0, self.app_config.get("cert_id", ""))
+
+        ttk.Label(left_col, text="RU Name:").pack(anchor="w", pady=(0, 3))
+        self.configure_ru_name = ttk.Entry(left_col, width=35)
+        self.configure_ru_name.pack(anchor="w", fill="x", pady=(0, 8))
+        self.configure_ru_name.insert(0, self.app_config.get("ru_name", ""))
+
+        # --- RIGHT COLUMN: Execution Settings + Schedule ---
+        ttk.Label(right_col, text="Execution Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(right_col, text="Log Days to Display:").pack(anchor="w", pady=(0, 3))
+        self.configure_log_days = ttk.Spinbox(right_col, from_=1, to=30, width=10)
+        self.configure_log_days.pack(anchor="w", pady=(0, 8))
+        self.configure_log_days.set(self.app_config.get("log_days", 3))
+
+        ttk.Label(right_col, text="Listings to Execute Per Run:").pack(anchor="w", pady=(0, 3))
+        self.configure_listings_per_run = ttk.Spinbox(right_col, from_=1, to=50, width=10)
+        self.configure_listings_per_run.pack(anchor="w", pady=(0, 8))
+        self.configure_listings_per_run.set(self.app_config.get("listings_per_run", 10))
+
+        ttk.Label(right_col, text="Schedule", font=("Arial", 10, "bold")).pack(anchor="w", pady=(12, 10))
+
+        ttk.Label(right_col, text="Run Time (HH:MM):").pack(anchor="w", pady=(0, 3))
+        time_frame = ttk.Frame(right_col)
+        time_frame.pack(anchor="w", pady=(0, 8))
+
+        self.configure_run_hour = ttk.Spinbox(time_frame, from_=0, to=23, width=3)
+        self.configure_run_hour.pack(side="left")
+        ttk.Label(time_frame, text=":").pack(side="left", padx=2)
+        self.configure_run_minute = ttk.Spinbox(time_frame, from_=0, to=59, width=3)
+        self.configure_run_minute.pack(side="left")
+        self.configure_run_hour.set(self.app_config.get("run_hour", 12))
+        self.configure_run_minute.set(self.app_config.get("run_minute", 0))
+
+        ttk.Label(right_col, text="Days to Run:").pack(anchor="w", pady=(0, 3))
+        configure_days_frame = tk.Frame(right_col, bg=BG_PRIMARY)
+        configure_days_frame.pack(anchor="w", pady=(0, 8))
+
+        _days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        _configured_run_days = self.app_config.get("run_days", _days_of_week)
+
+        self.configure_day_vars = {}
+        for i, day in enumerate(_days_of_week):
+            var = tk.BooleanVar(value=day in _configured_run_days)
+            self.configure_day_vars[day] = var
+            cb = tk.Checkbutton(configure_days_frame, text=day, variable=var, bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                               activebackground="black", activeforeground=TEXT_PRIMARY, selectcolor=BLUE_PRIMARY,
+                               font=("Arial", 10), relief="flat", borderwidth=0)
+            cb.grid(row=i // 4, column=i % 4, sticky="w", padx=5, pady=3)
+
+        # ----- BOTTOM ROW: Buttons -----
+        bottom_divider = tk.Frame(configure_container, height=1, bg=BG_TERTIARY)
+        bottom_divider.pack(fill="x", pady=(20, 15))
+
+        button_frame = ttk.Frame(configure_container)
+        button_frame.pack(fill="x")
+
+        ttk.Button(button_frame, text="Save Configuration", command=self.save_configure_settings).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Authorize Now", command=self.configure_oauth_auth).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Test Email", command=self.test_email).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Clear Cache", command=self.clear_cache).pack(side="left", padx=5)
+
+        # ===== LEFT SIDEBAR CONTENT: logo, store name, live status/progress =====
+
         # Logo section
-        logo_frame = ttk.Frame(left_frame)
+        logo_frame = tk.Frame(left_frame, bg=BG_PRIMARY)
         logo_frame.pack(fill="x", pady=(0, 10))
 
-        logo_path = BASE_DIR / "ERA_Logo.png"
         self.logo_photo = None
+        logo_path = ASSETS_DIR / "ERA_Logo.png"
         if logo_path.exists():
             try:
-                from PIL import Image, ImageTk
                 logo_img = Image.open(str(logo_path))
-                logo_img.thumbnail((250, 125), Image.Resampling.LANCZOS)
+                # Scale to larger size for sidebar (keep aspect ratio)
+                logo_img.thumbnail((220, 110), Image.Resampling.LANCZOS)
+                print(f"[DEBUG] Logo loaded from {logo_path}, size: {logo_img.size}")
                 self.logo_photo = ImageTk.PhotoImage(logo_img)
-                ttk.Label(logo_frame, image=self.logo_photo).pack()
-            except Exception:
-                pass
+                logo_label = tk.Label(logo_frame, image=self.logo_photo, bg=BG_PRIMARY)
+                logo_label.pack(anchor="center", pady=(5, 5))
+            except Exception as e:
+                # Fallback if image loading fails
+                tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                        bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
+        else:
+            # Logo file not found - show placeholder text
+            tk.Label(logo_frame, text="Relist Agent", font=("Arial", 14, "bold"),
+                    bg=BG_PRIMARY, fg=TEXT_PRIMARY).pack(pady=10)
 
-        # Store info
-        self.store_label = None
-        if self.app_config.get("store_name"):
-            self.store_label = tk.Label(left_frame, text=self.app_config['store_name'],
-                                  font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=150, justify="left")
-            self.store_label.pack(anchor="w", fill="x", pady=(0, 10))
+        # Store info - CREATE AND PACK ALWAYS so layout is consistent
+        store_name = self.app_config.get("store_name", "")
+        self.store_label = tk.Label(left_frame, text=store_name,
+                              font=("Arial", 12, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, wraplength=180, justify="center")
+        self.store_label.pack(anchor="center", fill="x", pady=(0, 10))
 
         # Divider
         divider = tk.Frame(left_frame, height=1, bg=BG_TERTIARY)
@@ -533,38 +1537,146 @@ class MainApp(tk.Tk):
         self.overall_progress_bar = ttk.Progressbar(left_frame, length=150, mode="determinate", value=0)
         self.overall_progress_bar.pack(anchor="w", fill="x")
 
-        # ===== CENTER COLUMN =====
-        center_frame = ttk.Frame(self)
-        center_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 10), pady=10)
+        # ===== RIGHT SIDEBAR CONTENT: Quick Actions =====
+        ttk.Label(right_frame, text="Quick Actions", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
 
-        # Header with title and info icon
-        header = ttk.Frame(center_frame)
-        header.pack(fill="x", pady=(0, 10))
-        ttk.Label(header, text="Activity Log", font=("Arial", 12, "bold")).pack(side="left")
-        icon = get_info_icon(24)
-        if icon:
-            tk.Button(header, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
-        else:
-            tk.Button(header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        self.run_button = ttk.Button(right_frame, text="Run Now", command=self.run_agent, width=14)
+        self.run_button.pack(fill="x", pady=3)
+        self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
+        self.refresh_btn.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Test Email", command=self.test_email, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
+        self.update_button = ttk.Button(right_frame, text="Check for Updates", command=self.check_updates_manual, width=14)
+        self.update_button.pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Stop Service", command=self.stop_service, width=14).pack(fill="x", pady=3)
+        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
 
-        # Timing note
-        ttk.Label(center_frame, text="⏱ Each listing takes 1–2 minutes (delists before relisting)", font=("Arial", 9), foreground="#CCCCCC").pack(anchor="w", pady=(0, 3))
+        # ===== EXCLUSIONS TAB CONTENT =====
+        # (Consolidated from the old ExclusionsWindow popup — same layout, widgets, and methods)
 
-        # Stalled item note
-        ttk.Label(center_frame, text="💡 If you see a stalled 'Completed' item, click Refresh to clear it", font=("Arial", 8), foreground="#999999").pack(anchor="w", pady=(0, 8))
+        self.sku_display_map = {}  # Map display text to SKU
+        self.excluded_skus_set = set()  # Keep a reliable set of excluded SKUs in memory
+        self.has_unsaved_changes = False
 
-        # Log area
-        log_frame = tk.LabelFrame(center_frame, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
-        log_frame.pack(fill="both", expand=True)
+        # Header
+        excl_header = ttk.Frame(self.exclusions_tab)
+        excl_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(excl_header, text="Exclude from Relist", font=("Arial", 12, "bold")).pack(side="left")
+        ttk.Button(excl_header, text="Save", command=self.save_exclusions).pack(side="right", padx=2)
+        ttk.Button(excl_header, text="Upload CSV/XLS", command=self.upload_exclusion_file).pack(side="right", padx=5)
+        ttk.Button(excl_header, text="Refresh Data", command=self.refresh_data).pack(side="right", padx=5)
 
-        # Configure Treeview style for dark theme
+        # Description
+        excl_desc = tk.Label(self.exclusions_tab, text="Upload a CSV/XLS file with SKUs, or manually select from the list below. Excel template: columns 'SKU' and 'Notes (optional)'.",
+                       bg="#1a1a1a", fg=TEXT_PRIMARY, font=("Arial", 9), justify="left", wraplength=900)
+        excl_desc.pack(anchor="w", padx=20, pady=(0, 10))
+
+        # Progress bar
+        excl_progress_frame = ttk.Frame(self.exclusions_tab)
+        excl_progress_frame.pack(fill="x", padx=15, pady=(0, 10))
+        self.excl_progress_bar = ttk.Progressbar(excl_progress_frame, mode="determinate", length=300, value=0)
+        self.excl_progress_bar.pack(side="left", padx=5, fill="x", expand=True)
+        self.excl_progress_text = ttk.Label(excl_progress_frame, text="Ready")
+        self.excl_progress_text.pack(side="left", padx=5)
+
+        # Main content - SKUs only
+        excl_main_frame = ttk.Frame(self.exclusions_tab)
+        excl_main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # ===== SKU SECTION =====
+        sku_section = tk.LabelFrame(excl_main_frame, text="SKUs", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                    font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid",
+                                    highlightthickness=0)
+        sku_section.pack(fill="both", expand=True)
+
+        sku_frame = ttk.Frame(sku_section)
+        sku_frame.pack(fill="both", expand=True)
+
+        # Available SKUs (left)
+        left_sku_frame = tk.LabelFrame(sku_frame, text="Available", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                       font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        left_sku_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Search field
+        ttk.Label(left_sku_frame, text="Search:").pack(anchor="w")
+        self.sku_search = ttk.Entry(left_sku_frame, width=20)
+        self.sku_search.pack(anchor="w", pady=(0, 5))
+        self.sku_search.bind("<KeyRelease>", self.filter_available_skus)
+
+        sku_scrollbar_left = ttk.Scrollbar(left_sku_frame)
+        sku_scrollbar_left.pack(side="right", fill="y")
+
+        self.available_skus = tk.Listbox(left_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                         yscrollcommand=sku_scrollbar_left.set, height=12)
+        self.available_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_left.config(command=self.available_skus.yview)
+
+        # Buttons in middle
+        middle_sku_frame = ttk.Frame(sku_frame)
+        middle_sku_frame.pack(side="left", padx=5)
+        ttk.Button(middle_sku_frame, text="Select All\nExcluded", command=self.select_all_excluded, width=10).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="← Include", command=self.include_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="→ Exclude", command=self.exclude_sku).pack(fill="x", pady=3)
+        ttk.Button(middle_sku_frame, text="Select All\nAvailable", command=self.select_all_skus, width=10).pack(fill="x", pady=3)
+
+        # Excluded SKUs (right)
+        right_sku_frame = tk.LabelFrame(sku_frame, text="Excluded", bg=BG_PRIMARY, fg=TEXT_PRIMARY,
+                                        font=("Arial", 9, "bold"), padx=5, pady=5, borderwidth=1)
+        right_sku_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
+
+        sku_scrollbar_right = ttk.Scrollbar(right_sku_frame)
+        sku_scrollbar_right.pack(side="right", fill="y")
+
+        self.excluded_skus = tk.Listbox(right_sku_frame, bg=BG_SECONDARY, fg=TEXT_PRIMARY,
+                                        yscrollcommand=sku_scrollbar_right.set, height=12)
+        self.excluded_skus.pack(side="left", fill="both", expand=True)
+        sku_scrollbar_right.config(command=self.excluded_skus.yview)
+
+        # Load initial data (load excluded first so they're excluded from available list)
+        self.load_excluded_from_config()  # Load previously saved exclusions
+        self.load_skus_from_store()
+        self.has_unsaved_changes = False  # Track if user has made changes without saving
+
+        # Version label
+        ttk.Label(right_frame, text="v2.0.0", font=("Arial", 9), foreground="gray").pack(pady=(10, 0))
+
+        # Configure Treeview style for dark theme (kept here since it's a global style,
+        # not tied to a specific frame; used once Logs/Exclusions tabs are populated)
         style = ttk.Style()
         style.configure("Treeview", background=BG_SECONDARY, foreground=TEXT_PRIMARY, fieldbackground=BG_SECONDARY, borderwidth=0)
         style.map("Treeview", background=[("selected", BLUE_PRIMARY)], foreground=[("selected", TEXT_PRIMARY)])
         style.configure("Treeview.Heading", background=BG_TERTIARY, foreground=TEXT_PRIMARY)
         style.map("Treeview.Heading", background=[("active", BLUE_HOVER)])
 
-        # Create Treeview with columns
+        # ===== LOGS TAB CONTENT =====
+        # (Moved from the old center_frame in the 3-column layout)
+
+        # Header with title and info icon
+        log_header = ttk.Frame(self.logs_tab)
+        log_header.pack(fill="x", pady=(0, 10))
+        ttk.Label(log_header, text="Activity Log", font=("Arial", 12, "bold")).pack(side="left")
+        icon = get_info_icon(24)
+        if icon:
+            tk.Button(log_header, image=icon, command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(log_header, text="ⓘ", command=self.show_main_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+
+        # Tips/warnings section (moved from the old Status tab) — plain text, matches v2.0.0
+        ttk.Label(self.logs_tab, text="⏱ Each listing takes 1-2 minutes (delists before relisting)",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w", pady=(0, 3))
+        ttk.Label(self.logs_tab, text="\U0001f504 If you see a stalled 'Completed' item, click Refresh to clear it",
+                  font=("Arial", 8), foreground=TEXT_SECONDARY).pack(anchor="w", pady=(0, 3))
+        ttk.Label(self.logs_tab, text="⚠️  Scheduled tasks: Log updates AFTER the run completes (not live).",
+                  font=("Arial", 8), foreground=YELLOW_WARNING).pack(anchor="w", pady=(0, 2))
+        ttk.Label(self.logs_tab, text="Click 'Run Now' to see real-time progress.",
+                  font=("Arial", 8), foreground=YELLOW_WARNING).pack(anchor="w", pady=(0, 8))
+
+        # Log area
+        log_frame = tk.LabelFrame(self.logs_tab, text="", bg=BG_PRIMARY, fg=TEXT_PRIMARY, padx=8, pady=8, borderwidth=1, relief="solid", highlightthickness=0)
+        log_frame.pack(fill="both", expand=True)
+
+        # Create Treeview with columns (dark theme style configured above)
         columns = ("Started", "Completed", "Status", "Old Item", "Title")
         self.log_tree = ttk.Treeview(log_frame, columns=columns, height=20, show="headings")
 
@@ -582,11 +1694,11 @@ class MainApp(tk.Tk):
         self.log_tree.heading("Title", text="Title")
 
         # Add scrollbar
-        scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_tree.yview)
-        self.log_tree.configure(yscroll=scrollbar.set)
+        log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_tree.yview)
+        self.log_tree.configure(yscrollcommand=log_scrollbar.set)
 
         self.log_tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        log_scrollbar.pack(side="right", fill="y")
 
         # Track log file modification time for auto-refresh
         self.last_log_modify_time = 0
@@ -607,46 +1719,200 @@ class MainApp(tk.Tk):
         # Bind row selection to detect errors
         self.log_tree.bind("<ButtonRelease-1>", self.on_log_row_selected)
 
-        # ===== RIGHT COLUMN =====
-        right_frame = ttk.Frame(self)
-        right_frame.grid(row=0, column=2, sticky="new", padx=10, pady=10)
+        # ===== INVENTORY TAB CONTENT =====
+        # (Consolidated from the old InventoryWindow popup — same layout and widgets)
+        self.inv_all_items = []
 
-        # Quick actions label
-        ttk.Label(right_frame, text="Quick Actions", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+        # Header with title and guide icon
+        inv_header = ttk.Frame(self.inventory_tab)
+        inv_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(inv_header, text="Store Inventory", font=("Arial", 12, "bold")).pack(side="left")
+        inv_icon = get_info_icon(24)
+        if inv_icon:
+            tk.Button(inv_header, image=inv_icon, command=self.inv_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(inv_header, text="ⓘ", command=self.inv_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
 
-        # Action buttons (vertical stack)
-        self.run_button = ttk.Button(right_frame, text="Run Now", command=self.run_agent, width=14)
-        self.run_button.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Inventory", command=self.open_inventory, width=14).pack(fill="x", pady=3)
-        self.refresh_btn = ttk.Button(right_frame, text="Refresh", command=self.refresh_log, width=14)
-        self.refresh_btn.pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="View Log", command=self.open_log_viewer, width=14).pack(fill="x", pady=3)
+        # Button guide
+        inv_guide_frame = tk.Frame(self.inventory_tab, bg=BG_PRIMARY, relief="solid", borderwidth=1)
+        inv_guide_frame.pack(fill="x", padx=0, pady=0)
 
-        # Retry button (only for error items)
-        self.retry_button = ttk.Button(right_frame, text="Retry Relist", command=self.retry_selected_error, width=14, state="disabled")
-        self.retry_button.pack(fill="x", pady=3)
+        tk.Label(inv_guide_frame, text="Action Buttons:", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 9, "bold")).pack(side="left", padx=10, pady=5)
+        tk.Label(inv_guide_frame, text="❌ = End listing  |  ♻️ = Delist & Relist", bg=BG_PRIMARY, fg=TEXT_SECONDARY, font=("Arial", 9)).pack(side="left", padx=10, pady=5)
 
-        # Divider
-        divider2 = tk.Frame(right_frame, height=1, bg=BG_TERTIARY)
-        divider2.pack(fill="x", pady=10)
+        # Info note
+        inv_info_frame = ttk.Frame(self.inventory_tab)
+        inv_info_frame.pack(fill="x", padx=10, pady=5)
+        ttk.Label(inv_info_frame, text="[INFO] First load fetches all item details (~1 min per 100 items). Future loads will be much faster thanks to caching.",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+        ttk.Label(inv_info_frame, text="[SEARCH] Find items by product description OR custom SKU",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
+        ttk.Label(inv_info_frame, text="[DUPLICATES] 'Find Duplicates' shows all items with same SKU | 'Auto-Delist Dupes' removes true duplicates (matching title+SKU, keeps newest)",
+                  font=("Arial", 9), foreground=TEXT_SECONDARY).pack(anchor="w")
 
-        # Settings section
-        ttk.Label(right_frame, text="Settings", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
-        ttk.Button(right_frame, text="Configure", command=self.open_settings, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Instructions", command=self.show_instructions, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="About", command=self.show_about, width=14).pack(fill="x", pady=3)
-        ttk.Button(right_frame, text="Exit", command=self.quit, width=14).pack(fill="x", pady=3)
+        # Search and controls frame
+        inv_search_frame = ttk.Frame(self.inventory_tab)
+        inv_search_frame.pack(fill="x", padx=10, pady=10)
 
-        # Bottom action buttons
-        bottom_frame = ttk.Frame(self)
-        bottom_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
-        # Placeholder for potential bottom-level controls
+        ttk.Label(inv_search_frame, text="Search:").pack(side="left", padx=5)
+        self.inv_search_var = tk.StringVar()
+        self.inv_search_var.trace("w", self.inv_debounce_filter)
+        self.inv_search_timer = None
+        inv_search_entry = ttk.Entry(inv_search_frame, textvariable=self.inv_search_var, width=40)
+        inv_search_entry.pack(side="left", padx=5)
+
+        ttk.Button(inv_search_frame, text="Refresh Data", command=self.inv_refresh_data).pack(side="left", padx=5)
+        ttk.Button(inv_search_frame, text="Find Duplicates", command=self.inv_find_duplicate_skus).pack(side="left", padx=5)
+        ttk.Button(inv_search_frame, text="Auto-Delist Dupes", command=self.inv_auto_delist_duplicates).pack(side="left", padx=5)
+
+        ttk.Label(inv_search_frame, text="Items:").pack(side="left", padx=20)
+        self.inv_item_count = ttk.Label(inv_search_frame, text="Loading...")
+        self.inv_item_count.pack(side="left", padx=5)
+
+        # Progress bar
+        inv_progress_frame = ttk.Frame(self.inventory_tab)
+        inv_progress_frame.pack(fill="x", padx=10, pady=5)
+        self.inv_progress = ttk.Progressbar(inv_progress_frame, mode="determinate", length=300)
+        self.inv_progress.pack(side="left", padx=5, fill="x", expand=True)
+        self.inv_progress_text = ttk.Label(inv_progress_frame, text="")
+        self.inv_progress_text.pack(side="left", padx=5)
+
+        # Table frame with custom scrollable list
+        inv_table_frame = tk.Frame(self.inventory_tab, bg=BG_PRIMARY)
+        inv_table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Header + scrollable content container
+        inv_content_frame = tk.Frame(inv_table_frame, bg=BG_PRIMARY)
+        inv_content_frame.pack(fill="both", expand=True)
+        inv_content_frame.columnconfigure(0, weight=1)
+        inv_content_frame.rowconfigure(1, weight=1)
+
+        # Header row using grid
+        inv_header_row = tk.Frame(inv_content_frame, bg=BG_PRIMARY, height=30)
+        inv_header_row.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 5))
+        inv_header_row.columnconfigure(2, weight=1)  # Title column expands
+        inv_header_row.pack_propagate(False)
+
+        tk.Label(inv_header_row, text="Actions", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Item ID", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="SKU", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Title", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=2)
+        tk.Label(inv_header_row, text="Date Listed", font=("Arial", 10, "bold"), bg=BG_PRIMARY, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=2)
+
+        # Set column widths (in pixels)
+        inv_header_row.columnconfigure(0, minsize=90)   # Actions
+        inv_header_row.columnconfigure(1, minsize=100)  # Item ID
+        inv_header_row.columnconfigure(2, minsize=80)   # SKU
+        inv_header_row.columnconfigure(3, weight=1)     # Title (expands)
+        inv_header_row.columnconfigure(4, minsize=160)  # Date Listed
+
+        # Canvas with scrollbar for items (below header)
+        inv_list_container = tk.Frame(inv_content_frame, bg=BG_PRIMARY)
+        inv_list_container.grid(row=1, column=0, sticky="nsew")
+        inv_list_container.columnconfigure(0, weight=1)
+        inv_list_container.rowconfigure(0, weight=1)
+
+        self.inv_canvas = tk.Canvas(inv_list_container, bg=BG_SECONDARY, highlightthickness=0)
+        inv_scrollbar = ttk.Scrollbar(inv_list_container, orient="vertical", command=self.inv_canvas.yview)
+        self.inv_items_frame = tk.Frame(self.inv_canvas, bg=BG_SECONDARY)
+
+        self.inv_items_frame.bind("<Configure>", self.inv_on_frame_configure)
+        self.inv_canvas_window = self.inv_canvas.create_window((0, 0), window=self.inv_items_frame, anchor="nw")
+        self.inv_canvas.configure(yscrollcommand=inv_scrollbar.set)
+        self.inv_canvas.bind("<MouseWheel>", self.inv_on_mousewheel)
+        self.inv_canvas.bind("<Button-4>", self.inv_on_mousewheel)
+        self.inv_canvas.bind("<Button-5>", self.inv_on_mousewheel)
+
+        self.inv_canvas.grid(row=0, column=0, sticky="nsew")
+        inv_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        self.inv_tree = None  # Keep for compatibility
+
+        # ===== VIEW LOG TAB CONTENT =====
+        # (Consolidated from the old LogViewerWindow popup — same layout, widgets, and methods)
+
+        # Header with title and guide icon
+        viewlog_header = ttk.Frame(self.viewlog_tab)
+        viewlog_header.pack(fill="x", padx=10, pady=10)
+        ttk.Label(viewlog_header, text="Log Viewer", font=("Arial", 12, "bold")).pack(side="left")
+        viewlog_icon = get_info_icon(24)
+        if viewlog_icon:
+            tk.Button(viewlog_header, image=viewlog_icon, command=self.viewlog_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+        else:
+            tk.Button(viewlog_header, text="ⓘ", command=self.viewlog_show_guide, bg=BG_PRIMARY, activebackground=BG_PRIMARY, activeforeground=TEXT_PRIMARY, border=0, highlightthickness=0, relief="flat").pack(side="left", padx=5)
+
+        # Filter frame
+        viewlog_filter_frame = tk.LabelFrame(self.viewlog_tab, text="Filter", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
+        viewlog_filter_frame.pack(fill="x", padx=10, pady=10)
+
+        ttk.Label(viewlog_filter_frame, text="From Date:").grid(row=0, column=0, sticky="w")
+        self.viewlog_from_date = ttk.Entry(viewlog_filter_frame, width=15)
+        self.viewlog_from_date.grid(row=0, column=1, sticky="w", padx=5)
+        self.viewlog_from_date.insert(0, "2026-01-01")
+
+        ttk.Label(viewlog_filter_frame, text="To Date:").grid(row=0, column=2, sticky="w")
+        self.viewlog_to_date = ttk.Entry(viewlog_filter_frame, width=15)
+        self.viewlog_to_date.grid(row=0, column=3, sticky="w", padx=5)
+        self.viewlog_to_date.insert(0, "2099-12-31")
+
+        ttk.Label(viewlog_filter_frame, text="Status:").grid(row=0, column=4, sticky="w")
+        self.viewlog_status_var = tk.StringVar(value="All")
+        viewlog_status_box = ttk.Combobox(viewlog_filter_frame, textvariable=self.viewlog_status_var, values=["All", "Relisted", "Error"], width=10)
+        viewlog_status_box.grid(row=0, column=5, sticky="w", padx=5)
+
+        ttk.Label(viewlog_filter_frame, text="Search:").grid(row=0, column=6, sticky="w")
+        self.viewlog_search = ttk.Entry(viewlog_filter_frame, width=20)
+        self.viewlog_search.grid(row=0, column=7, sticky="w", padx=5)
+
+        ttk.Button(viewlog_filter_frame, text="Apply Filter", command=self.viewlog_apply_filter).grid(row=0, column=8, padx=5)
+        ttk.Button(viewlog_filter_frame, text="\U0001f504 Refresh", command=self.viewlog_refresh).grid(row=0, column=9, padx=5)
+        ttk.Button(viewlog_filter_frame, text="Export CSV", command=self.viewlog_export).grid(row=0, column=10, padx=5)
+
+        # Table frame
+        viewlog_table_frame = tk.LabelFrame(self.viewlog_tab, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
+        viewlog_table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Text widget for log (with built-in scrollbars)
+        self.viewlog_display = scrolledtext.ScrolledText(viewlog_table_frame, height=20, width=100, bg=BG_SECONDARY, fg=TEXT_PRIMARY, insertbackground=BLUE_PRIMARY)
+        self.viewlog_display.pack(fill="both", expand=True)
+
+        # Load all data
+        self.viewlog_all_entries = []
+        self.viewlog_filtered_entries = []
+        self.viewlog_last_modify_time = 0
+        self.viewlog_load_all_entries()
+        self.viewlog_apply_filter()
+
+        # Auto-refresh log every 2 seconds
+        self.viewlog_auto_refresh()
+
+        # Load items in background
+        threading.Thread(target=self.inv_load_items, daemon=True).start()
 
         # Load log and check error items in background thread
         threading.Thread(target=self.startup_check, daemon=True).start()
 
+        # Check for updates on startup
+        self.check_updates_startup()
+
         # Start auto-refresh polling
         self.auto_refresh_activity_log()
+
+        # Set initial nav button highlight to match the default-selected tab (activity log, like v2.0.0)
+        self.select_tab("logs")
+
+    def select_tab(self, key):
+        """Switch the center Notebook to the tab identified by `key` and
+        highlight the matching button in the right sidebar's Navigate section."""
+        frame = self.tab_frames.get(key)
+        if frame is None:
+            return
+        self.tabs.select(frame)
+        for btn_key, btn in self.nav_buttons.items():
+            if btn_key == key:
+                btn.configure(bg=BLUE_PRIMARY, fg=TEXT_PRIMARY)
+            else:
+                btn.configure(bg=BG_TERTIARY, fg=TEXT_SECONDARY)
 
     def bring_to_front(self):
         """Bring window to foreground after admin dialog"""
@@ -699,7 +1965,7 @@ class MainApp(tk.Tk):
             from datetime import datetime, timedelta
             from pathlib import Path
 
-            PROGRESS_FILE = BASE_DIR / "progress.json"
+            PROGRESS_FILE = DATA_DIR / "progress.json"
             all_entries = []
 
             # Check for current running item from progress.json
@@ -814,6 +2080,26 @@ class MainApp(tk.Tk):
             # Always unlock when done
             self.refresh_lock = False
             print("[REFRESH] Lock released")
+
+    def on_log_row_selected(self, event):
+        """Handle Activity Log row selection - enable Retry Relist for active errors"""
+        selection = self.log_tree.selection()
+        if not selection:
+            return
+
+        item_id = selection[0]
+        tags = self.log_tree.item(item_id, "tags")
+
+        if "error_active" in tags:
+            self.selected_error_item_id = item_id
+            self.selected_error_item_data = self.log_tree.item(item_id, "values")
+            if hasattr(self, "retry_button"):
+                self.retry_button.config(state="normal")
+        else:
+            self.selected_error_item_id = None
+            self.selected_error_item_data = None
+            if hasattr(self, "retry_button"):
+                self.retry_button.config(state="disabled")
 
     def cleanup_old_logs(self, keep_days=30):
         """Delete log entries older than keep_days (default 30 days)"""
@@ -983,6 +2269,38 @@ class MainApp(tk.Tk):
     def open_settings(self):
         SettingsWindow(self, self.app_config, self.refresh_after_settings_save)
 
+    def open_exclusions(self):
+        try:
+            # Only pass callback if Inventory window is already open
+            inventory_window = None
+            for widget in self.winfo_children():
+                if isinstance(widget, InventoryWindow):
+                    inventory_window = widget
+                    break
+
+            refresh_callback = inventory_window.load_items if inventory_window else None
+            ExclusionsWindow(self, self.app_config, on_save=self.refresh_after_settings_save, refresh_inventory_callback=refresh_callback)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open Exclude window:\n{str(e)}")
+
+    def on_email_provider_changed(self, event=None):
+        """Auto-fill SMTP settings based on selected email provider"""
+        provider = self.configure_email_provider.get()
+
+        if provider == "Gmail":
+            self.configure_smtp_server.delete(0, "end")
+            self.configure_smtp_server.insert(0, "smtp.gmail.com")
+            self.configure_smtp_port.delete(0, "end")
+            self.configure_smtp_port.insert(0, "587")
+            self.configure_use_tls.set(True)
+        elif provider == "Outlook":
+            self.configure_smtp_server.delete(0, "end")
+            self.configure_smtp_server.insert(0, "smtp-mail.outlook.com")
+            self.configure_smtp_port.delete(0, "end")
+            self.configure_smtp_port.insert(0, "587")
+            self.configure_use_tls.set(True)
+        # For Custom SMTP, user fills in the values
+
     def refresh_after_settings_save(self):
         """Refresh UI after settings are saved"""
         # Reload config from disk
@@ -1018,50 +2336,20 @@ class MainApp(tk.Tk):
             self.monitor_progress()  # Start monitoring
             self.update_log("Running agent...\n")
 
-            # Launch agent completely invisibly
-            import sys
-            import os
+            # Import and call agent directly
+            from ebay_relist_agent import run
+            run()
 
-            # Use CREATE_NO_WINDOW flag on Windows for complete invisibility
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = subprocess.SW_HIDE
-
-            # Windows-specific: use CREATE_NO_WINDOW to prevent any window
-            creationflags = 0
-            if sys.platform == "win32":
-                creationflags = 0x08000000  # CREATE_NO_WINDOW
-
-            result = subprocess.run(
-                ["python", str(BASE_DIR / "ebay_relist_agent.py")],
-                cwd=str(BASE_DIR),
-                capture_output=True,
-                text=True,
-                timeout=600,
-                startupinfo=startupinfo,
-                creationflags=creationflags
-            )
-
-            if result.returncode == 0:
-                self.progress_bar.config(value=100)
-                self.overall_progress_bar.config(value=100)
-                self.status_text.config(text="Complete\n✓", fg="#00DD00")
-                self.update_log("Agent completed successfully!\n\nRefreshing log...")
-                self.after(1000, self.refresh_log)
-            else:
-                self.status_text.config(text="Failed\n✗", fg="#FF4444")
-                error_msg = result.stderr if result.stderr else "Unknown error"
-                self.update_log(f"Agent failed:\n{error_msg}")
-                self.progress_bar.config(value=0)
-                self.overall_progress_bar.config(value=0)
-        except subprocess.TimeoutExpired:
-            self.status_text.config(text="Timeout", fg="#FF4444")
-            self.progress_bar.config(value=0)
-            self.update_log("Agent timeout - operation took too long")
+            self.progress_bar.config(value=100)
+            self.overall_progress_bar.config(value=100)
+            self.status_text.config(text="Complete\n✓", fg="#00DD00")
+            self.update_log("Agent completed successfully!\n\nRefreshing log...")
+            self.after(1000, self.refresh_log)
         except Exception as e:
-            self.status_text.config(text="Error ✗", fg="#FF4444")
+            self.status_text.config(text="Failed\n✗", fg="#FF4444")
+            self.update_log(f"Agent failed:\n{str(e)}")
             self.progress_bar.config(value=0)
-            self.update_log(f"Failed to run agent: {e}")
+            self.overall_progress_bar.config(value=0)
 
     def update_progress_display(self):
         """Update progress bar and current item display"""
@@ -1069,7 +2357,7 @@ class MainApp(tk.Tk):
             from datetime import datetime, timedelta
             from pathlib import Path
 
-            PROGRESS_FILE = BASE_DIR / "progress.json"
+            PROGRESS_FILE = DATA_DIR / "progress.json"
 
             # Get total items to process from config
             total_items = self.app_config.get("listings_per_run", 10)
@@ -1151,13 +2439,283 @@ class MainApp(tk.Tk):
         self.after(1000, self.monitor_progress)  # Update every 1 second
 
     def open_log_viewer(self):
+        # Deprecated: View Log is now a tab (see viewlog_* methods below).
+        # Kept for backwards compatibility only — not used by the UI.
         LogViewerWindow(self)
 
+    def viewlog_load_all_entries(self):
+        try:
+            if not LOG_FILE.exists():
+                return
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                self.viewlog_all_entries = json.load(f)
+        except Exception as e:
+            self.viewlog_display.insert("end", f"Error loading log: {e}\n")
+
+    def viewlog_refresh(self):
+        """Reload log entries and reapply filters"""
+        self.viewlog_load_all_entries()
+        self.viewlog_apply_filter()
+
+    def viewlog_auto_refresh(self):
+        """Auto-refresh the View Log tab if the log file has been modified"""
+        try:
+            if LOG_FILE.exists():
+                current_modify_time = LOG_FILE.stat().st_mtime
+                if current_modify_time > self.viewlog_last_modify_time:
+                    self.viewlog_last_modify_time = current_modify_time
+                    self.viewlog_load_all_entries()
+                    self.viewlog_apply_filter()
+        except:
+            pass
+
+        # Schedule next refresh in 2 seconds
+        if self.winfo_exists():
+            self.after(2000, self.viewlog_auto_refresh)
+
+    def viewlog_apply_filter(self):
+        from_date = self.viewlog_from_date.get()
+        to_date = self.viewlog_to_date.get()
+        status = self.viewlog_status_var.get()
+        search = self.viewlog_search.get().lower()
+
+        self.viewlog_display.config(state="normal")
+        self.viewlog_display.delete(1.0, "end")
+
+        filtered = [
+            e for e in self.viewlog_all_entries
+            if (from_date <= e.get("date", "") <= to_date) and
+               (status == "All" or e.get("status", "").capitalize() == status) and
+               (search == "" or search in str(e.get("title", "")).lower() or
+                search in str(e.get("item_id", "")).lower() or
+                search in str(e.get("old_item_id", "")).lower())
+        ]
+
+        # Entries (sorted newest first)
+        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+        self.viewlog_filtered_entries = sorted_entries  # Keep for Export CSV
+
+        if not filtered:
+            self.viewlog_display.insert("end", "No matching entries.\n")
+            self.viewlog_display.config(state="disabled")
+            return
+
+        # Header
+        self.viewlog_display.insert("end", f"{'Started':<20} {'Completed':<20} {'Status':<10} {'Old Item':<15} {'Title':<35}\n")
+        self.viewlog_display.insert("end", "=" * 110 + "\n")
+
+        for entry in sorted_entries:
+            start_time = entry.get("start_time", "?")
+            end_time = entry.get("end_time", "?")
+            status = entry.get("status", "?")
+            old_id = entry.get("old_item_id") or entry.get("item_id", "?")
+            title = entry.get("title", "")[:33]
+            reason = entry.get("reason", "")
+
+            if status == "relisted":
+                self.viewlog_display.insert("end", f"{start_time:<20} {end_time:<20} {status:<10} {old_id:<15} {title:<35}\n")
+            else:
+                self.viewlog_display.insert("end", f"{start_time:<20} {end_time:<20} {status:<10} {old_id:<15} {title:<35}\n")
+                if reason:
+                    self.viewlog_display.insert("end", f"{'':40} Error: {reason}\n")
+
+        self.viewlog_display.config(state="disabled")
+
+    def viewlog_export(self):
+        """Export the currently filtered View Log entries to a CSV file"""
+        if not self.viewlog_filtered_entries:
+            messagebox.showinfo("Export CSV", "No matching entries to export.")
+            return
+
+        from tkinter import filedialog
+        import csv
+        from datetime import datetime
+
+        default_name = f"relist_log_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=default_name,
+            title="Export Log to CSV",
+        )
+        if not file_path:
+            return
+
+        try:
+            fieldnames = ["date", "start_time", "end_time", "status", "old_item_id", "new_item_id", "item_id", "title", "reason"]
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                for entry in self.viewlog_filtered_entries:
+                    writer.writerow(entry)
+            messagebox.showinfo("Export CSV", f"Exported {len(self.viewlog_filtered_entries)} entries to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Export CSV", f"Failed to export log: {e}")
+
+    def viewlog_show_guide(self):
+        guide_text = """LOG VIEWER QUICK GUIDE
+
+FILTERING YOUR LOGS
+Find specific relist activity using these filters:
+
+FROM DATE / TO DATE
+• Enter dates in YYYY-MM-DD format (e.g., 2026-06-01)
+• Filters logs within the date range
+• Default: 2026-01-01 to 2099-12-31 (all dates)
+
+STATUS
+• All: Shows all entries regardless of status
+• Relisted: Only successful relists
+• Error: Only failed attempts
+• Helps identify problem items quickly
+
+SEARCH
+• Search by title, item ID, or old item ID
+• Case-insensitive
+• Enter partial text (e.g., "Plant" will find "Plant Pot")
+
+APPLY FILTER
+Click this button to filter the log based on your criteria.
+
+READING THE LOG
+Each entry shows:
+• Started: Time the relist process began
+• Completed: Time the relist process finished
+• Status: relisted (success) or error (failed)
+• Old Item: The item ID that was ended
+• Title: The first 33 characters of the listing title
+
+ERROR DETAILS
+If an entry shows Error status, additional error details are
+displayed on the next line explaining what went wrong.
+
+SORTING
+Logs are always sorted by newest first (most recent at the top).
+"""
+        QuickGuideWindow(self, "Log Viewer", guide_text)
+
+    def retry_selected_error(self):
+        # Placeholder for retry logic (will be implemented in full feature)
+        pass
+
     def show_about(self):
-        messagebox.showinfo("About", "Relist Agent\n\nAutomatically relist your items daily.\n\nVersion 1.0 Beta\n\nSchedule your relists, track your activity, and manage your inventory with ease.")
+        store_name = self.app_config.get("store_name", "")
+        licensed_to = f"Licensed to: {store_name}" if store_name else ""
+
+        about_text = """eBay Relist Agent v2.0.0
+
+Automatically relist your items daily from your eBay store.
+
+KEY FEATURES:
+• Schedule automatic relisting (daily or custom days)
+• Track relisted items in activity log
+• Manage inventory with exclusions
+• License-protected (one key per computer)
+• OAuth 2.0 for secure eBay authentication
+
+QUICK START:
+1. Configure your eBay API credentials
+2. Set schedule and run time
+3. Click "Run Now" to test or let it run automatically
+
+SUPPORT:
+For issues or feature requests:
+support@thetrashedpanda.com
+
+""" + licensed_to
+        messagebox.showinfo("About Relist Agent", about_text)
+
+    def check_updates_manual(self):
+        """Check for updates and download if available"""
+        from tkinter import filedialog
+        has_update, latest_version = check_for_updates()
+        if has_update:
+            # Ask user where to save the file
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".zip",
+                filetypes=[("ZIP files", "*.zip"), ("All files", "*.*")],
+                initialfile=f"Relist-Agent-{latest_version}.zip"
+            )
+            if filename:
+                self._download_update(latest_version, filename)
+        else:
+            messagebox.showinfo("No Update", "You are using the latest version.")
+
+    def _download_update(self, version, filepath):
+        """Download update file"""
+        try:
+            url = f"https://thetrashedpanda.com/updates/{version}/Relist-Agent-{version}.zip"
+            messagebox.showinfo("Downloading", f"Downloading {version}...\n\nSaving to:\n{filepath}")
+
+            # Try curl_cffi first (WAF bypass via TLS fingerprint)
+            if HAS_CURL_CFFI:
+                try:
+                    response = cffi_requests.get(url, impersonate="chrome", timeout=30)
+                    if response.status_code == 200:
+                        with open(filepath, 'wb') as f:
+                            f.write(response.content)
+                        messagebox.showinfo("Downloaded", f"Update downloaded successfully!\n\n{filepath}\n\nExtract and run the new version.")
+                        return
+                except Exception as e:
+                    pass  # Fall back to urllib
+
+            # Fallback: urllib with browser headers
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            urllib.request.urlretrieve(url, filepath)
+            messagebox.showinfo("Downloaded", f"Update downloaded successfully!\n\n{filepath}\n\nExtract and run the new version.")
+        except Exception as e:
+            messagebox.showerror("Download Failed", f"Failed to download update:\n{str(e)}")
+
+    def check_updates_startup(self):
+        """Check for updates on startup in background"""
+        def _check():
+            try:
+                has_update, latest_version = check_for_updates()
+                if has_update:
+                    self.after(0, self._flash_update_button)
+            except Exception as e:
+                print(f"[UPDATE] Startup check failed: {e}")
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _flash_update_button(self):
+        """Flash update button red to indicate new version available"""
+        self.update_button.config(text="⚠ UPDATE AVAILABLE")
+        self.update_button.config(foreground="red")
+
+    def stop_service(self):
+        """Remove the scheduled task from Windows Task Scheduler"""
+        if not messagebox.askyesno("Stop Service", "Remove the scheduled task? The agent will no longer run automatically."):
+            return
+
+        try:
+            import subprocess
+            # Unregister the scheduled task
+            subprocess.run(
+                ["powershell", "-Command", "Unregister-ScheduledTask -TaskName 'eBayRelistAgent' -Confirm:$false"],
+                check=True,
+                capture_output=True
+            )
+            messagebox.showinfo("Success", "Scheduled task removed. The agent will no longer run automatically.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove task: {str(e)}")
 
     def show_instructions(self):
         instructions_text = """RELIST AGENT - COMPLETE INSTRUCTIONS
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT: SCHEDULED TASK BEHAVIOR
+
+When the task runs on a schedule, you will NOT see live data in
+the log. The activity log will update AFTER the scheduled run
+completes. This is normal.
+
+To see real-time progress, click "Run Now" to test manually.
 
 ═══════════════════════════════════════════════════════════════
 
@@ -1197,12 +2755,16 @@ CENTER PANEL - Activity Log
 • Old Item: The item ID being relisted
 • Title: Item title for identification
 
-RIGHT PANEL - Quick Actions
-• Run Now: Execute the agent immediately
+NAVIGATE PANEL - Tabs
+• Main: Activity log (this view)
 • Inventory: Browse all your items
-• Refresh: Reload the activity log
+• Exclusions: Manage items excluded from relist
 • View Log: Detailed log viewer with filtering
 • Configure: Change settings
+
+RIGHT PANEL - Quick Actions
+• Run Now: Execute the agent immediately
+• Refresh: Reload the activity log
 • Instructions: This page
 • About: App information
 • Exit: Close the application
@@ -1382,7 +2944,7 @@ TIPS & BEST PRACTICES
    Watch the first 2-3 runs before going fully automatic
    Check activity log to see what's being relisted
 
-3. Use View Log for Details
+3. Use the View Log Tab for Details
    Full log viewer has filtering by date/status/keywords
    Great for finding specific items or troubleshooting
 
@@ -1404,13 +2966,16 @@ QUICK REFERENCE
 
 BUTTONS BY LOCATION
 
+Navigate Tabs:
+• Main → Activity log
+• Inventory → Browse items
+• Exclusions → Manage exclusions
+• View Log → Detailed viewer
+• Configure → Settings
+
 Dashboard Right Panel:
 • Run Now → Execute agent now
-• Inventory → Browse items
 • Refresh → Reload log
-• View Log → Detailed viewer
-• Retry Relist → Retry failed error items (active when error row selected)
-• Configure → Settings
 • Instructions → This page
 • About → App info
 • Exit → Close app
@@ -1452,11 +3017,10 @@ COMPLETED ITEMS (Logged in Activity Log)
   relisted (Green) - Successfully relisted item
   error (Red) - Failed to relist (duplicate policy, API error, etc)
 
-RECOVERING FAILED ITEMS
-  • Click an error row (red text)
-  • Click "Retry Relist" button → attempt to relist
-  • View popup with success/failure message
-  • Log automatically updates on success
+FAILED ITEMS
+  • Failed items are logged with error details
+  • Check email report for detailed error messages
+  • Manually relist using the Inventory window if needed
 
 PROGRESS BARS
   Current: Shows progress through current item (4 stages = 100%)
@@ -1491,165 +3055,1202 @@ TYPICAL WORKFLOW
 """
         QuickGuideWindow(self, "Dashboard", guide_text)
 
-    def on_log_row_selected(self, event):
-        print("[DEBUG] Row clicked in log tree")
-        selection = self.log_tree.selection()
-        print(f"[DEBUG] Selection: {selection}")
-
-        if not selection:
-            print("[DEBUG] No selection, disabling button")
-            self.retry_button.config(state="disabled")
-            self.selected_error_item_id = None
-            return
-
-        selected_item = selection[0]
-        values = self.log_tree.item(selected_item, "values")
-        tags = self.log_tree.item(selected_item, "tags")
-
-        print(f"[DEBUG] Selected item: {selected_item}")
-        print(f"[DEBUG] Values: {values}")
-        print(f"[DEBUG] Tags: {tags}")
-
-        # Only enable retry for main error rows (not error detail rows)
-        if tags and "error" in tags and "error_detail" not in tags:
-            if len(values) >= 4 and values[3]:  # Ensure item_id exists and is not empty
-                self.selected_error_item_id = values[3]
-                self.retry_button.config(state="normal")
-                print(f"[DEBUG] [OK] Error row enabled - Item ID: {self.selected_error_item_id}")
-                return
-
-        print(f"[DEBUG] Disabling button - not a valid error row")
-        self.retry_button.config(state="disabled")
-        self.selected_error_item_id = None
-
-    def retry_selected_error(self):
-        if not self.selected_error_item_id:
-            messagebox.showerror("Error", "No error item selected. Click an error row first.")
-            return
-
-        # Check if already running
-        if self.is_running:
-            messagebox.showwarning("Warning", "Agent is already running")
-            return
-
-        print(f"[DEBUG] Starting retry for item: {self.selected_error_item_id}")
-        self.is_running = True
-        self.run_button.config(state="disabled")
-        self.retry_button.config(state="disabled")
-        self.retry_button.config(text="Retrying...")
-
-        def run_retry():
-            try:
-                from ebay_api import get_item, end_item, add_item
-                from auth import get_access_token, load_config
-                import threading
-                import time
-                from datetime import datetime, date
-
-                config = load_config()
-                token = get_access_token(config)
-                item_id = self.selected_error_item_id
-
-                result = {
-                    "success": False,
-                    "error": None,
-                    "new_id": None,
-                    "title": None
-                }
-
-                try:
-                    # Stage 1: Get item details
-                    fields = get_item(config, token, item_id)
-                    result["title"] = fields.get("title", "Unknown")
-
-                    # Stage 2: End old listing
-                    end_item(config, token, item_id)
-                    time.sleep(2)
-
-                    # Stage 3: Create new listing
-                    new_id = add_item(config, token, fields)
-                    result["success"] = True
-                    result["new_id"] = new_id
-
-                    # Log the successful retry
-                    LOG_FILE = BASE_DIR / "relist_log.json"
-                    existing = []
-                    if LOG_FILE.exists():
-                        with open(LOG_FILE, "r", encoding="utf-8") as f:
-                            try:
-                                existing = json.load(f)
-                            except json.JSONDecodeError:
-                                pass
-
-                    today = date.today().isoformat()
-                    start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-                    new_entry = {
-                        "date": today,
-                        "start_time": start_time,
-                        "end_time": end_time,
-                        "old_item_id": item_id,
-                        "new_item_id": new_id,
-                        "title": result["title"],
-                        "status": "relisted",
-                        "note": "manual retry - error item relisted successfully"
-                    }
-                    existing.append(new_entry)
-
-                    with open(LOG_FILE, "w", encoding="utf-8") as f:
-                        json.dump(existing, f, indent=2)
-
-                except Exception as e:
-                    result["error"] = str(e)
-                    print(f"[DEBUG] Retry error: {e}")
-                    import traceback
-                    traceback.print_exc()
-
-                # Show result in main thread
-                self.after(0, lambda: self.show_retry_result(result))
-
-            except Exception as e:
-                print(f"[DEBUG] Unexpected error in retry: {e}")
-                import traceback
-                traceback.print_exc()
-                self.after(0, lambda: messagebox.showerror("Retry Failed", f"Unexpected error: {e}"))
-            finally:
-                self.is_running = False
-                self.run_button.config(state="normal")
-                self.retry_button.config(state="normal")
-                self.retry_button.config(text="Retry Relist")
-                self.after(0, self.refresh_log)
-
-        threading.Thread(target=run_retry, daemon=True).start()
-
-    def show_retry_result(self, result):
-        if result["success"]:
-            messagebox.showinfo(
-                "Relist Success",
-                f"Item successfully relisted!\n\n"
-                f"Old ID: {self.selected_error_item_id}\n"
-                f"New ID: {result['new_id']}\n"
-                f"Title: {result['title']}\n\n"
-                f"The activity log has been updated."
-            )
-        else:
-            messagebox.showerror(
-                "Relist Failed",
-                f"Failed to relist item {self.selected_error_item_id}\n\n"
-                f"Error: {result['error']}\n\n"
-                f"This item may still be blocked by eBay's duplicate listing policy. "
-                f"Try again in 24-48 hours or modify the item's SKU before retrying."
-            )
-
     def open_inventory(self):
         InventoryWindow(self, self.app_config)
 
+    def _get_inventory_refresh_callback(self):
+        """Return the Inventory tab's load_items method. Inventory is now a persistent
+        tab (see 'INVENTORY TAB CONTENT' in __init__) rather than a popup window, so it
+        is always available to refresh."""
+        return self.inv_load_items
+
+    # ===== INVENTORY TAB METHODS =====
+    # (Consolidated from the old InventoryWindow popup — same logic, prefixed with
+    # inv_ to avoid clashing with the Exclusions tab's own refresh_data/etc.)
+
+    def inv_load_items(self, force_refresh=False):
+        print(f"[DEBUG] inv_load_items() called with force_refresh={force_refresh}")
+        try:
+            from datetime import datetime, timedelta
+            from auth import get_access_token
+            from ebay_api import fetch_all_active_listings
+
+            print("[DEBUG] Imports successful")
+            cache_file = DATA_DIR / "inventory_cache.json"
+            cache_valid_hours = 6
+
+            # Try to load from cache first (unless force refresh)
+            cached_items = {}
+            cached_item_ids = set()
+            print(f"[DEBUG] force_refresh={force_refresh}, cache_file={cache_file.exists()}")
+
+            if not force_refresh and cache_file.exists():
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cache_data = json.load(f)
+                        cache_time = datetime.fromisoformat(cache_data.get("timestamp", ""))
+                        if datetime.now() - cache_time < timedelta(hours=cache_valid_hours):
+                            cached_items = {item.get("item_id"): item for item in cache_data.get("items", []) if item.get("item_id")}
+                            cached_item_ids = set(cached_items.keys())
+
+                            self.inv_all_items = list(cached_items.values())
+                            self.inv_progress.config(value=100)
+                            self.inv_progress_text.config(text="Loaded from cache")
+                            self.inv_item_count.config(text=f"Loaded {len(self.inv_all_items)} items (cached)")
+                            self.inv_filter_items()
+                            return
+                except Exception:
+                    pass  # Cache load failed, fetch fresh
+
+            # Fetch fresh data from eBay
+            self.inv_progress.config(maximum=100, value=50)
+            self.inv_progress_text.config(text="Fetching from eBay...")
+            self.inv_item_count.config(text="Loading...")
+            self.update()
+
+            token = get_access_token(self.app_config)
+            fresh_items = fetch_all_active_listings(self.app_config, token)
+            fresh_item_ids = {item.get("item_id") for item in fresh_items if item.get("item_id")}
+
+            # Smart cache: detect new and deleted items
+            new_item_ids = fresh_item_ids - cached_item_ids
+            deleted_item_ids = cached_item_ids - fresh_item_ids
+
+            if new_item_ids or deleted_item_ids:
+                self.inv_progress.config(value=75)
+                if new_item_ids:
+                    self.inv_progress_text.config(text=f"Found {len(new_item_ids)} new items, {len(deleted_item_ids)} deleted")
+                else:
+                    self.inv_progress_text.config(text=f"Found {len(deleted_item_ids)} deleted items")
+                self.update()
+
+            # Combine cached and fresh items
+            self.inv_all_items = [item for item in fresh_items if item.get("item_id") in fresh_item_ids]
+
+            # Save to cache
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "items": self.inv_all_items,
+                "new_count": len(new_item_ids),
+                "deleted_count": len(deleted_item_ids)
+            }
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=2)
+
+            # OPTIMIZATION: Also update exclusions cache (avoid redundant API calls)
+            try:
+                from ebay_api import get_store_categories
+                categories, category_mapping = get_store_categories(self.app_config, token)
+
+                # Extract SKUs from fresh items
+                skus = set()
+                for item in fresh_items:
+                    sku = item.get("sku")
+                    if sku:
+                        skus.add(sku)
+
+                # Save to exclusions cache (in hidden folder)
+                exclusions_cache_file = DATA_DIR / "exclusions_cache.json"
+                with open(exclusions_cache_file, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "categories": sorted(categories),
+                        "skus": sorted(skus),
+                        "category_mapping": category_mapping
+                    }, f, indent=2)
+                print(f"[INVENTORY] Updated exclusions cache: {len(categories)} cats, {len(skus)} skus")
+
+                # ALSO update the Exclude tab's separate cache (available_for_exclusions.json)
+                # This keeps the Exclude tab's display in sync without losing exclusions
+                available_for_exclusions_file = DATA_DIR / "available_for_exclusions.json"
+                with open(available_for_exclusions_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": fresh_items}, f, indent=2)
+                print(f"[INVENTORY] Updated available_for_exclusions cache: {len(fresh_items)} items")
+            except Exception as e:
+                print(f"[INVENTORY] Couldn't update exclusions cache: {e}")
+
+            self.inv_progress.config(value=90)
+            self.inv_progress_text.config(text="Rendering items...")
+            self.update()
+
+            self.inv_filter_items()
+
+            self.inv_progress.config(value=100)
+            self.inv_progress_text.config(text="Done")
+            status_msg = f"Loaded {len(self.inv_all_items)} items"
+            if new_item_ids or deleted_item_ids:
+                status_msg += f" ({len(new_item_ids)} new, {len(deleted_item_ids)} deleted)"
+            self.inv_item_count.config(text=status_msg)
+        except Exception as e:
+            import traceback
+            self.inv_progress.config(value=0)
+            self.inv_progress_text.config(text="")
+            error_msg = f"Error: {str(e)}"
+            self.inv_item_count.config(text=error_msg)
+            print(f"[DEBUG] Load items error: {traceback.format_exc()}")
+
+    def inv_debounce_filter(self, *args):
+        """Debounce search input to avoid lag - wait 300ms after user stops typing"""
+        if self.inv_search_timer:
+            self.after_cancel(self.inv_search_timer)
+        self.inv_search_timer = self.after(300, self.inv_filter_items)
+
+    def inv_preformat_item_dates(self):
+        """Pre-format all item dates once to avoid re-parsing during filtering"""
+        from datetime import datetime
+        for item in self.inv_all_items:
+            date_str = item.get("start_time", "")
+            if date_str:
+                try:
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    item["_formatted_date"] = dt.strftime("%m/%d/%Y %I:%M %p")
+                except:
+                    item["_formatted_date"] = date_str
+            else:
+                item["_formatted_date"] = ""
+
+    def inv_filter_items(self, *args):
+        search_term = self.inv_search_var.get().lower()
+
+        # Clear existing items
+        for widget in self.inv_items_frame.winfo_children():
+            widget.destroy()
+
+        # Filter by title and SKU
+        filtered = [
+            item for item in self.inv_all_items
+            if search_term in item.get("title", "").lower() or
+               search_term in item.get("sku", "").lower()
+        ]
+
+        for idx, item in enumerate(filtered):
+            # Use pre-formatted date
+            formatted_date = item.get("_formatted_date", "")
+
+            item_id = item.get("item_id", "")
+            sku = item.get("sku", "")
+            title = item.get("title", "")
+
+            # Alternate row colors
+            row_bg = BG_SECONDARY if idx % 2 == 0 else BG_TERTIARY
+
+            # Create row frame using grid
+            row = tk.Frame(self.inv_items_frame, bg=row_bg, height=30)
+            row.pack(fill="x", padx=0, pady=0)
+            row.columnconfigure(3, weight=1)  # Title expands
+
+            # Action buttons
+            btn_frame = tk.Frame(row, bg=row_bg)
+            btn_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=2, pady=2)
+            tk.Button(btn_frame, text="❌", width=2, height=1, bg=RED_PRIMARY, fg=TEXT_PRIMARY, command=lambda iid=item_id, t=title: self.inv_delist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="♻️", width=2, height=1, bg=YELLOW_PRIMARY, fg="#000000", command=lambda iid=item_id, t=title: self.inv_relist_item(iid, t), relief="flat", border=1).pack(side="left", padx=1)
+            tk.Button(btn_frame, text="🔗", width=2, height=1, bg=TEXT_PRIMARY, fg=BG_PRIMARY, command=lambda iid=item_id: webbrowser.open(f"https://www.ebay.com/itm/{iid}"), relief="flat", border=1).pack(side="left", padx=1)
+
+            # Item ID label
+            tk.Label(row, text=item_id, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=1, sticky="ew", padx=2, pady=0)
+
+            # SKU
+            tk.Label(row, text=sku, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=2, sticky="ew", padx=2, pady=0)
+
+            # Title (truncate long titles)
+            title_display = (title[:50] + "...") if len(title) > 50 else title
+            tk.Label(row, text=title_display, font=("Arial", 9), bg=row_bg, fg=TEXT_PRIMARY, anchor="w").grid(row=0, column=3, sticky="ew", padx=2, pady=0)
+
+            # Date
+            tk.Label(row, text=formatted_date, font=("Arial", 9), bg=row_bg, fg=TEXT_SECONDARY, anchor="w").grid(row=0, column=4, sticky="ew", padx=2, pady=0)
+
+            # Match header column widths
+            row.columnconfigure(0, minsize=90)   # Actions
+            row.columnconfigure(1, minsize=100)  # Item ID
+            row.columnconfigure(2, minsize=80)   # SKU
+            row.columnconfigure(4, minsize=160)  # Date Listed
+
+        # Update canvas scroll region
+        self.inv_items_frame.update_idletasks()
+        self.inv_canvas.configure(scrollregion=self.inv_canvas.bbox("all"))
+
+        self.inv_item_count.config(text=f"{len(filtered)} of {len(self.inv_all_items)} items")
+
+    def inv_on_frame_configure(self, event=None):
+        """Update scroll region and canvas window width"""
+        self.inv_canvas.configure(scrollregion=self.inv_canvas.bbox("all"))
+        # Match canvas window width to canvas width
+        canvas_width = self.inv_canvas.winfo_width()
+        if canvas_width > 1:
+            self.inv_canvas.itemconfig(self.inv_canvas_window, width=canvas_width)
+
+    def inv_on_mousewheel(self, event):
+        """Handle mousewheel scrolling"""
+        if event.num == 5 or event.delta < 0:
+            self.inv_canvas.yview_scroll(3, "units")
+        elif event.num == 4 or event.delta > 0:
+            self.inv_canvas.yview_scroll(-3, "units")
+
+    def inv_refresh_data(self):
+        """Refresh inventory from eBay (force fresh fetch) — Inventory tab"""
+        result = messagebox.askyesno(
+            "Refresh Data",
+            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories."
+        )
+        if result:
+            print("[DEBUG] Refreshing inventory from eBay...")
+
+            # Clear items frame
+            for widget in self.inv_items_frame.winfo_children():
+                widget.destroy()
+
+            # Reload with force_refresh=True
+            self.inv_all_items = []
+            self.inv_progress["value"] = 0
+            self.inv_progress_text.config(text="Connecting to eBay...")
+            self.inv_item_count.config(text="Loading...")
+
+            threading.Thread(target=lambda: self.inv_load_items(force_refresh=True), daemon=True).start()
+
+    def inv_find_duplicate_skus(self):
+        """Find and display all duplicate SKUs in inventory"""
+        if not self.inv_all_items:
+            messagebox.showwarning("No Items", "Load inventory first")
+            return
+
+        # Build SKU -> items map
+        sku_map = {}
+        for item in self.inv_all_items:
+            sku = item.get("sku", "").strip()
+            if sku:
+                if sku not in sku_map:
+                    sku_map[sku] = []
+                sku_map[sku].append(item)
+
+        # Find duplicates
+        duplicates = {sku: items for sku, items in sku_map.items() if len(items) > 1}
+
+        if not duplicates:
+            messagebox.showinfo("No Duplicates", "All SKUs are unique!")
+            return
+
+        # Build report
+        report = f"Found {len(duplicates)} duplicate SKUs:\n\n"
+        for sku, items in sorted(duplicates.items()):
+            report += f"SKU: {sku} ({len(items)} items)\n"
+            for item in items:
+                report += f"  • {item.get('item_id')} - {item.get('title', 'N/A')[:40]}\n"
+            report += "\n"
+
+        # Show in a text window
+        info_window = tk.Toplevel(self)
+        info_window.title("Duplicate SKUs Found")
+        info_window.geometry("600x400")
+        info_window.config(bg=BG_PRIMARY)
+
+        text_widget = tk.Text(info_window, bg=BG_SECONDARY, fg=TEXT_PRIMARY, wrap="word", padx=10, pady=10)
+        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
+        text_widget.insert("1.0", report)
+        text_widget.config(state="disabled")
+
+        scrollbar = ttk.Scrollbar(text_widget, command=text_widget.yview)
+        text_widget.config(yscrollcommand=scrollbar.set)
+
+        close_btn = ttk.Button(info_window, text="Close", command=info_window.destroy)
+        close_btn.pack(pady=10)
+
+    def inv_auto_delist_duplicates(self):
+        """Find true duplicates (matching title+SKU) and delist oldest"""
+        if not self.inv_all_items:
+            messagebox.showwarning("No Items", "Load inventory first")
+            return
+
+        # Normalize titles for comparison (first 50 chars, lowercase)
+        def normalize_title(title):
+            return (title or "")[:50].lower().strip()
+
+        # Build SKU -> items map
+        sku_map = {}
+        for item in self.inv_all_items:
+            sku = item.get("sku", "").strip()
+            if sku:
+                if sku not in sku_map:
+                    sku_map[sku] = []
+                sku_map[sku].append(item)
+
+        # Find true duplicates (matching title + SKU)
+        to_delist = []
+        for sku, items in sku_map.items():
+            if len(items) <= 1:
+                continue
+
+            # Group by normalized title
+            title_groups = {}
+            for item in items:
+                norm_title = normalize_title(item.get("title", ""))
+                if norm_title:
+                    if norm_title not in title_groups:
+                        title_groups[norm_title] = []
+                    title_groups[norm_title].append(item)
+
+            # For each title group, keep newest, mark others for deletion
+            for norm_title, title_items in title_groups.items():
+                if len(title_items) > 1:
+                    # Sort by item ID (ascending = oldest first)
+                    sorted_items = sorted(title_items, key=lambda x: int(x.get("item_id", 0)))
+                    # Keep newest (last), delist rest
+                    for item in sorted_items[:-1]:
+                        to_delist.append(item)
+
+        if not to_delist:
+            messagebox.showinfo("No True Duplicates", "No items found with matching title AND SKU")
+            return
+
+        # Build confirmation message
+        msg = f"Found {len(to_delist)} true duplicates to remove (keeping newest):\n\n"
+        for item in to_delist:
+            msg += f"ID: {item['item_id']} | SKU: {item.get('sku', 'N/A')} | {item.get('title', 'N/A')[:40]}\n"
+
+        confirm = messagebox.askyesno("Confirm Auto-Delist", msg + f"\n\nDelist {len(to_delist)} items?")
+
+        if confirm:
+            self.inv_perform_bulk_delist(to_delist)
+
+    def inv_perform_bulk_delist(self, items_to_delete):
+        """Delist multiple items and show progress"""
+        from auth import get_access_token
+        from ebay_api import end_item
+
+        success_count = 0
+        failed_items = []
+
+        messagebox.showinfo(
+            "Delisting",
+            f"Delisting {len(items_to_delete)} duplicate items...\n\nThis may take a minute."
+        )
+
+        try:
+            token = get_access_token(self.app_config)
+
+            for idx, item in enumerate(items_to_delete):
+                try:
+                    item_id = item['item_id']
+                    end_item(self.app_config, token, item_id)
+                    success_count += 1
+                    print(f"[INFO] Delisted {item_id} ({idx+1}/{len(items_to_delete)})")
+                except Exception as e:
+                    failed_items.append((item['item_id'], str(e)))
+                    print(f"[ERROR] Failed to delist {item['item_id']}: {e}")
+
+            # Show results
+            result_msg = f"Delisted {success_count}/{len(items_to_delete)} items"
+            if failed_items:
+                result_msg += f"\n\nFailed ({len(failed_items)}):\n"
+                for item_id, error in failed_items[:5]:
+                    result_msg += f"  • {item_id}: {error}\n"
+                if len(failed_items) > 5:
+                    result_msg += f"  ... and {len(failed_items)-5} more"
+
+            messagebox.showinfo("Bulk Delist Complete", result_msg)
+
+            # Reload inventory
+            self.inv_all_items = []
+            self.inv_filter_items()
+            threading.Thread(target=self.inv_load_items, daemon=True).start()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Bulk delist failed: {e}")
+
+    def inv_delist_item(self, item_id, title):
+        """Delist a single item by ID"""
+        confirm = messagebox.askyesno(
+            "Confirm Delist",
+            f"End listing: {title}?\n\nItem ID: {item_id}"
+        )
+
+        if confirm:
+            try:
+                from auth import get_access_token
+                from ebay_api import end_item
+
+                token = get_access_token(self.app_config)
+                end_item(self.app_config, token, item_id)
+                messagebox.showinfo("Success", f"Item {item_id} delisted successfully")
+                # Reload inventory
+                self.inv_all_items = []
+                self.inv_filter_items()
+                threading.Thread(target=self.inv_load_items, daemon=True).start()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delist: {e}")
+
+    def inv_relist_item(self, item_id, title):
+        """Relist a single item (delist old, create new)"""
+        confirm = messagebox.askyesno(
+            "Confirm Relist",
+            f"Relist: {title}?\n\nItem ID: {item_id}\n\nThis will end the current listing and create a new one with the same details"
+        )
+
+        if confirm:
+            from datetime import date, datetime
+            today = date.today().isoformat()
+            start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                from auth import get_access_token
+                from ebay_api import get_item, add_item, end_item
+
+                token = get_access_token(self.app_config)
+
+                # Get full item details FIRST (before delisting)
+                details = get_item(self.app_config, token, item_id)
+
+                # Delist the old item
+                end_item(self.app_config, token, item_id)
+
+                # Create new listing with same details
+                new_item_id = add_item(self.app_config, token, details)
+
+                end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self._append_relist_log_entry({
+                    "date": today, "start_time": start_time, "end_time": end_time,
+                    "old_item_id": item_id, "new_item_id": new_item_id,
+                    "title": title, "status": "relisted",
+                })
+
+                messagebox.showinfo("Success", f"Listing refreshed!\n\nOld: {item_id}\nNew: {new_item_id}")
+
+                # Reload inventory
+                self.inv_all_items = []
+                self.inv_filter_items()
+                threading.Thread(target=self.inv_load_items, daemon=True).start()
+            except Exception as e:
+                end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self._append_relist_log_entry({
+                    "date": today, "start_time": start_time, "end_time": end_time,
+                    "item_id": item_id, "title": title, "status": "error", "reason": str(e),
+                })
+                messagebox.showerror("Error", f"Failed to relist: {e}")
+
+    def _append_relist_log_entry(self, entry):
+        """Append a single entry to relist_log.json (same format used by the
+        scheduled/headless run in ebay_relist_agent.py) so manual actions taken
+        from the Inventory tab show up in the Main/Logs tab activity log."""
+        try:
+            existing = []
+            if LOG_FILE.exists():
+                with open(LOG_FILE, "r", encoding="utf-8") as f:
+                    try:
+                        existing = json.load(f)
+                    except json.JSONDecodeError:
+                        existing = []
+            existing.append(entry)
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                json.dump(existing, f, indent=2)
+        except Exception as e:
+            print(f"[DEBUG] Failed to append relist log entry: {e}")
+
+    def inv_show_guide(self):
+        guide_text = """INVENTORY QUICK GUIDE
+
+YOUR STORE ITEMS
+Browse all active listings in your eBay store. Load is instant
+since it uses eBay's basic listing data.
+
+SEARCH
+• Search by product title OR custom SKU
+• Type to filter in real-time
+• Case-insensitive search
+• Examples:
+  - Search "Plant" finds "Plant Pots Set of 3"
+  - Search by product name to find items
+  - Search by SKU code to find items
+
+COLUMNS
+
+Item ID
+• Unique eBay identifier
+• Click the 🔗 button to open the item on eBay.com in your browser
+
+SKU
+• Your custom product SKU/code
+• Use this to quickly find items you're looking for
+
+Title
+• The listing title
+
+Date Listed
+• When the item was originally listed
+• Format: MM/DD/YYYY HH:MM AM/PM
+
+ACTIONS (Row Action Buttons)
+
+Row buttons appear on the left of each item:
+
+❌ DELIST SELECTED
+• Select an item in the list
+• Click the ❌ button to end/delete the listing
+• Requires confirmation before delisting
+
+♻️ RELIST SELECTED
+• Select an item in the list
+• Click the ♻️ button to automatically delist and relist with same details
+• Uses current price, description, condition, shipping, etc.
+• Old listing ends, new listing is created seamlessly
+
+🔗 OPEN ON EBAY
+• Click the 🔗 button next to the Item ID
+• Opens the eBay listing in your web browser
+• Allows you to view, edit, or manage the listing directly on eBay
+• No selection required - button appears for every item
+
+REFRESH DATA
+Click to reload the inventory from eBay.
+
+Item count shows: "X of Y items" where X is currently visible
+after search filtering, and Y is total items in your store.
+
+DUPLICATE SEARCH OPTIONS
+
+FIND DUPLICATES
+Purpose: Review and identify potential duplicates
+• Scans inventory for items with the same SKU
+• Shows ALL items with matching SKU (grouped by SKU)
+• Includes items that may NOT be true duplicates
+• No action taken - this is VIEW ONLY
+• Use this to manually inspect and decide what to remove
+• Good for: Understanding your inventory, finding variations of same product
+
+AUTO-DELIST DUPES
+Purpose: Automatically remove true duplicates
+• Scans for items with BOTH matching title AND SKU
+• Only targets true duplicates (identical product + SKU)
+• Automatically keeps the NEWEST listing
+• Delists OLDER copies of the same item
+• Requires your confirmation before delisting
+• Shows success/failure report
+• Use this when you have exact duplicate listings
+• Good for: Cleaning up accidental duplicate listings from relisting or manual errors
+
+WHEN TO USE EACH:
+1. Use "Find Duplicates" first to review potential issues
+2. Use "Auto-Delist Dupes" to safely remove confirmed true duplicates
+   (matching both title AND SKU)
+"""
+        QuickGuideWindow(self, "Inventory", guide_text)
+
+    def refresh_data(self):
+        """Refresh data from store (with or without Inventory window) — Exclusions tab"""
+        self.excl_progress_bar.config(value=0)
+        self.excl_progress_text.config(text="Refreshing...")
+        self.update_idletasks()
+        try:
+            refresh_inventory_callback = self._get_inventory_refresh_callback()
+            if refresh_inventory_callback:
+                # Use callback if Inventory window is open (for efficiency)
+                refresh_inventory_callback(force_refresh=True)
+            else:
+                # Fetch inventory directly if Inventory window not open
+                from auth import get_access_token, load_config
+                from ebay_api import fetch_all_active_listings
+                cfg = load_config()
+                token = get_access_token(cfg)
+                self.excl_progress_text.config(text="Fetching inventory...")
+                self.update_idletasks()
+                items = fetch_all_active_listings(cfg, token)
+                # Save full items with title for display
+                cache_file = self._get_cache_file()
+                cache_data = {"items": items}
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(cache_data, f, indent=2)
+
+            # Reload from cache after refresh
+            self.load_skus_from_store()
+            self.refresh_excluded_titles()  # Also refresh titles for excluded items
+            self.excl_progress_bar.config(value=100)
+            self.excl_progress_text.config(text="Done")
+            messagebox.showinfo("Success", "Data refreshed from store")
+        except Exception as e:
+            self.excl_progress_bar.config(value=0)
+            self.excl_progress_text.config(text="Ready")
+            messagebox.showerror("Error", f"Refresh failed: {str(e)}")
+
+    def _get_cache_file(self):
+        return DATA_DIR / "available_for_exclusions.json"
+
+    def refresh_excluded_titles(self):
+        """Update excluded items display with titles from refreshed cache"""
+        try:
+            cache = self._load_cache()
+            items = cache.get("items", [])
+
+            # Build SKU -> Title map from cache
+            sku_to_title = {}
+            for item in items:
+                sku = item.get("sku", "").strip()
+                if sku:
+                    sku_to_title[sku] = item.get("title", "").strip()[:60]
+
+            # Update excluded items display with titles
+            excluded_count = self.excluded_skus.size()
+            new_items = []
+            for idx in range(excluded_count):
+                display_text = self.excluded_skus.get(idx)
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+
+                # Try to get title from cache
+                title = sku_to_title.get(sku, "")
+                if title:
+                    new_display = f"{sku} - {title}"
+                else:
+                    new_display = sku
+
+                new_items.append(new_display)
+                self.sku_display_map[new_display] = sku
+
+            # Rebuild excluded list with new titles
+            self.excluded_skus.delete(0, tk.END)
+            for item in new_items:
+                self.excluded_skus.insert(tk.END, item)
+        except:
+            pass  # Graceful failure if cache doesn't have items
+
+    def _write_debug_log(self, log_lines):
+        """Write debug logs to file"""
+        try:
+            debug_file = DATA_DIR / "exclusions_debug.log"
+            with open(debug_file, "a", encoding="utf-8") as f:
+                import datetime
+                f.write(f"\n=== {datetime.datetime.now().isoformat()} ===\n")
+                for line in log_lines:
+                    f.write(line + "\n")
+        except:
+            pass
+
+    def _load_cache(self):
+        """Load cached items (SKU + Title)"""
+        cache_file = self._get_cache_file()
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"items": []}
+
+    def select_all_skus(self):
+        """Select all available SKUs"""
+        self.available_skus.select_set(0, tk.END)
+
+    def select_all_excluded(self):
+        """Select all excluded SKUs"""
+        self.excluded_skus.select_set(0, tk.END)
+
+    def upload_exclusion_file(self):
+        """Upload CSV or XLS file with SKUs to exclude"""
+        from tkinter import filedialog
+        file = filedialog.askopenfile(
+            title="Select CSV or XLS file with SKUs",
+            filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
+        if not file:
+            return
+
+        try:
+            skus_to_add = []
+            filename = file.name
+            file.close()
+
+            if filename.endswith('.csv'):
+                import csv
+                with open(filename, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        sku = row.get('SKU', row.get('sku', '')).strip()
+                        title = row.get('Title', row.get('title', '')).strip()
+                        if sku:
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+            else:  # XLS/XLSX
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(filename)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        sku = str(row[0] or '').strip()
+                        title = str(row[1] or '').strip() if len(row) > 1 else ''
+                        if sku and sku.lower() != 'sku':
+                            display_text = f"{sku} - {title}" if title else sku
+                            skus_to_add.append((sku, display_text))
+                except ImportError:
+                    messagebox.showerror("Error", "openpyxl not installed. Please use CSV format instead.")
+                    return
+
+            # Add to excluded list
+            for sku, display_text in skus_to_add:
+                if sku not in [s.split(" - ")[0] if " - " in s else s for s in self.excluded_skus.get(0, tk.END)]:
+                    self.excluded_skus.insert(tk.END, display_text)
+
+            messagebox.showinfo("Success", f"Added {len(skus_to_add)} SKUs from file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read file: {str(e)}")
+
+    def load_skus_from_store(self):
+        """Load SKUs with titles from cache"""
+        debug_log = []
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        debug_log.append(f"load_skus_from_store: Found {len(items)} items in cache")
+
+        # Use in-memory excluded SKUs set instead of extracting from display text
+        excluded_skus = getattr(self, 'excluded_skus_set', set())
+        debug_log.append(f"load_skus_from_store: Using in-memory excluded set with {len(excluded_skus)} SKUs")
+        debug_log.append(f"  Excluded SKUs in memory: {list(excluded_skus)[:5]}")
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}  # Map display text back to SKU
+
+        added_count = 0
+        excluded_count = 0
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]  # Truncate long titles
+            if sku:
+                display_text = f"{sku} - {title}" if title else sku
+                if sku not in excluded_skus:
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+                    added_count += 1
+                else:
+                    excluded_count += 1
+
+        debug_log.append(f"load_skus_from_store: Added {added_count} to available, excluded {excluded_count}")
+        self._write_debug_log(debug_log)
+
+        if not items:
+            self.available_skus.insert(tk.END, "(No SKUs found in store)")
+
+    def load_excluded_from_config(self):
+        """Load previously saved excluded items from persistent file (with titles)"""
+        debug_log = []
+        try:
+            # First try to load from excluded_items.json (has titles)
+            excluded_items_file = DATA_DIR / "excluded_items.json"
+            excluded_display_texts = []
+
+            if excluded_items_file.exists():
+                try:
+                    with open(excluded_items_file, "r", encoding="utf-8") as f:
+                        excluded_data = json.load(f)
+                        excluded_display_texts = excluded_data.get("items", [])
+                    debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} items from excluded_items.json")
+                except:
+                    debug_log.append("load_excluded_from_config: Failed to load excluded_items.json, falling back to config")
+
+            # If excluded_items.json doesn't exist, fall back to config (SKU only)
+            if not excluded_display_texts:
+                excluded_skus_list = self.app_config.get("excluded_skus", [])
+                excluded_display_texts = excluded_skus_list
+                debug_log.append(f"load_excluded_from_config: Loaded {len(excluded_display_texts)} SKUs from config (no titles)")
+
+            # Populate excluded_skus listbox with saved exclusions
+            self.excluded_skus.delete(0, tk.END)
+            self.sku_display_map = getattr(self, 'sku_display_map', {})
+            self.excluded_skus_set = set()  # Clear and rebuild the in-memory set
+
+            loaded_count = 0
+            for display_text in excluded_display_texts:
+                self.excluded_skus.insert(tk.END, display_text)
+                # Extract SKU and add to set
+                sku = display_text.split(" - ")[0] if " - " in display_text else display_text
+                self.sku_display_map[display_text] = sku
+                self.excluded_skus_set.add(sku)
+                loaded_count += 1
+            debug_log.append(f"load_excluded_from_config: Loaded {loaded_count} items into UI and memory set")
+
+            # Write logs to file
+            self._write_debug_log(debug_log)
+        except Exception as e:
+            debug_log.append(f"load_excluded_from_config ERROR: {e}")
+            import traceback
+            debug_log.append(traceback.format_exc())
+            self._write_debug_log(debug_log)
+
+    def refresh_skus_cache(self):
+        """Trigger complete refresh (inventory + exclusions cache)"""
+        self.excl_progress_bar.config(value=0)
+        self.excl_progress_text.config(text="Loading...")
+        self.update_idletasks()
+
+        refresh_inventory_callback = self._get_inventory_refresh_callback()
+        if refresh_inventory_callback:
+            try:
+                refresh_inventory_callback(force_refresh=True)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showinfo("Success", "Refreshed all data: Inventory, Categories, and SKUs")
+            except Exception as e:
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Refresh failed: {str(e)[:100]}")
+        else:
+            # Fallback: fetch directly without updating inventory
+            try:
+                categories, skus = self._fetch_from_store()
+                self._save_cache(categories, skus)
+                self.load_categories_from_store()
+                self.load_skus_from_store()
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showinfo("Success", f"Loaded {len(categories)} categories and {len(skus)} SKUs\n(Open Inventory for full sync)")
+            except Exception as e:
+                self.excl_progress_bar.config(value=0)
+                self.excl_progress_text.config(text="Ready")
+                messagebox.showerror("Error", f"Fetch failed: {str(e)[:100]}")
+
+    def filter_available_skus(self, event=None):
+        """Filter SKUs based on search (SKU or title)"""
+        search_term = self.sku_search.get().lower()
+        cache = self._load_cache()
+        items = cache.get("items", [])
+        # Use in-memory excluded SKUs set (raw SKU values, not display text)
+        excluded_skus = self.excluded_skus_set
+
+        self.available_skus.delete(0, tk.END)
+        self.sku_display_map = {}
+
+        for item in items:
+            sku = item.get("sku", "").strip()
+            title = item.get("title", "").strip()[:60]
+            if sku and sku not in excluded_skus:
+                if search_term in sku.lower() or search_term in title.lower():
+                    display_text = f"{sku} - {title}" if title else sku
+                    self.available_skus.insert(tk.END, display_text)
+                    self.sku_display_map[display_text] = sku
+
+        if not self.available_skus.get(0, tk.END):
+            self.available_skus.insert(tk.END, "(No matches)")
+
+    def exclude_sku(self):
+        """Move selected SKUs from available to excluded"""
+        selection = self.available_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to exclude.")
+            return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            display_text = self.available_skus.get(idx)
+            if display_text.startswith("Error") or display_text.startswith("("):
+                continue
+            # Extract actual SKU from display text
+            sku = self.sku_display_map.get(display_text, display_text.split(" - ")[0])
+            self.available_skus.delete(idx)
+            if sku not in self.excluded_skus.get(0, tk.END):
+                # Display with title in excluded list too
+                title_part = display_text.split(" - ", 1)[1] if " - " in display_text else ""
+                excluded_display = f"{sku} - {title_part}" if title_part else sku
+                self.excluded_skus.insert(tk.END, excluded_display)
+                self.excluded_skus_set.add(sku)  # Add to in-memory set
+        self.has_unsaved_changes = True
+
+    def include_sku(self):
+        """Move selected SKUs from excluded to available"""
+        selection = self.excluded_skus.curselection()
+        if not selection:
+            messagebox.showwarning("Selection Error", "Please select a SKU to include.")
+            return
+        # Process in reverse order to avoid index shifting
+        for idx in reversed(selection):
+            excluded_display = self.excluded_skus.get(idx)
+            # Extract SKU from display text
+            sku = excluded_display.split(" - ")[0] if " - " in excluded_display else excluded_display
+            self.excluded_skus.delete(idx)
+            self.excluded_skus_set.discard(sku)  # Remove from in-memory set
+            # Add back to available list with title if present
+            if sku not in self.available_skus.get(0, tk.END):
+                self.available_skus.insert(tk.END, excluded_display)
+                self.sku_display_map[excluded_display] = sku
+        self.has_unsaved_changes = True
+
+    def save_exclusions(self):
+        """Save exclusions with confirmation"""
+        excluded_displays = list(self.excluded_skus.get(0, tk.END))
+        excluded_displays = [s for s in excluded_displays if not s.startswith("Error") and not s.startswith("(No")]
+
+        # Extract SKUs from display text
+        excluded_skus = []
+        for display in excluded_displays:
+            sku = display.split(" - ")[0] if " - " in display else display
+            excluded_skus.append(sku)
+
+        # DEBUG: Log what we're about to save
+        debug_info = [
+            f"SAVE_EXCLUSIONS - Listbox has {self.excluded_skus.size()} items",
+            f"  Displays to save: {excluded_displays}",
+            f"  SKUs to save: {excluded_skus}",
+            f"  excluded_skus_set in memory: {self.excluded_skus_set}"
+        ]
+        self._write_debug_log(debug_info)
+
+        # Show confirmation
+        msg = f"""Save these exclusions?
+
+SKUs to exclude ({len(excluded_skus)}):
+{', '.join(excluded_skus[:5])}{'...' if len(excluded_skus) > 5 else ''}
+"""
+        if messagebox.askyesno("Confirm Exclusions", msg):
+            self.app_config.update({
+                "excluded_skus": sorted(set(excluded_skus)),
+            })
+            save_config(self.app_config)
+
+            # Also save the display format (SKU - Title) to persistent file
+            # This way titles load without needing to refresh data from store
+            try:
+                excluded_items_file = DATA_DIR / "excluded_items.json"
+                with open(excluded_items_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": excluded_displays}, f, indent=2)
+                self._write_debug_log([f"  Saved to {excluded_items_file.name}: {len(excluded_displays)} items"])
+            except Exception as e:
+                self._write_debug_log([f"  ERROR saving to {excluded_items_file.name}: {e}"])
+
+            messagebox.showinfo("Success", "Exclusion settings saved!")
+            self.has_unsaved_changes = False
+            self.refresh_after_settings_save()
+
+    def save_configure_settings(self):
+        """Save settings from Configure tab"""
+        selected_days = [day for day, var in self.configure_day_vars.items() if var.get()]
+        if not selected_days:
+            messagebox.showwarning("Warning", "Please select at least one day to run.")
+            return
+
+        run_time = f"{int(self.configure_run_hour.get()):02d}:{int(self.configure_run_minute.get()):02d}"
+
+        # Track whether eBay credentials changed, to decide whether to offer OAuth
+        old_app_id = self.app_config.get("app_id", "")
+        old_cert_id = self.app_config.get("cert_id", "")
+        old_dev_id = self.app_config.get("dev_id", "")
+        old_ru_name = self.app_config.get("ru_name", "")
+
+        new_app_id = self.configure_app_id.get()
+        new_cert_id = self.configure_cert_id.get()
+        new_dev_id = self.configure_dev_id.get()
+        new_ru_name = self.configure_ru_name.get()
+
+        credentials_changed = (
+            new_app_id != old_app_id or new_cert_id != old_cert_id
+            or new_dev_id != old_dev_id or new_ru_name != old_ru_name
+        )
+
+        self.app_config.update({
+            "app_id": new_app_id,
+            "dev_id": new_dev_id,
+            "cert_id": new_cert_id,
+            "ru_name": new_ru_name,
+            "email_provider": self.configure_email_provider.get(),
+            "gmail_email": self.configure_gmail_email.get(),
+            "gmail_app_password": self.configure_gmail_pass.get(),
+            "smtp_server": self.configure_smtp_server.get(),
+            "smtp_port": self.configure_smtp_port.get(),
+            "smtp_use_tls": self.configure_use_tls.get(),
+            "report_email": self.configure_report_email.get(),
+            "store_name": self.configure_store_name.get(),
+            "log_days": int(self.configure_log_days.get()),
+            "listings_per_run": int(self.configure_listings_per_run.get()),
+            "run_hour": int(self.configure_run_hour.get()),
+            "run_minute": int(self.configure_run_minute.get()),
+            "run_time": run_time,
+            "run_days": selected_days,
+        })
+        save_config(self.app_config)
+
+        # Update Windows Task Scheduler with the new run time/days
+        self.apply_configure_schedule(run_time, selected_days)
+
+        messagebox.showinfo("Success", "Settings saved and schedule updated!")
+        self.refresh_after_settings_save()
+
+        # If eBay credentials changed, offer to (re)authorize via OAuth
+        if credentials_changed and new_app_id and new_cert_id and new_dev_id and new_ru_name:
+            if messagebox.askyesno(
+                "Authorize eBay Account",
+                "Your eBay API credentials were changed.\n\n"
+                "Authorize now via eBay OAuth? A browser window will open."
+            ):
+                self.configure_oauth_auth()
+
+    def apply_configure_schedule(self, run_time, run_days):
+        """Apply the schedule to Windows Task Scheduler via inline PowerShell"""
+        try:
+            exe_path = str(BASE_DIR / "Relist Agent.exe")
+            script_dir = str(BASE_DIR)
+
+            # Build PowerShell command inline (no external files)
+            # Run the EXE with --run flag for headless relisting
+            ps_cmd = f"""
+$taskName = 'eBayRelistAgent'
+$exe = '"{exe_path}"'
+$scriptDir = '{script_dir}'
+
+$action = New-ScheduledTaskAction -Execute $exe -Argument "--run" -WorkingDirectory $scriptDir
+$trigger = New-ScheduledTaskTrigger -Daily -At '{run_time}'
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+"""
+
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+                capture_output=True,
+                timeout=10,
+                text=True
+            )
+
+            if result.returncode != 0:
+                messagebox.showwarning("Warning", f"Schedule update had issues:\n{result.stderr}")
+            else:
+                print(f"[CONFIGURE] Schedule updated: {run_time} on {', '.join(run_days)}")
+
+        except Exception as e:
+            messagebox.showwarning("Error", f"Failed to update schedule:\n{e}")
+
+    def configure_oauth_auth(self):
+        """OAuth authorization - exactly mirrors interactive_setup() flow from auth.py"""
+        try:
+            from tkinter import simpledialog as sd
+            import urllib.parse
+            import requests
+            import base64
+            from datetime import datetime, timezone, timedelta
+            from auth import save_tokens, OAUTH_AUTH_URL, OAUTH_TOKEN_URL, SCOPES
+
+            # Verify all required credentials are present
+            required = {
+                "app_id": self.configure_app_id.get(),
+                "cert_id": self.configure_cert_id.get(),
+                "dev_id": self.configure_dev_id.get(),
+                "ru_name": self.configure_ru_name.get(),
+            }
+            missing = [f for f, v in required.items() if not v]
+            if missing:
+                messagebox.showerror("Missing Credentials", f"Please fill in all required fields:\n{', '.join(missing)}")
+                return
+
+            # Build OAuth URL (exactly as _do_oauth() does in auth.py)
+            auth_url = (
+                f"{OAUTH_AUTH_URL}?client_id={urllib.parse.quote(required['app_id'])}"
+                f"&response_type=code"
+                f"&redirect_uri={urllib.parse.quote(required['ru_name'])}"
+                f"&scope={urllib.parse.quote(SCOPES)}"
+            )
+
+            # Open browser
+            messagebox.showinfo(
+                "OAuth Authorization",
+                "A browser window will open for eBay authorization.\n\n"
+                "After you authorize the app, your browser will redirect to a page that fails to load.\n"
+                "Copy the full URL from the address bar and paste it in the next dialog."
+            )
+            webbrowser.open(auth_url)
+
+            # Ask user to paste redirect URL
+            raw = sd.askstring(
+                "Paste Authorization URL",
+                "Copy the full URL from your browser's address bar and paste it below:"
+            )
+            if not raw:
+                messagebox.showwarning("Cancelled", "OAuth authorization was cancelled.")
+                return
+
+            # Extract authorization code
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+            if "code" not in params:
+                messagebox.showerror("Error", "No 'code' found in the URL.\nMake sure you copied the entire URL from the address bar.")
+                return
+            code = params["code"][0]
+
+            # Exchange code for tokens (exactly as _do_oauth() does)
+            creds = base64.b64encode(f"{required['app_id']}:{required['cert_id']}".encode()).decode()
+            resp = requests.post(
+                OAUTH_TOKEN_URL,
+                headers={"Authorization": f"Basic {creds}", "Content-Type": "application/x-www-form-urlencoded"},
+                data={"grant_type": "authorization_code", "code": code, "redirect_uri": required["ru_name"]},
+                timeout=30,
+            )
+            if not resp.ok:
+                messagebox.showerror("Error", f"Token exchange failed ({resp.status_code}):\n{resp.text}")
+                return
+
+            data = resp.json()
+            if not data.get("refresh_token"):
+                messagebox.showerror("Error", "eBay did not return a refresh token.\nCheck your app credentials and OAuth scopes are correct.")
+                return
+
+            # Save tokens (exactly as _do_oauth() does)
+            now = datetime.now(timezone.utc)
+            save_tokens({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "expires_at": (now + timedelta(seconds=data["expires_in"])).isoformat(),
+            })
+
+            messagebox.showinfo("Success", "Authorization complete!\n\nTokens saved. You're ready to use the app.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"OAuth failed: {str(e)}")
+
+    def test_email(self):
+        """Send a test email using the currently entered email settings"""
+        gmail_email = self.configure_gmail_email.get()
+        gmail_pass = self.configure_gmail_pass.get()
+        report_email = self.configure_report_email.get()
+
+        if not gmail_email or not gmail_pass or not report_email:
+            messagebox.showerror(
+                "Missing Fields",
+                "Please fill in Gmail Email, Gmail App Password, and Report Sent To before testing."
+            )
+            return
+
+        try:
+            from notifications import send_email
+            send_email(
+                gmail_app_password=gmail_pass,
+                subject="Relist Agent - Test Email",
+                body="This is a test email from eBay Relist Agent.\n\nIf you received this, your email settings are configured correctly.",
+                sender=gmail_email,
+                recipient=report_email,
+            )
+            messagebox.showinfo("Success", f"Test email sent to {report_email}!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send test email:\n{e}")
+
+    def clear_cache(self):
+        """Clear the progress.json file to remove stale progress data"""
+        progress_file = BASE_DIR / "progress.json"
+
+        try:
+            if progress_file.exists():
+                progress_file.unlink()
+                messagebox.showinfo("Success", "Progress cache cleared.\n\nStale progress data has been removed.")
+            else:
+                messagebox.showinfo("Info", "No cache to clear.\n\nProgress cache is already empty.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not clear cache: {e}")
+
 
 class InventoryWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent, config):
+        if InventoryWindow.instance is not None:
+            try:
+                InventoryWindow.instance.lift()
+                InventoryWindow.instance.focus()
+                return
+            except:
+                InventoryWindow.instance = None
+
         print("[INVENTORY] InventoryWindow.__init__ starting")
         super().__init__(parent)
+        InventoryWindow.instance = self
+        set_window_icon(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Store Inventory")
         self.geometry("1200x700")
         tk.Toplevel.config(self, bg=BG_PRIMARY)
@@ -1794,7 +4395,7 @@ class InventoryWindow(tk.Toplevel):
             from ebay_api import fetch_all_active_listings
 
             print("[DEBUG] Imports successful")
-            cache_file = BASE_DIR / "inventory_cache.json"
+            cache_file = DATA_DIR / "inventory_cache.json"
             cache_valid_hours = 6
 
             # Try to load from cache first (unless force refresh)
@@ -1842,11 +4443,8 @@ class InventoryWindow(tk.Toplevel):
                     self.progress_text.config(text=f"Found {len(deleted_item_ids)} deleted items")
                 self.update()
 
-            # Combine: keep cached items (not deleted), add new items
+            # Combine cached and fresh items
             self.all_items = [item for item in fresh_items if item.get("item_id") in fresh_item_ids]
-
-            # Pre-format dates for faster filtering
-            self._preformat_item_dates()
 
             # Save to cache
             cache_data = {
@@ -1857,6 +4455,37 @@ class InventoryWindow(tk.Toplevel):
             }
             with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(cache_data, f, indent=2)
+
+            # OPTIMIZATION: Also update exclusions cache (avoid redundant API calls)
+            try:
+                from ebay_api import get_store_categories
+                categories, category_mapping = get_store_categories(self.app_config, token)
+
+                # Extract SKUs from fresh items
+                skus = set()
+                for item in fresh_items:
+                    sku = item.get("sku")
+                    if sku:
+                        skus.add(sku)
+
+                # Save to exclusions cache (in hidden folder)
+                exclusions_cache_file = DATA_DIR / "exclusions_cache.json"
+                with open(exclusions_cache_file, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "categories": sorted(categories),
+                        "skus": sorted(skus),
+                        "category_mapping": category_mapping
+                    }, f, indent=2)
+                print(f"[INVENTORY] Updated exclusions cache: {len(categories)} cats, {len(skus)} skus")
+
+                # ALSO update the Exclude window's separate cache (available_for_exclusions.json)
+                # This keeps the Exclude window's display in sync without losing exclusions
+                available_for_exclusions_file = DATA_DIR / "available_for_exclusions.json"
+                with open(available_for_exclusions_file, "w", encoding="utf-8") as f:
+                    json.dump({"items": fresh_items}, f, indent=2)
+                print(f"[INVENTORY] Updated available_for_exclusions cache: {len(fresh_items)} items")
+            except Exception as e:
+                print(f"[INVENTORY] Couldn't update exclusions cache: {e}")
 
             self.progress.config(value=90)
             self.progress_text.config(text="Rendering items...")
@@ -1979,7 +4608,8 @@ class InventoryWindow(tk.Toplevel):
         """Refresh inventory from eBay (force fresh fetch)"""
         result = messagebox.askyesno(
             "Refresh Data",
-            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories."
+            "Force refresh from eBay? (This will skip cache and fetch fresh data)\n\nThis may take 1-2 minutes for large inventories.",
+            parent=self
         )
         if result:
             print("[DEBUG] Refreshing inventory from eBay...")
@@ -2292,10 +4922,27 @@ WHEN TO USE EACH:
         """Open the activity log viewer"""
         LogViewerWindow(self)
 
+    def _on_close(self):
+        InventoryWindow.instance = None
+        self.destroy()
+
 
 class LogViewerWindow(tk.Toplevel):
+    instance = None
+
     def __init__(self, parent):
+        if LogViewerWindow.instance is not None:
+            try:
+                LogViewerWindow.instance.lift()
+                LogViewerWindow.instance.focus()
+                return
+            except:
+                LogViewerWindow.instance = None
+
         super().__init__(parent)
+        LogViewerWindow.instance = self
+        set_window_icon(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Log Viewer - All Runs")
         self.geometry("900x600")
         tk.Toplevel.config(self, bg=BG_PRIMARY)
@@ -2352,6 +4999,7 @@ class LogViewerWindow(tk.Toplevel):
 
         ttk.Button(filter_frame, text="Apply Filter", command=self.apply_filter).grid(row=0, column=8, padx=5)
         ttk.Button(filter_frame, text="🔄 Refresh", command=self.refresh_log).grid(row=0, column=9, padx=5)
+        ttk.Button(filter_frame, text="Export CSV", command=self.export_log).grid(row=0, column=10, padx=5)
 
         # Table frame
         table_frame = tk.LabelFrame(self, text="History", bg=BG_PRIMARY, fg=TEXT_PRIMARY, font=("Arial", 10, "bold"), padx=10, pady=10, borderwidth=2, relief="solid", highlightthickness=0)
@@ -2363,6 +5011,7 @@ class LogViewerWindow(tk.Toplevel):
 
         # Load all data
         self.all_entries = []
+        self.filtered_entries = []
         self.last_modify_time = 0
         self.load_all_entries()
         self.apply_filter()
@@ -2418,6 +5067,10 @@ class LogViewerWindow(tk.Toplevel):
                 search in str(e.get("old_item_id", "")).lower())
         ]
 
+        # Entries (sorted newest first)
+        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
+        self.filtered_entries = sorted_entries  # Keep for Export CSV
+
         if not filtered:
             self.log_display.insert("end", "No matching entries.\n")
             self.log_display.config(state="disabled")
@@ -2426,9 +5079,6 @@ class LogViewerWindow(tk.Toplevel):
         # Header
         self.log_display.insert("end", f"{'Started':<20} {'Completed':<20} {'Status':<10} {'Old Item':<15} {'Title':<35}\n")
         self.log_display.insert("end", "=" * 110 + "\n")
-
-        # Entries (sorted newest first)
-        sorted_entries = sorted(filtered, key=lambda x: (x.get("date", ""), x.get("start_time", "")), reverse=True)
 
         for entry in sorted_entries:
             start_time = entry.get("start_time", "?")
@@ -2446,6 +5096,37 @@ class LogViewerWindow(tk.Toplevel):
                     self.log_display.insert("end", f"{'':40} Error: {reason}\n")
 
         self.log_display.config(state="disabled")
+
+    def export_log(self):
+        """Export the currently filtered log entries to a CSV file"""
+        if not self.filtered_entries:
+            messagebox.showinfo("Export CSV", "No matching entries to export.")
+            return
+
+        from tkinter import filedialog
+        import csv
+        from datetime import datetime
+
+        default_name = f"relist_log_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=default_name,
+            title="Export Log to CSV",
+        )
+        if not file_path:
+            return
+
+        try:
+            fieldnames = ["date", "start_time", "end_time", "status", "old_item_id", "new_item_id", "item_id", "title", "reason"]
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                for entry in self.filtered_entries:
+                    writer.writerow(entry)
+            messagebox.showinfo("Export CSV", f"Exported {len(self.filtered_entries)} entries to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Export CSV", f"Failed to export log: {e}")
 
     def show_guide(self):
         guide_text = """LOG VIEWER QUICK GUIDE
@@ -2489,11 +5170,61 @@ Logs are always sorted by newest first (most recent at the top).
 """
         QuickGuideWindow(self, "Log Viewer", guide_text)
 
+    def _on_close(self):
+        LogViewerWindow.instance = None
+        self.destroy()
 
-if __name__ == "__main__":
-    # Check if admin is needed
-    check_admin_on_startup()
 
-    # Create and run the app
-    app = MainApp()
-    app.mainloop()
+def main():
+    """Main entry point for the application"""
+
+    # Check if running in headless mode for scheduled tasks
+    if "--run" in sys.argv:
+        # Run relisting without GUI (for scheduled task)
+        try:
+            from ebay_relist_agent import run
+            run()
+            sys.exit(0)
+        except Exception as e:
+            import traceback
+            error_msg = f"RELIST ERROR: {e}\n{traceback.format_exc()}"
+            print(error_msg)
+            # Log to error file
+            try:
+                error_log = BASE_DIR / ".ebay_relist_agent_data" / "error_log.txt"
+                error_log.parent.mkdir(exist_ok=True)
+                with open(error_log, "a") as f:
+                    from datetime import datetime
+                    f.write(f"[{datetime.now().isoformat()}] {error_msg}\n")
+            except:
+                pass
+            sys.exit(1)
+
+    try:
+        # Check license key FIRST (before admin check)
+        from license_check import check_license_on_startup
+        if not check_license_on_startup():
+            sys.exit(1)
+
+        # Check if admin is needed
+        check_admin_on_startup()
+
+        # Create and run the app (GUI mode)
+        app = MainApp()
+        app.mainloop()
+    except Exception as e:
+        import traceback
+        error_msg = f"STARTUP ERROR: {e}\n{traceback.format_exc()}"
+        print(error_msg)
+        # Try to write to a log file
+        try:
+            with open("startup_error.log", "w") as f:
+                f.write(error_msg)
+        except:
+            pass
+        sys.exit(1)
+
+
+# Call main directly at module level so it always runs (not in __main__ block)
+if __name__ == "__main__" or True:  # Always run, even if imported
+    main()

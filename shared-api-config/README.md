@@ -1,4 +1,21 @@
-# PandaSuite Shared API Configuration
+# PandaSuite Shared Configuration & App Standards
+
+**Master reference for all PandaSuite app developers**
+
+## 🚀 START HERE
+
+New app? **[Read APP_STANDARDS.md](APP_STANDARDS.md)** — Master checklist for licensing, MSI installer, app creation, and release.
+
+Existing app? Jump to your task:
+- **Building an installer?** → [MSI_BUILD_GUIDE.md](MSI_BUILD_GUIDE.md)
+- **Adding licensing?** → [LICENSING_SYSTEM.md](LICENSING_SYSTEM.md)
+- **Using API credentials?** → Keep reading (below) or see [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)
+- **Releasing a new version?** → [VERSION_SYNC_CHECKLIST.md](VERSION_SYNC_CHECKLIST.md)
+- **End-user help?** → [INSTALL_INSTRUCTIONS.md](INSTALL_INSTRUCTIONS.md)
+
+---
+
+## Centralized API Credential Management
 
 Centralized API credential management for all PandaSuite applications.
 

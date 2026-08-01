@@ -4,7 +4,7 @@
     Id="*"
     Name="Relist Agent"
     Language="1033"
-    Version="2.0.1.0"
+    Version="2.5.0.0"
     Manufacturer="The Trashed Panda"
     UpgradeCode="12345678-1234-1234-1234-123456789012">
 
@@ -12,11 +12,11 @@
     <Package
       InstallerVersion="200"
       Compressed="yes"
-      InstallScope="perMachine"
+      InstallScope="perUser"
       Description="A PandaSuite Application by The Trashed Panda" />
 
     <!-- Media/Disk Configuration -->
-    <Media Id="1" Cabinet="Relist Agent.cab" EmbedCab="yes" />
+    <Media Id="1" Cabinet="RelistAgent.cab" EmbedCab="yes" />
 
     <!-- Icon for Add/Remove Programs -->
     <Icon Id="icon.ico" SourceFile="$(var.SourceDir)\Relist Agent.ico" />
@@ -28,20 +28,17 @@
       AllowDowngrades="no" />
 
     <!-- Installation Directory Structure -->
-    <InstallScope="perMachine" />
-    <StandardDirectory Id="ProgramFilesFolder">
-      <Directory Id="INSTALLFOLDER" Name="PandaSuite">
-        <Directory Id="APPFOLDER" Name="Relist Agent" />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="PandaSuite">
+          <Directory Id="APPFOLDER" Name="Relist Agent" />
+        </Directory>
       </Directory>
-    </StandardDirectory>
-
-    <!-- Desktop Shortcut Location -->
-    <StandardDirectory Id="DesktopFolder" Name="Desktop" />
-
-    <!-- Start Menu Location -->
-    <StandardDirectory Id="ProgramMenuFolder" Name="Programs">
-      <Directory Id="MENUDIR" Name="PandaSuite" />
-    </StandardDirectory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+      <Directory Id="ProgramMenuFolder" Name="Programs">
+        <Directory Id="MENUDIR" Name="PandaSuite" />
+      </Directory>
+    </Directory>
 
     <!-- Features to Install -->
     <Feature Id="ProductFeature" Title="Relist Agent" Level="1">
@@ -129,12 +126,11 @@
     <UIRef Id="WixUI_InstallDir" />
     <UIRef Id="WixUI_ErrorProgressText" />
 
-    <!-- License File (optional) -->
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" Overridable="yes" />
+    <!-- License File -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.SourceDir)\License.rtf" Overridable="yes" />
 
-    <!-- Banner/Dialog Images (optional) -->
-    <WixVariable Id="WixUIBannerBmp" Value="Banner.bmp" Overridable="yes" />
-    <WixVariable Id="WixUIDialogBmp" Value="Dialog.bmp" Overridable="yes" />
+    <!-- Branding Images -->
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.SourceDir)\Dialog.bmp" Overridable="yes" />
 
   </Product>
 </Wix>
