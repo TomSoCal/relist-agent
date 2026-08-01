@@ -75,16 +75,14 @@ class MileageTab(QWidget):
 
         title_label = QLabel(title)
         title_label.setFont(QFont("Arial", 10, QFont.Bold))
-        title_label.setStyleSheet("color: #666;")
 
         value_label = QLabel(value)
         value_label.setFont(QFont("Arial", 16, QFont.Bold))
-        value_label.setStyleSheet("color: #1F3864;")  # Trashed Panda blue
 
         container_layout.addWidget(title_label)
         container_layout.addWidget(value_label)
         container.setLayout(container_layout)
-        container.setStyleSheet("background-color: #f5f5f5; border-radius: 5px;")
+        container.setStyleSheet("border-radius: 5px; padding: 10px; background-color: transparent; border: 1px solid #333333;")
 
         # Store labels for updating
         container.title_label = title_label
@@ -208,7 +206,6 @@ class AddMileageDialog(QDialog):
         layout.addWidget(QLabel("Miles Driven:"))
         self.miles_display = QLabel("0 miles")
         self.miles_display.setFont(QFont("Arial", 12, QFont.Bold))
-        self.miles_display.setStyleSheet("color: #1F3864; padding: 5px;")
         layout.addWidget(self.miles_display)
 
         # Purpose
