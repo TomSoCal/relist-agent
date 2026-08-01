@@ -134,7 +134,12 @@ QHeaderView::section {
 /* Corner button (top-left) */
 QTableWidget::cornerButton {
     background-color: #1a3a5e !important;
-    border: none;
+    border: none !important;
+}
+
+QTableView::cornerButton {
+    background-color: #1a3a5e !important;
+    border: none !important;
 }
 
 QHeaderView::section:horizontal {
