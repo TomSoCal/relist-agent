@@ -270,23 +270,44 @@ class MonthTab(QWidget):
             self.platform_table.setItem(row, 3, fees_item)
 
     def _style_corner_button(self, table):
-        """Style the corner button (intersection of row and column headers) to dark mode."""
-        # Find and style all buttons in the table headers (the corner button)
-        buttons = table.findChildren(QAbstractButton)
+        """Paint over the corner button area with dark background."""
+        # The corner button seems to be rendering white regardless of our styling attempts
+        # Try a different approach: set the viewport background directly
         dark_color = QColor("#1a3a5e")
-        text_color = QColor("#00ff88")
 
+        # Style the header viewport (the area containing the corner button)
+        header = table.horizontalHeader()
+        header.setStyleSheet("""
+            QHeaderView {
+                background-color: #1a3a5e;
+            }
+            QHeaderView::section {
+                background-color: #1a3a5e;
+                color: #00ff88;
+                padding: 5px;
+                border: none;
+                border-right: 1px solid #222222;
+                border-bottom: 1px solid #222222;
+            }
+        """)
+
+        # Also set vertical header
+        v_header = table.verticalHeader()
+        v_header.setStyleSheet("""
+            QHeaderView {
+                background-color: #1a3a5e;
+            }
+            QHeaderView::section {
+                background-color: #1a3a5e;
+                color: #00ff88;
+                padding: 5px;
+                border: none;
+                border-right: 1px solid #222222;
+                border-bottom: 1px solid #222222;
+            }
+        """)
+
+        # Try to style any buttons we can find (as backup)
+        buttons = table.findChildren(QAbstractButton)
         for button in buttons:
-            # Set ALL palette color roles to ensure the button is dark
-            palette = button.palette()
-            for role in [QPalette.Button, QPalette.ButtonText, QPalette.Window,
-                        QPalette.WindowText, QPalette.Base, QPalette.Text,
-                        QPalette.Dark, QPalette.Light, QPalette.Mid, QPalette.Midlight]:
-                if role in [QPalette.ButtonText, QPalette.WindowText, QPalette.Text, QPalette.Midlight]:
-                    palette.setColor(role, text_color)
-                else:
-                    palette.setColor(role, dark_color)
-            button.setPalette(palette)
-            button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88; margin: 0px; padding: 0px;")
-            # Hide the button by setting its size to 0
-            button.setMaximumSize(0, 0)
+            button.setStyleSheet("background-color: #1a3a5e; border: none;")
