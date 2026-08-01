@@ -76,6 +76,7 @@ class MonthTab(QWidget):
             "Category", "Cost", "Profit", "ROI %"
         ])
         self.roi_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.roi_table.verticalHeader().setStyleSheet("background-color: #1F3864; color: #ffffff;")
         self.roi_table.setMaximumHeight(200)
 
         layout.addWidget(self.roi_table)
@@ -91,6 +92,7 @@ class MonthTab(QWidget):
             "Platform", "Units Sold", "Revenue", "Fees"
         ])
         self.platform_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.platform_table.verticalHeader().setStyleSheet("background-color: #1F3864; color: #ffffff;")
 
         layout.addWidget(self.platform_table)
 

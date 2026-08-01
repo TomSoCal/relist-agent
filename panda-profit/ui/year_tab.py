@@ -68,6 +68,7 @@ class YearTab(QWidget):
             "Month", "Sales", "Revenue", "Expenses", "Profit"
         ])
         self.monthly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.monthly_table.verticalHeader().setStyleSheet("background-color: #1F3864; color: #ffffff;")
         self.monthly_table.setMaximumHeight(300)
 
         layout.addWidget(self.monthly_table)
@@ -83,6 +84,7 @@ class YearTab(QWidget):
             "Metric", "Last Year", "This Year", "Growth %"
         ])
         self.yoy_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.yoy_table.verticalHeader().setStyleSheet("background-color: #1F3864; color: #ffffff;")
 
         layout.addWidget(self.yoy_table)
 
