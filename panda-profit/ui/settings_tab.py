@@ -1,14 +1,13 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QLabel, QLineEdit, QGroupBox, QMessageBox, QListWidget,
                             QListWidgetItem, QDialog, QTableWidget, QTableWidgetItem, QInputDialog,
-                            QRadioButton, QButtonGroup)
+                            QScrollArea)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont
 import database as db
 import config
 from constants import CATEGORIES, STORES
 from oauth_setup import prompt_for_oauth_setup
-from theme_manager import get_theme_manager
 
 class SettingsTab(QWidget):
     def __init__(self):
@@ -17,7 +16,18 @@ class SettingsTab(QWidget):
         self.load_settings()
 
     def init_ui(self):
+        # Main layout for this widget
+        main_layout = QVBoxLayout()
+
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        # Create a container widget for the scroll area
+        container = QWidget()
         layout = QVBoxLayout()
+        container.setLayout(layout)
+        scroll_area.setWidget(container)
 
         # Check if eBay is configured
         self.ebay_configured = config.ebay_configured()
@@ -181,42 +191,16 @@ class SettingsTab(QWidget):
 
         brands_group.setLayout(brands_layout)
 
-        # Appearance Settings
-        appearance_group = QGroupBox("Appearance")
-        appearance_layout = QVBoxLayout()
-
-        appearance_layout.addWidget(QLabel("Theme:"))
-        theme_layout = QHBoxLayout()
-
-        self.theme_group = QButtonGroup()
-        self.light_radio = QRadioButton("Light Mode")
-        self.dark_radio = QRadioButton("Dark Mode (Panda Print)")
-
-        theme_manager = get_theme_manager()
-        if theme_manager.is_dark_mode():
-            self.dark_radio.setChecked(True)
-        else:
-            self.light_radio.setChecked(True)
-
-        self.theme_group.addButton(self.light_radio, 0)
-        self.theme_group.addButton(self.dark_radio, 1)
-        self.theme_group.buttonClicked.connect(self.on_theme_changed)
-
-        theme_layout.addWidget(self.light_radio)
-        theme_layout.addWidget(self.dark_radio)
-        theme_layout.addStretch()
-        appearance_layout.addLayout(theme_layout)
-
-        appearance_group.setLayout(appearance_layout)
-
         layout.addWidget(ebay_group)
         layout.addWidget(mgmt_group)
         layout.addWidget(expense_group)
         layout.addWidget(platform_group)
         layout.addWidget(brands_group)
-        layout.addWidget(appearance_group)
         layout.addStretch()
-        self.setLayout(layout)
+
+        # Add scroll area to main layout
+        main_layout.addWidget(scroll_area)
+        self.setLayout(main_layout)
 
     def load_settings(self):
         """Load eBay credentials from PandaSuite (shared)"""
@@ -530,11 +514,3 @@ class SettingsTab(QWidget):
         from PyQt5.QtWidgets import QInputDialog
         text, ok = QInputDialog.getText(self, title, label)
         return text, ok
-
-    def on_theme_changed(self, button):
-        """Handle theme selection change"""
-        theme_manager = get_theme_manager()
-        if button == self.light_radio:
-            theme_manager.apply_theme(theme_manager.LIGHT)
-        elif button == self.dark_radio:
-            theme_manager.apply_theme(theme_manager.DARK)
