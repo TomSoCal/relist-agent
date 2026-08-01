@@ -70,6 +70,7 @@ class YearTab(QWidget):
         self.monthly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.monthly_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.monthly_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
+        self.monthly_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
         self.monthly_table.setMaximumHeight(300)
 
         layout.addWidget(self.monthly_table)
@@ -87,6 +88,7 @@ class YearTab(QWidget):
         self.yoy_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.yoy_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.yoy_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
+        self.yoy_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
 
         layout.addWidget(self.yoy_table)
 

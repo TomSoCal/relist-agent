@@ -78,6 +78,7 @@ class MonthTab(QWidget):
         self.roi_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.roi_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.roi_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
+        self.roi_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
         self.roi_table.setMaximumHeight(200)
 
         layout.addWidget(self.roi_table)
@@ -95,6 +96,7 @@ class MonthTab(QWidget):
         self.platform_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.platform_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.platform_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
+        self.platform_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
 
         layout.addWidget(self.platform_table)
 
