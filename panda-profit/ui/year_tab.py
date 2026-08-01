@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
-                            QTableWidget, QTableWidgetItem, QHeaderView)
+                            QTableWidget, QTableWidgetItem, QHeaderView, QAbstractButton)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 from datetime import datetime
@@ -71,6 +71,8 @@ class YearTab(QWidget):
         self.monthly_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.monthly_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.monthly_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
+        # Style the corner button directly
+        self._style_corner_button(self.monthly_table)
         self.monthly_table.setMaximumHeight(300)
 
         layout.addWidget(self.monthly_table)
@@ -89,6 +91,8 @@ class YearTab(QWidget):
         self.yoy_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.yoy_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.yoy_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
+        # Style the corner button directly
+        self._style_corner_button(self.yoy_table)
 
         layout.addWidget(self.yoy_table)
 
@@ -359,3 +363,10 @@ class YearTab(QWidget):
             else:
                 growth_item.setForeground(QColor("red"))
             self.yoy_table.setItem(row, 3, growth_item)
+
+    def _style_corner_button(self, table):
+        """Style the corner button (intersection of row and column headers) to dark mode."""
+        # Find and style all buttons in the table headers (the corner button)
+        buttons = table.findChildren(QAbstractButton)
+        for button in buttons:
+            button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88;")

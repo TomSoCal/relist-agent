@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
-                            QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView)
+                            QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractButton)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 from datetime import datetime
@@ -79,6 +79,7 @@ class MonthTab(QWidget):
         self.roi_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.roi_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.roi_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
+        self._style_corner_button(self.roi_table)
         self.roi_table.setMaximumHeight(200)
 
         layout.addWidget(self.roi_table)
@@ -97,6 +98,7 @@ class MonthTab(QWidget):
         self.platform_table.verticalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.platform_table.horizontalHeader().setStyleSheet("background-color: #1a3a5e; color: #00ff88;")
         self.platform_table.setStyleSheet("QTableWidget { background-color: #0d0d1a; } QTableWidget::item { background-color: #0d0d1a; }")
+        self._style_corner_button(self.platform_table)
 
         layout.addWidget(self.platform_table)
 
@@ -266,3 +268,10 @@ class MonthTab(QWidget):
             fees_item = QTableWidgetItem(f"${item['fees']:,.2f}")
             fees_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.platform_table.setItem(row, 3, fees_item)
+
+    def _style_corner_button(self, table):
+        """Style the corner button (intersection of row and column headers) to dark mode."""
+        # Find and style all buttons in the table headers (the corner button)
+        buttons = table.findChildren(QAbstractButton)
+        for button in buttons:
+            button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88;")
