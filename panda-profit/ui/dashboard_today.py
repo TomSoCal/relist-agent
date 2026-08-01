@@ -144,10 +144,10 @@ class TodayTrackerWidget(QFrame):
         # Update profit with color coding
         if total_profit >= 0:
             self.profit_label.value_label.setText(f"${total_profit:,.2f}")
-            self.profit_label.value_label.setStyleSheet("color: #90EE90;")  # Light green
+            self.profit_label.value_label.setStyleSheet("color: #00ff88;")  # Bright green
         else:
             self.profit_label.value_label.setText(f"${total_profit:,.2f}")
-            self.profit_label.value_label.setStyleSheet("color: #FF6B6B;")  # Light red
+            self.profit_label.value_label.setStyleSheet("color: #ff6b6b;")  # Red
 
     def closeEvent(self, event):
         """Clean up timers on widget close."""

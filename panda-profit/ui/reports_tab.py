@@ -96,7 +96,7 @@ class ReportsTab(QWidget):
             "Select a report type and date range, then click Generate PDF or Generate CSV to export. "
             "You will be prompted to choose where to save the file."
         )
-        info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        info_label.setStyleSheet("color: #aaa; font-size: 9pt;")
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
 

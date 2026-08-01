@@ -36,7 +36,7 @@ class SettingsTab(QWidget):
         if not self.ebay_configured:
             warning_layout = QHBoxLayout()
             warning_label = QLabel("⚠️  eBay API not configured — Setup required to use inventory/sales features")
-            warning_label.setStyleSheet("background-color: #fff3cd; padding: 10px; border-radius: 4px; color: #856404;")
+            warning_label.setStyleSheet("background-color: #2a2a1a; padding: 10px; border-radius: 4px; color: #ffaa00;")
             warning_font = QFont()
             warning_font.setBold(True)
             warning_label.setFont(warning_font)
@@ -77,12 +77,12 @@ class SettingsTab(QWidget):
             button_layout.addWidget(test_btn)
         else:
             setup_btn = QPushButton("Setup eBay OAuth")
-            setup_btn.setStyleSheet("background-color: #ffc107; font-weight: bold; padding: 5px;")
+            setup_btn.setStyleSheet("background-color: #ffaa00; font-weight: bold; padding: 5px; color: #000000;")
             setup_btn.clicked.connect(self.reconfigure_oauth)
             button_layout.addWidget(setup_btn)
 
             info_label = QLabel("(Required to use inventory/sales features)")
-            info_label.setStyleSheet("color: #666; font-style: italic;")
+            info_label.setStyleSheet("color: #aaa; font-style: italic;")
             button_layout.addWidget(info_label)
 
         button_layout.addStretch()

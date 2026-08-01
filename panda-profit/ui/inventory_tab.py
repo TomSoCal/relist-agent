@@ -58,7 +58,7 @@ class InventoryTab(QWidget):
 
         self.bulk_btn = QPushButton("Bulk Actions")
         self.bulk_btn.clicked.connect(self.toggle_bulk_mode)
-        self.bulk_btn.setStyleSheet("background-color: lightblue")
+        self.bulk_btn.setStyleSheet("background-color: #1a3a5e")
 
         self.bulk_delete_btn = QPushButton("Delete Selected")
         self.bulk_delete_btn.clicked.connect(self.bulk_delete_items)
