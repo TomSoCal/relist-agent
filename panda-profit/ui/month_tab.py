@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                             QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractButton)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPalette
 from datetime import datetime
 import calendar
 import database as db
@@ -273,5 +273,14 @@ class MonthTab(QWidget):
         """Style the corner button (intersection of row and column headers) to dark mode."""
         # Find and style all buttons in the table headers (the corner button)
         buttons = table.findChildren(QAbstractButton)
+        dark_color = QColor("#1a3a5e")
+        text_color = QColor("#00ff88")
+
         for button in buttons:
+            palette = button.palette()
+            palette.setColor(QPalette.Button, dark_color)
+            palette.setColor(QPalette.ButtonText, text_color)
+            palette.setColor(QPalette.Window, dark_color)
+            palette.setColor(QPalette.WindowText, text_color)
+            button.setPalette(palette)
             button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88;")
