@@ -1,0 +1,226 @@
+/* Panda Profit - Dark Theme */
+/* Panda Print cyberpunk color scheme */
+
+QMainWindow, QWidget {
+    background-color: #0d0d1a;
+    color: #ffffff;
+}
+
+QTabWidget::pane {
+    border: 1px solid #333333;
+}
+
+QTabBar::tab {
+    background-color: #1a1a2e;
+    color: #aaaaaa;
+    padding: 5px 15px;
+    border: 1px solid #333333;
+}
+
+QTabBar::tab:selected {
+    background-color: #1a3a5e;
+    color: #00ff88;
+    border-bottom: 2px solid #00ff88;
+}
+
+QPushButton {
+    background-color: #1a3a5e;
+    color: #ffffff;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #2a5a7e;
+}
+
+QPushButton:pressed {
+    background-color: #0a1a3e;
+}
+
+/* Success button (green) */
+QPushButton[text*="Save"], QPushButton[text*="Record"], QPushButton[text*="Add"] {
+    background-color: #009944;
+}
+
+QPushButton[text*="Save"]:hover, QPushButton[text*="Record"]:hover, QPushButton[text*="Add"]:hover {
+    background-color: #00cc55;
+}
+
+/* Danger button (red) */
+QPushButton[text*="Delete"], QPushButton[text*="Remove"] {
+    background-color: #5a0000;
+}
+
+QPushButton[text*="Delete"]:hover, QPushButton[text*="Remove"]:hover {
+    background-color: #7a0000;
+}
+
+/* Bulk Actions button */
+QPushButton[text="Bulk Actions"] {
+    background-color: #2a1a5e;
+}
+
+QPushButton[text="Bulk Actions"]:hover {
+    background-color: #3a2a7e;
+}
+
+QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background-color: #1a1a2e;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 3px;
+    padding: 5px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+    border: 2px solid #00ff88;
+    color: #00ff88;
+}
+
+QLabel {
+    color: #ffffff;
+}
+
+QLabel[text*="Error"], QLabel[text*="error"] {
+    color: #ff6b6b;
+}
+
+QTableWidget {
+    background-color: #0d0d1a;
+    alternate-background-color: #1a1a2e;
+    border: 1px solid #333333;
+}
+
+QTableWidget::item {
+    padding: 5px;
+    border: 1px solid #333333;
+}
+
+QTableWidget::item:selected {
+    background-color: #ffff00;
+    color: #000000;
+}
+
+QTableWidget::item:alternate {
+    background-color: #1a1a2e;
+}
+
+QHeaderView::section {
+    background-color: #1a3a5e;
+    color: #00ff88;
+    padding: 5px;
+    border: 1px solid #333333;
+    font-weight: bold;
+}
+
+QScrollBar:vertical {
+    background-color: #1a1a2e;
+    border: 1px solid #333333;
+    width: 12px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #333333;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #00ff88;
+}
+
+QDialog {
+    background-color: #0d0d1a;
+}
+
+/* Status indicators */
+QLabel[text*="✓"], QLabel[text*="●"] {
+    color: #00ff88;
+}
+
+/* Error status */
+QLabel[text*="●"][color*="ff"] {
+    color: #ff6b6b;
+}
+
+QMessageBox {
+    background-color: #0d0d1a;
+}
+
+QMessageBox QLabel {
+    color: #ffffff;
+}
+
+QMessageBox QPushButton {
+    min-width: 60px;
+}
+
+/* Checkboxes */
+QCheckBox {
+    color: #ffffff;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #333333;
+    background-color: #1a1a2e;
+    border-radius: 3px;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #00ff88;
+}
+
+/* Frame styling */
+QFrame {
+    background-color: #0d0d1a;
+    border: 1px solid #333333;
+    border-radius: 4px;
+}
+
+/* Spinbox and Combobox dropdowns */
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    background-color: #1a3a5e;
+    border: 1px solid #333333;
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    background-color: #1a3a5e;
+    border: 1px solid #333333;
+}
+
+QComboBox::drop-down {
+    background-color: #1a3a5e;
+    border: 1px solid #333333;
+}
+
+/* Radio buttons */
+QRadioButton {
+    color: #ffffff;
+    spacing: 5px;
+}
+
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #333333;
+    background-color: #1a1a2e;
+    border-radius: 8px;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+QRadioButton::indicator:hover {
+    border: 2px solid #00ff88;
+}
