@@ -66,12 +66,18 @@ QLabel {
 QTableWidget {
     background-color: #ffffff;
     alternate-background-color: #f5f5f5;
-    border: 1px solid #cccccc;
+    border: none;
+    gridline-color: #e8e8e8;
 }
 
 QTableWidget::item {
     padding: 5px;
-    border: 1px solid #e0e0e0;
+    border: none;
+    background-color: #ffffff;
+}
+
+QTableWidget::item:alternate {
+    background-color: #f5f5f5;
 }
 
 QTableWidget::item:selected {
@@ -79,12 +85,44 @@ QTableWidget::item:selected {
     color: #000000;
 }
 
+QHeaderView {
+    background-color: #1F3864 !important;
+    border: none;
+}
+
 QHeaderView::section {
-    background-color: #1F3864;
+    background-color: #1F3864 !important;
+    color: #ffffff !important;
+    padding: 5px;
+    border: none;
+    border-right: 1px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
+    font-weight: bold;
+}
+
+/* Corner button (top-left) */
+QTableWidget::cornerButton {
+    background-color: #1F3864 !important;
+    border: none;
+}
+
+/* Row and column headers */
+QHeaderView::section:horizontal {
+    background-color: #1F3864 !important;
     color: #ffffff;
     padding: 5px;
     border: none;
-    font-weight: bold;
+    border-right: 1px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+QHeaderView::section:vertical {
+    background-color: #1F3864 !important;
+    color: #ffffff;
+    padding: 5px;
+    border: none;
+    border-right: 1px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
 }
 
 QScrollBar:vertical {
