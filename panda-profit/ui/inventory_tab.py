@@ -140,7 +140,7 @@ class InventoryTab(QWidget):
                 if state == Qt.Checked:
                     item.setBackground(Qt.yellow)
                 else:
-                    item.setBackground(Qt.white)
+                    item.setBackground(Qt.transparent)
 
         # In single-select mode, uncheck other rows
         if not self.bulk_mode:
@@ -155,7 +155,7 @@ class InventoryTab(QWidget):
                         for col in range(self.table.columnCount()):
                             item = self.table.item(r, col)
                             if item:
-                                item.setBackground(Qt.white)
+                                item.setBackground(Qt.transparent)
 
     def toggle_bulk_mode(self):
         self.bulk_mode = not self.bulk_mode
@@ -174,7 +174,7 @@ class InventoryTab(QWidget):
                     for col in range(self.table.columnCount()):
                         item = self.table.item(r, col)
                         if item:
-                            item.setBackground(Qt.white)
+                            item.setBackground(Qt.transparent)
 
     def bulk_delete_items(self):
         # Get all checked items

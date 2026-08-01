@@ -14,7 +14,7 @@ class TodayTrackerWidget(QFrame):
     def __init__(self):
         super().__init__()
         self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        self.setStyleSheet("background-color: #404040; border-radius: 5px;")
+        self.setStyleSheet("border-radius: 5px; padding: 10px; border: 1px solid #333333;")
         self.setContentsMargins(10, 10, 10, 10)
 
         self.layout = QVBoxLayout()
@@ -27,7 +27,6 @@ class TodayTrackerWidget(QFrame):
         self.title_label = QLabel("TODAY'S $$$ TRACKER")
         title_font = QFont("Arial", 16, QFont.Bold)
         self.title_label.setFont(title_font)
-        self.title_label.setStyleSheet("color: white;")
         title_layout.addWidget(self.title_label)
 
         title_layout.addStretch()
@@ -35,7 +34,6 @@ class TodayTrackerWidget(QFrame):
         self.clock_label = QLabel("00:00:00 AM")
         clock_font = QFont("Arial", 12, QFont.Bold)
         self.clock_label.setFont(clock_font)
-        self.clock_label.setStyleSheet("color: #c0c0c0;")
         title_layout.addWidget(self.clock_label)
 
         self.layout.addLayout(title_layout)
@@ -79,7 +77,7 @@ class TodayTrackerWidget(QFrame):
     def _create_stat_label(self, title, value):
         """Create a stat label widget with title and value."""
         container = QFrame()
-        container.setStyleSheet("background-color: #505050; border-radius: 3px; padding: 8px;")
+        container.setStyleSheet("border-radius: 3px; padding: 8px; border: 1px solid #333333;")
 
         container_layout = QVBoxLayout()
         container_layout.setContentsMargins(8, 8, 8, 8)
@@ -88,12 +86,10 @@ class TodayTrackerWidget(QFrame):
         title_label = QLabel(title)
         title_font = QFont("Arial", 10)
         title_label.setFont(title_font)
-        title_label.setStyleSheet("color: #a0a0a0;")
 
         value_label = QLabel(value)
         value_font = QFont("Arial", 14, QFont.Bold)
         value_label.setFont(value_font)
-        value_label.setStyleSheet("color: white;")
 
         container_layout.addWidget(title_label)
         container_layout.addWidget(value_label)

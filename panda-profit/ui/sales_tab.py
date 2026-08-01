@@ -255,7 +255,7 @@ class SalesTab(QWidget):
                 if state == Qt.Checked:
                     item.setBackground(QColor("yellow"))
                 else:
-                    item.setBackground(QColor("white"))
+                    item.setBackground(Qt.transparent)
 
         # In single-select mode, uncheck other rows
         if not self.bulk_mode:
@@ -270,7 +270,7 @@ class SalesTab(QWidget):
                         for col in range(self.table.columnCount()):
                             item = self.table.item(r, col) if col > 0 else None
                             if item:
-                                item.setBackground(QColor("white"))
+                                item.setBackground(Qt.transparent)
 
     def toggle_bulk_mode(self):
         self.bulk_mode = not self.bulk_mode
@@ -289,7 +289,7 @@ class SalesTab(QWidget):
                     for col in range(self.table.columnCount()):
                         item = self.table.item(r, col) if col > 0 else None
                         if item:
-                            item.setBackground(QColor("white"))
+                            item.setBackground(Qt.transparent)
 
     def bulk_return_items(self):
         # Get all checked items
