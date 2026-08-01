@@ -277,10 +277,17 @@ class MonthTab(QWidget):
         text_color = QColor("#00ff88")
 
         for button in buttons:
+            # Set ALL palette color roles to ensure the button is dark
             palette = button.palette()
-            palette.setColor(QPalette.Button, dark_color)
-            palette.setColor(QPalette.ButtonText, text_color)
-            palette.setColor(QPalette.Window, dark_color)
-            palette.setColor(QPalette.WindowText, text_color)
+            for role in [QPalette.Button, QPalette.ButtonText, QPalette.Window,
+                        QPalette.WindowText, QPalette.Base, QPalette.Text,
+                        QPalette.Dark, QPalette.Light, QPalette.Mid, QPalette.Midlight]:
+                if role in [QPalette.ButtonText, QPalette.WindowText, QPalette.Text, QPalette.Midlight]:
+                    palette.setColor(role, text_color)
+                else:
+                    palette.setColor(role, dark_color)
             button.setPalette(palette)
-            button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88;")
+            button.setStyleSheet("background-color: #1a3a5e; border: none; color: #00ff88; margin: 0px; padding: 0px;")
+            button.setFlat(True)
+            # Try to hide the button by setting its size to 0
+            button.setMaximumSize(0, 0)
