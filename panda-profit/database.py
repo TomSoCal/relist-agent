@@ -91,30 +91,28 @@ def init_db():
         )
     ''')
 
-    # Insert default expense categories
-    default_categories = [
-        ('Packaging Materials', 'supplies'),
-        ('Shipping Costs', 'shipping'),
-        ('Office Supplies', 'supplies'),
-        ('Equipment', 'equipment'),
-        ('Software Subscriptions', 'subscriptions'),
-        ('Advertising', 'marketing'),
-        ('Professional Services', 'services'),
-        ('Rent', 'facility'),
-        ('Utilities', 'facility'),
-        ('Insurance', 'insurance'),
-        ('Vehicle Expenses', 'vehicle'),
-        ('Travel', 'travel'),
-        ('Meals & Entertainment', 'meals'),
-        ('Training & Development', 'education'),
-        ('Miscellaneous', 'other'),
-    ]
+    # Add is_custom column if it doesn't exist
+    c.execute("PRAGMA table_info(expense_categories)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'is_custom' not in columns:
+        c.execute('ALTER TABLE expense_categories ADD COLUMN is_custom INTEGER DEFAULT 0')
+        print("[+] Added 'is_custom' column to expense_categories table")
 
-    for name, category_type in default_categories:
-        c.execute('''
-            INSERT OR IGNORE INTO expense_categories (name, category_type)
-            VALUES (?, ?)
-        ''', (name, category_type))
+    # Insert predefined expense categories (only if table is empty, for fresh installs)
+    c.execute('SELECT COUNT(*) FROM expense_categories')
+    if c.fetchone()[0] == 0:
+        default_categories = [
+            ('Storage', 'supplies', 0),
+            ('Business Subscriptions', 'subscriptions', 0),
+            ('Home Office', 'supplies', 0),
+            ('Shipping Supplies', 'supplies', 0),
+            ('Misc Expense', 'other', 0),
+        ]
+        for name, category_type, is_custom in default_categories:
+            c.execute('''
+                INSERT INTO expense_categories (name, category_type, is_custom)
+                VALUES (?, ?, ?)
+            ''', (name, category_type, is_custom))
 
     # Platform Fees table
     c.execute('''
@@ -154,13 +152,31 @@ def init_db():
             expense_date TEXT NOT NULL,
             category_id INTEGER NOT NULL,
             amount REAL NOT NULL,
+            invoice_number TEXT DEFAULT '',
             description TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
             receipt_path TEXT DEFAULT '',
+            archived INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (category_id) REFERENCES expense_categories (id)
         )
     ''')
+
+    c.execute('CREATE INDEX IF NOT EXISTS idx_expenses_archived ON expenses(archived, year)')
+
+    # Add missing columns to expenses table if they don't exist
+    c.execute("PRAGMA table_info(expenses)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'invoice_number' not in columns:
+        c.execute('ALTER TABLE expenses ADD COLUMN invoice_number TEXT DEFAULT \'\'')
+        print("[+] Added 'invoice_number' column to expenses table")
+    if 'archived' not in columns:
+        c.execute('ALTER TABLE expenses ADD COLUMN archived INTEGER DEFAULT 0')
+        print("[+] Added 'archived' column to expenses table")
+    if 'notes' not in columns:
+        c.execute('ALTER TABLE expenses ADD COLUMN notes TEXT DEFAULT \'\'')
+        print("[+] Added 'notes' column to expenses table")
 
     # Mileage table (for tracking business trips and sourcing miles)
     c.execute('''
@@ -694,6 +710,79 @@ def get_total_expenses_by_category(start_date, end_date, year=None):
     results = c.fetchall()
     conn.close()
     return results
+
+def get_or_create_expense_categories():
+    """Seed predefined expense categories if table is empty."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('SELECT COUNT(*) FROM expense_categories')
+    if c.fetchone()[0] == 0:
+        categories = [
+            ('Storage', 'supplies', 0),
+            ('Business Subscriptions', 'subscriptions', 0),
+            ('Home Office', 'supplies', 0),
+            ('Shipping Supplies', 'supplies', 0),
+            ('Misc Expense', 'other', 0),
+        ]
+        for name, category_type, is_custom in categories:
+            c.execute('INSERT INTO expense_categories (name, category_type, is_custom) VALUES (?, ?, ?)',
+                      (name, category_type, is_custom))
+        conn.commit()
+    conn.close()
+
+def add_expense_category(name, category_type=None):
+    """Add expense category. Return category_id or raise on duplicate.
+
+    Args:
+        name: Category name
+        category_type: Optional category type. If None, marks as custom (is_custom=1).
+                      If provided, marks as predefined (is_custom=0).
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # If category_type is provided, this is the old API (predefined category)
+        # If not provided, this is the new API (custom category)
+        if category_type is None:
+            is_custom = 1
+            category_type = 'custom'
+        else:
+            is_custom = 0
+
+        c.execute('INSERT INTO expense_categories (name, category_type, is_custom) VALUES (?, ?, ?)',
+                  (name.strip(), category_type, is_custom))
+        conn.commit()
+        category_id = c.lastrowid
+        conn.close()
+        return category_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Category '{name}' already exists")
+
+def get_expense_categories():
+    """Return all categories (predefined + custom), sorted by name."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('SELECT id, name, is_custom FROM expense_categories ORDER BY name')
+    categories = [{'id': row[0], 'name': row[1], 'is_custom': row[2]} for row in c.fetchall()]
+    conn.close()
+    return categories
+
+def archive_expenses_for_year(year):
+    """Mark expenses with archived=0 and year < given_year as archived=1. Return count."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('UPDATE expenses SET archived=1 WHERE archived=0 AND year < ? AND amount IS NOT NULL',
+              (year,))
+    conn.commit()
+    count = c.rowcount
+    conn.close()
+    return count
+
+def check_and_archive_year_transition():
+    """Detect year boundary, auto-archive prior year expenses."""
+    current_year = datetime.now().year
+    archive_expenses_for_year(current_year)
 
 # Mileage operations
 def add_mileage_trip(trip_date, miles, purpose='sourcing', stores_visited='', notes='', odometer_start=0, odometer_end=0, year=None):
