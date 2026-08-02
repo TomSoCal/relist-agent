@@ -113,8 +113,8 @@ class RestockModal(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to restock item: {str(e)}")
 
 
-class InventoryHistoryTab(QWidget):
-    """Tab for searching and restocking historical archived inventory"""
+class InventoryHistoryView(QWidget):
+    """View for searching and restocking historical archived inventory"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,7 +170,8 @@ class InventoryHistoryTab(QWidget):
         self.setLayout(main_layout)
 
     def load_years(self):
-        """Populate year dropdown with available years from database"""
+        """Populate year dropdown with available years from database (excluding current year)"""
+        current_year = datetime.now().year
         query = """
         SELECT DISTINCT strftime('%Y', created_at) as year
         FROM inventory
@@ -185,7 +186,7 @@ class InventoryHistoryTab(QWidget):
 
         for year_row in years:
             year = year_row['year'] if isinstance(year_row, dict) else year_row[0]
-            if year:  # Skip NULL
+            if year and int(year) < current_year:  # Skip NULL and current year
                 self.year_combo.addItem(year, year)
 
         # Add "All Years" option

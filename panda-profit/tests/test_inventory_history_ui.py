@@ -49,10 +49,10 @@ class TestInventoryHistoryTab:
         return app
 
     def test_tab_initializes(self, app, test_db):
-        """InventoryHistoryTab should initialize without errors"""
-        from ui.inventory_history_tab import InventoryHistoryTab
+        """InventoryHistoryView should initialize without errors"""
+        from ui.history.inventory_history_view import InventoryHistoryView
 
-        tab = InventoryHistoryTab()
+        tab = InventoryHistoryView()
 
         assert tab is not None
         # Check for key widgets
@@ -63,7 +63,7 @@ class TestInventoryHistoryTab:
 
     def test_search_updates_table(self, app, test_db):
         """Search should populate results table"""
-        from ui.inventory_history_tab import InventoryHistoryTab
+        from ui.history.inventory_history_view import InventoryHistoryView
         from database import add_inventory, get_connection
 
         # Add archived item
@@ -81,8 +81,8 @@ class TestInventoryHistoryTab:
         conn.commit()
         conn.close()
 
-        # Create tab and search
-        tab = InventoryHistoryTab()
+        # Create view and search
+        tab = InventoryHistoryView()
         tab.search_input.setText('TEST')
         tab.perform_search()
 
@@ -90,13 +90,13 @@ class TestInventoryHistoryTab:
         assert tab.results_table.rowCount() > 0
 
     def test_tab_reads_from_current_db_path(self, app, test_db, monkeypatch):
-        """Tab must resolve DB_PATH at query time, not at import time.
+        """View must resolve DB_PATH at query time, not at import time.
 
         Guards against reintroducing a module-level connection singleton.
         """
         import database
         from database import add_inventory, get_connection, init_db
-        from ui.inventory_history_tab import InventoryHistoryTab
+        from ui.history.inventory_history_view import InventoryHistoryView
 
         # Item lives only in the *second* database
         second_db = os.path.join(os.path.dirname(__file__), 'test_history_ui_2.db')
@@ -120,7 +120,7 @@ class TestInventoryHistoryTab:
         conn.close()
 
         try:
-            tab = InventoryHistoryTab()
+            tab = InventoryHistoryView()
             tab.search_input.setText('SECOND')
             tab.perform_search()
 
