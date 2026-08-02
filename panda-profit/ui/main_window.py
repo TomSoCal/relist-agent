@@ -6,7 +6,6 @@ from PyQt5.QtCore import Qt
 from config import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT
 from ui.dashboard_tab import DashboardTab
 from ui.inventory_tab import InventoryTab
-from ui.inventory_history_tab import InventoryHistoryTab
 from ui.sales_tab import SalesTab
 from ui.settings_tab import SettingsTab
 from ui.day_tab import DayTab
@@ -16,7 +15,7 @@ from ui.analytics_tab import AnalyticsTab
 from ui.mileage_tab import MileageTab
 from ui.reports_tab import ReportsTab
 from ui.expenses_tab import ExpensesTab
-from ui.history.expense_history_view import ExpenseHistoryView
+from ui.history_tab import HistoryTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -37,7 +36,6 @@ class MainWindow(QMainWindow):
         self.inventory_tab = InventoryTab(sales_tab=self.sales_tab)
         # Pass inventory_tab reference to sales_tab for auto-refresh on return
         self.sales_tab.inventory_tab = self.inventory_tab
-        self.inventory_history_tab = InventoryHistoryTab()
         self.day_tab = DayTab()
         self.month_tab = MonthTab()
         self.year_tab = YearTab()
@@ -45,12 +43,11 @@ class MainWindow(QMainWindow):
         self.mileage_tab = MileageTab()
         self.reports_tab = ReportsTab()
         self.tab_expenses = ExpensesTab()
-        self.tab_expense_history = ExpenseHistoryView()
+        self.tab_history = HistoryTab()
         self.settings_tab = SettingsTab()
 
         self.tabs.addTab(self.dashboard_tab, "Dashboard")
         self.tabs.addTab(self.inventory_tab, "Inventory")
-        self.tabs.addTab(self.inventory_history_tab, "Inventory History")
         self.tabs.addTab(self.sales_tab, "Sales")
         self.tabs.addTab(self.day_tab, "Day")
         self.tabs.addTab(self.month_tab, "Month")
@@ -59,7 +56,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.mileage_tab, "Mileage")
         self.tabs.addTab(self.reports_tab, "Reports")
         self.tabs.addTab(self.tab_expenses, "Expenses")
-        self.tabs.addTab(self.tab_expense_history, "Expense History")
+        self.tabs.addTab(self.tab_history, "History")
         self.tabs.addTab(self.settings_tab, "Settings")
 
         layout.addWidget(self.tabs)
