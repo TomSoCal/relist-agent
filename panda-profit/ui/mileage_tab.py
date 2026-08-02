@@ -253,7 +253,7 @@ class MileageTab(QWidget):
             trip_date = self.table.item(row, 1).text()
             odometer_start = int(self.table.item(row, 2).text() or 0)
             odometer_end = int(self.table.item(row, 3).text() or 0)
-            miles = int(self.table.item(row, 4).text() or 0)
+            miles = float(self.table.item(row, 4).text() or 0)
             purpose = self.table.item(row, 5).text()
             stores = self.table.item(row, 6).text()
             notes = self.table.item(row, 7).text()
