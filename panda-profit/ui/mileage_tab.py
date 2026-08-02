@@ -12,13 +12,21 @@ from constants import STORES
 class MileageTab(QWidget):
     """Tab for tracking business mileage and computing tax deductions."""
 
-    # IRS standard mileage rate for 2026
-    MILEAGE_RATE = 0.67
-
     def __init__(self):
         super().__init__()
+        self.mileage_rate = self._get_mileage_rate()
         self.init_ui()
         self.load_mileage()
+
+    def _get_mileage_rate(self):
+        """Get mileage rate from settings, default to IRS 2026 rate."""
+        try:
+            rate = db.get_setting('mileage_rate')
+            if rate:
+                return float(rate)
+        except:
+            pass
+        return 0.67  # Default IRS rate for 2026
 
     def init_ui(self):
         """Initialize the UI layout."""
@@ -52,7 +60,7 @@ class MileageTab(QWidget):
 
         self.total_miles_label = self._create_stat_label("Total Miles (This Month)", "0")
         self.trips_count_label = self._create_stat_label("Trips (This Month)", "0")
-        self.mileage_value_label = self._create_stat_label(f"Mileage Value (@ ${self.MILEAGE_RATE}/mi)", "$0.00")
+        self.mileage_value_label = self._create_stat_label(f"Mileage Value (@ ${self.mileage_rate}/mi)", "$0.00")
 
         stats_layout.addWidget(self.total_miles_label)
         stats_layout.addWidget(self.trips_count_label)
@@ -106,11 +114,14 @@ class MileageTab(QWidget):
         """Load and display mileage trips for the current month."""
         month_start, month_end = self.get_month_date_range()
 
+        # Refresh mileage rate from settings
+        self.mileage_rate = self._get_mileage_rate()
+
         # Get total mileage and trip count
         totals = db.get_total_mileage_for_period(month_start, month_end)
         total_miles = totals.get('total_miles', 0) or 0
         trip_count = totals.get('trip_count', 0) or 0
-        mileage_value = total_miles * self.MILEAGE_RATE
+        mileage_value = total_miles * self.mileage_rate
 
         # Update summary labels
         self.total_miles_label.value_label.setText(f"{total_miles:.1f}")
@@ -142,9 +153,22 @@ class MileageTab(QWidget):
         dialog = AddMileageDialog(self)
         if dialog.exec_() == QDialog.Accepted:
             try:
+                # Determine which tab was used and get odometer values
+                odometer_start = 0
+                odometer_end = 0
+
+                # Check which tab was active (0=direct miles, 1=odometer)
+                for child in dialog.findChildren(QTabWidget):
+                    if child.currentIndex() == 1:  # Odometer tab
+                        odometer_start = dialog.odometer_start.value()
+                        odometer_end = dialog.odometer_end.value()
+                    break
+
                 db.add_mileage_trip(
                     trip_date=dialog.trip_date.date().toString("yyyy-MM-dd"),
                     miles=dialog.miles_value,
+                    odometer_start=odometer_start,
+                    odometer_end=odometer_end,
                     purpose=dialog.purpose_input.text() or "sourcing",
                     stores_visited=dialog.stores_input.text(),
                     notes=dialog.notes_input.toPlainText()

@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QLabel, QLineEdit, QGroupBox, QMessageBox, QListWidget,
                             QListWidgetItem, QDialog, QTableWidget, QTableWidgetItem, QInputDialog,
-                            QScrollArea)
+                            QScrollArea, QDoubleSpinBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont
 import database as db
@@ -191,11 +191,37 @@ class SettingsTab(QWidget):
 
         brands_group.setLayout(brands_layout)
 
+        # Mileage Deduction Settings
+        mileage_group = QGroupBox("Mileage Deduction (Tax & Deductions)")
+        mileage_layout = QVBoxLayout()
+
+        mileage_layout.addWidget(QLabel("Mileage Rate ($/mile):"))
+        mileage_layout.addWidget(QLabel("Enter the IRS standard mileage rate for your region."))
+
+        rate_layout = QHBoxLayout()
+        rate_layout.addWidget(QLabel("Rate: $"))
+        self.mileage_rate_input = QDoubleSpinBox()
+        self.mileage_rate_input.setRange(0.0, 10.0)
+        self.mileage_rate_input.setSingleStep(0.01)
+        self.mileage_rate_input.setDecimals(3)
+        self.mileage_rate_input.setValue(0.67)  # Default IRS 2026 rate
+        rate_layout.addWidget(self.mileage_rate_input)
+        rate_layout.addWidget(QLabel("/ mile"))
+        rate_layout.addStretch()
+
+        save_rate_btn = QPushButton("Save Rate")
+        save_rate_btn.clicked.connect(self.save_mileage_rate)
+        rate_layout.addWidget(save_rate_btn)
+
+        mileage_layout.addLayout(rate_layout)
+        mileage_group.setLayout(mileage_layout)
+
         layout.addWidget(ebay_group)
         layout.addWidget(mgmt_group)
         layout.addWidget(expense_group)
         layout.addWidget(platform_group)
         layout.addWidget(brands_group)
+        layout.addWidget(mileage_group)
         layout.addStretch()
 
         # Add scroll area to main layout
@@ -220,6 +246,9 @@ class SettingsTab(QWidget):
         self.load_expense_categories()
         self.load_platform_fees()
         self.load_brands()
+
+        # Load mileage rate
+        self.load_mileage_rate()
 
     def reconfigure_oauth(self):
         """Run OAuth setup to configure or update credentials"""
@@ -514,3 +543,23 @@ class SettingsTab(QWidget):
         from PyQt5.QtWidgets import QInputDialog
         text, ok = QInputDialog.getText(self, title, label)
         return text, ok
+
+    def load_mileage_rate(self):
+        """Load mileage rate from settings"""
+        try:
+            rate = db.get_setting('mileage_rate')
+            if rate:
+                self.mileage_rate_input.setValue(float(rate))
+            else:
+                self.mileage_rate_input.setValue(0.67)  # Default IRS 2026 rate
+        except:
+            self.mileage_rate_input.setValue(0.67)
+
+    def save_mileage_rate(self):
+        """Save mileage rate to settings"""
+        try:
+            rate = self.mileage_rate_input.value()
+            db.set_setting('mileage_rate', str(rate))
+            QMessageBox.information(self, "Success", f"Mileage rate saved: ${rate:.3f}/mile")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save mileage rate: {str(e)}")
