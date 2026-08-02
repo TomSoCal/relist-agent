@@ -478,6 +478,29 @@ def get_sales_by_date_range(start_date, end_date):
     conn.close()
     return sales
 
+def get_sales(year=None):
+    """Get sales, optionally filtered by year."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    if year is None:
+        c.execute('SELECT * FROM sales ORDER BY sold_date DESC')
+    else:
+        c.execute('SELECT * FROM sales WHERE year = ? ORDER BY sold_date DESC', (year,))
+    sales = c.fetchall()
+    conn.close()
+    return sales
+
+def get_sale_by_id(sale_id):
+    """Get a single sale by ID."""
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('SELECT * FROM sales WHERE id = ?', (sale_id,))
+    sale = c.fetchone()
+    conn.close()
+    return sale
+
 def update_sale(sale_id, **kwargs):
     conn = get_connection()
     c = conn.cursor()

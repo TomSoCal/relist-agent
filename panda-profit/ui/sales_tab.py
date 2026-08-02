@@ -462,3 +462,89 @@ class AddSaleDialog(QDialog):
             'sku': self.sku.text(),
             'category': self.category.currentText()
         }
+
+
+class ViewSaleDialog(QDialog):
+    """Read-only dialog for viewing sale details."""
+
+    def __init__(self, sale, parent=None):
+        super().__init__(parent)
+        self.sale = sale
+        self.setWindowTitle("View Sale")
+        self.setGeometry(150, 150, 600, 800)
+        self.init_ui()
+
+    def init_ui(self):
+        """Initialize dialog UI."""
+        layout = QVBoxLayout()
+
+        # Sold Date
+        layout.addWidget(QLabel("Sold Date:"))
+        layout.addWidget(QLabel(str(self.sale.get('sold_date', '—'))))
+
+        # Platform
+        layout.addWidget(QLabel("Platform:"))
+        layout.addWidget(QLabel(str(self.sale.get('platform', '—'))))
+
+        # Item Title
+        layout.addWidget(QLabel("Item Title:"))
+        layout.addWidget(QLabel(self.sale.get('item_title', '—')))
+
+        # Units
+        layout.addWidget(QLabel("Units:"))
+        layout.addWidget(QLabel(str(self.sale.get('units', '—'))))
+
+        # Sale Price
+        layout.addWidget(QLabel("Sale Price:"))
+        layout.addWidget(QLabel(f"${self.sale.get('sale_price', 0):.2f}"))
+
+        # Shipping Collected
+        layout.addWidget(QLabel("Shipping Collected:"))
+        layout.addWidget(QLabel(f"${self.sale.get('shipping_collected', 0):.2f}"))
+
+        # Cost of Goods
+        layout.addWidget(QLabel("Cost of Goods:"))
+        layout.addWidget(QLabel(f"${self.sale.get('cost_of_goods', 0):.2f}"))
+
+        # Shipping Cost
+        layout.addWidget(QLabel("Shipping Cost:"))
+        layout.addWidget(QLabel(f"${self.sale.get('shipping_cost', 0):.2f}"))
+
+        # Platform Fee
+        layout.addWidget(QLabel("Platform Fee:"))
+        layout.addWidget(QLabel(f"${self.sale.get('platform_fee', 0):.2f}"))
+
+        # Transaction Fee
+        layout.addWidget(QLabel("Transaction Fee:"))
+        layout.addWidget(QLabel(f"${self.sale.get('transaction_fee', 0):.2f}"))
+
+        # Total Fees
+        layout.addWidget(QLabel("Total Fees:"))
+        layout.addWidget(QLabel(f"${self.sale.get('total_fees', 0):.2f}"))
+
+        # Profit/Loss
+        layout.addWidget(QLabel("Profit/Loss:"))
+        profit_loss = self.sale.get('profit_loss', 0)
+        profit_label = QLabel(f"${profit_loss:.2f}")
+        if profit_loss < 0:
+            profit_label.setStyleSheet("color: red;")
+        else:
+            profit_label.setStyleSheet("color: green;")
+        layout.addWidget(profit_label)
+
+        # SKU
+        layout.addWidget(QLabel("SKU:"))
+        layout.addWidget(QLabel(self.sale.get('sku', '—')))
+
+        # Category
+        layout.addWidget(QLabel("Category:"))
+        layout.addWidget(QLabel(self.sale.get('category', '—')))
+
+        layout.addStretch()
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+        self.setLayout(layout)
