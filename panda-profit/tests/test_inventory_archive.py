@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import (
     init_db, add_inventory, add_sale, archive_sold_inventory_for_year,
     get_archived_inventory, copy_archived_to_active, get_inventory_by_id,
-    get_all_inventory, delete_inventory, DB_PATH
+    get_all_inventory, delete_inventory, DB_PATH, check_and_archive_year_transition,
+    get_setting, set_setting
 )
 
 
@@ -200,3 +201,45 @@ class TestArchiveFunctions:
         assert new_item['units'] == 1
         assert new_item['archived'] == 0
         # Other fields may be empty/defaults
+
+    def test_check_and_archive_year_transition_archives_on_year_change(self, test_db, monkeypatch):
+        """Year transition should trigger archival and update last_app_year setting"""
+        # Mock datetime to simulate new year
+        class MockDatetime:
+            @staticmethod
+            def now():
+                class Now:
+                    year = 2027
+                return Now()
+
+        monkeypatch.setattr('database.datetime', MockDatetime)
+
+        # Set last year to 2026
+        set_setting('last_app_year', '2026')
+
+        # Create sold item from 2026
+        item_id = add_inventory(
+            listed_date='2026-01-01',
+            item_title='2026 Item',
+            units=0,
+            sku='YEAR-26',
+            category='Test',
+            cost=10.0,
+            created_at='2026-01-01'
+        )
+
+        from database import get_connection
+        conn = get_connection()
+        conn.execute("UPDATE inventory SET created_at = '2026-01-01T00:00:00' WHERE id = ?", (item_id,))
+        conn.commit()
+        conn.close()
+
+        # Run year check
+        result = check_and_archive_year_transition()
+
+        # Verify archival happened
+        assert result == True
+        assert get_setting('last_app_year') == '2027'
+
+        item = get_inventory_by_id(item_id)
+        assert item['archived'] == 1

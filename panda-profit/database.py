@@ -971,6 +971,26 @@ def copy_archived_to_active(archived_id, new_sku, copy_details=True):
     conn.close()
     return add_inventory(**new_item)
 
+
+def check_and_archive_year_transition():
+    """
+    On app startup, check if year has changed.
+    If new year detected, archive sold inventory from prior year.
+    Returns True if archival happened, False otherwise.
+    """
+    current_year = datetime.now().year
+    last_year_recorded = int(get_setting('last_app_year') or current_year - 1)
+
+    if current_year > last_year_recorded:
+        # Year boundary crossed; archive prior year's sold inventory
+        print(f"🔄 Year transition detected: {last_year_recorded} → {current_year}")
+        archive_sold_inventory_for_year(last_year_recorded)
+        set_setting('last_app_year', str(current_year))
+        print(f"✓ Archived sold inventory from {last_year_recorded}")
+        return True
+
+    return False
+
 if __name__ == '__main__':
     init_db()
     print("Database initialized successfully!")
