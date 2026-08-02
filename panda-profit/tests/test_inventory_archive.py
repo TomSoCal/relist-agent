@@ -243,3 +243,77 @@ class TestArchiveFunctions:
 
         item = get_inventory_by_id(item_id)
         assert item['archived'] == 1
+
+    def test_complete_workflow_sell_archive_restock(self, test_db):
+        """Full workflow: create → sell → archive → search → restock"""
+        # 1. Create inventory item
+        item_id = add_inventory(
+            listed_date='2026-01-15',
+            item_title='Premium Widget',
+            units=1,
+            sku='WIDGET-001',
+            category='Electronics',
+            brand='WidgetCorp',
+            cost=50.0
+        )
+
+        # Verify active
+        item = get_inventory_by_id(item_id)
+        assert item['archived'] == 0
+        assert item['units'] == 1
+
+        # 2. Sell the item (simulate sale)
+        sale_id = add_sale(
+            sold_date='2026-02-01',
+            listed_date='2026-01-15',
+            item_title='Premium Widget',
+            platform='eBay',
+            units=1,
+            sku='WIDGET-001',
+            category='Electronics',
+            sale_price=100.0,
+            shipping_collected=0.0,
+            cost_of_goods=50.0,
+            shipping_cost=5.0,
+            platform_fee=12.00,
+            transaction_fee=2.90,
+            promoted_fee=0.0
+        )
+
+        # Mark inventory as sold
+        from database import get_connection
+        conn = get_connection()
+        conn.execute("UPDATE inventory SET units = 0 WHERE id = ?", (item_id,))
+        conn.commit()
+        conn.close()
+
+        # 3. Archive at year boundary
+        archive_sold_inventory_for_year(2026)
+
+        # Verify archived
+        item = get_inventory_by_id(item_id)
+        assert item['archived'] == 1
+
+        # 4. Search archived inventory
+        archived = get_archived_inventory(year=2026, search_query='WIDGET')
+        assert len(archived) > 0
+        found_item = [a for a in archived if a['sku'] == 'WIDGET-001'][0]
+        assert found_item['item_title'] == 'Premium Widget'
+        assert found_item['units_sold_total'] == 1
+
+        # 5. Restock with new SKU
+        new_item_id = copy_archived_to_active(
+            item_id,
+            new_sku='WIDGET-002',
+            copy_details=True
+        )
+
+        # Verify new item is active with copied details
+        new_item = get_inventory_by_id(new_item_id)
+        assert new_item['sku'] == 'WIDGET-002'
+        assert new_item['item_title'] == 'Premium Widget'
+        assert new_item['category'] == 'Electronics'
+        assert new_item['brand'] == 'WidgetCorp'
+        assert new_item['cost'] == 50.0
+        assert new_item['archived'] == 0
+        assert new_item['units'] == 1
