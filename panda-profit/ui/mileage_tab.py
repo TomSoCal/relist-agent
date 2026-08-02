@@ -226,20 +226,34 @@ class MileageTab(QWidget):
             return
 
         row = selected_rows[0].row()
+        if not hasattr(self.table.item(row, 1), 'trip_id'):
+            QMessageBox.warning(self, "Error", "Trip ID not found. Please refresh and try again.")
+            return
+
         trip_id = self.table.item(row, 1).trip_id
 
-        # Get the trip data
+        # Get the trip data - all year data to handle any year
         try:
-            trips = db.get_mileage_by_date_range('2020-01-01', '2099-12-31')
-            trip = None
-            for t in trips:
-                if t['id'] == trip_id:
-                    trip = t
-                    break
+            # Read values directly from table cells (already loaded)
+            trip_date = self.table.item(row, 1).text()
+            odometer_start = int(self.table.item(row, 2).text() or 0)
+            odometer_end = int(self.table.item(row, 3).text() or 0)
+            miles = int(self.table.item(row, 4).text() or 0)
+            purpose = self.table.item(row, 5).text()
+            stores = self.table.item(row, 6).text()
+            notes = self.table.item(row, 7).text()
 
-            if not trip:
-                QMessageBox.warning(self, "Error", "Could not find trip data.")
-                return
+            # Create trip dict from table data
+            trip = {
+                'id': trip_id,
+                'trip_date': trip_date,
+                'odometer_start': odometer_start,
+                'odometer_end': odometer_end,
+                'miles': miles,
+                'purpose': purpose,
+                'stores_visited': stores,
+                'notes': notes
+            }
 
             # Open edit dialog
             dialog = EditMileageDialog(trip, self)
