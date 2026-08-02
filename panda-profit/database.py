@@ -983,10 +983,10 @@ def check_and_archive_year_transition():
 
     if current_year > last_year_recorded:
         # Year boundary crossed; archive prior year's sold inventory
-        print(f"🔄 Year transition detected: {last_year_recorded} → {current_year}")
+        print(f"[*] Year transition detected: {last_year_recorded} -> {current_year}")
         archive_sold_inventory_for_year(last_year_recorded)
         set_setting('last_app_year', str(current_year))
-        print(f"✓ Archived sold inventory from {last_year_recorded}")
+        print(f"[+] Archived sold inventory from {last_year_recorded}")
         return True
 
     return False
