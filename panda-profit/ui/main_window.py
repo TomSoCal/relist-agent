@@ -15,6 +15,8 @@ from ui.year_tab import YearTab
 from ui.analytics_tab import AnalyticsTab
 from ui.mileage_tab import MileageTab
 from ui.reports_tab import ReportsTab
+from ui.expenses_tab import ExpensesTab
+from ui.expense_history_tab import ExpenseHistoryTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -42,6 +44,8 @@ class MainWindow(QMainWindow):
         self.analytics_tab = AnalyticsTab()
         self.mileage_tab = MileageTab()
         self.reports_tab = ReportsTab()
+        self.tab_expenses = ExpensesTab()
+        self.tab_expense_history = ExpenseHistoryTab()
         self.settings_tab = SettingsTab()
 
         self.tabs.addTab(self.dashboard_tab, "Dashboard")
@@ -54,6 +58,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.analytics_tab, "Forecasting")
         self.tabs.addTab(self.mileage_tab, "Mileage")
         self.tabs.addTab(self.reports_tab, "Reports")
+        self.tabs.addTab(self.tab_expenses, "Expenses")
+        self.tabs.addTab(self.tab_expense_history, "Expense History")
         self.tabs.addTab(self.settings_tab, "Settings")
 
         layout.addWidget(self.tabs)

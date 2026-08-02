@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 
-from database import init_db, check_and_archive_year_transition
+from database import init_db, check_and_archive_year_transition, get_or_create_expense_categories
 from config import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT
 from ui.main_window import MainWindow
 
@@ -21,6 +21,9 @@ def main():
 
     # Initialize database
     init_db()
+
+    # Seed predefined expense categories
+    get_or_create_expense_categories()
 
     # Check for year boundary and archive if needed
     check_and_archive_year_transition()
