@@ -31,10 +31,6 @@ class SalesHistoryView(QWidget):
 
         # Summary stats
         stats_layout = QHBoxLayout()
-        stats_layout.addWidget(QLabel("Month Total:"))
-        self.month_total_label = QLabel("$0.00")
-        stats_layout.addWidget(self.month_total_label)
-
         stats_layout.addWidget(QLabel("Year Total:"))
         self.year_total_label = QLabel("$0.00")
         stats_layout.addWidget(self.year_total_label)
