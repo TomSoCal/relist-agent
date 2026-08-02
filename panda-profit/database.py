@@ -225,16 +225,20 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
-    conn.execute('PRAGMA journal_mode=WAL')
-    return conn
-
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
         d[col[0]] = row[idx]
     return d
+
+def get_connection():
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+    conn.execute('PRAGMA journal_mode=WAL')
+    return conn
+
+# Module-level connection for use in UI and direct queries
+db = get_connection()
+db.row_factory = dict_factory
 
 # Inventory operations
 def add_inventory(listed_date, item_title='', units=0, sku='', bin='', store='', category='', cost=0.0, notes='', brand='', xp=0, created_at=None):
