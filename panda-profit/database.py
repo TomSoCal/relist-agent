@@ -236,9 +236,15 @@ def get_connection():
     conn.execute('PRAGMA journal_mode=WAL')
     return conn
 
-# Module-level connection for use in UI and direct queries
-db = get_connection()
-db.row_factory = dict_factory
+def get_dict_connection():
+    """Connection whose rows come back as dicts. Caller must close it.
+
+    Always resolves DB_PATH at call time -- never cache the returned
+    connection at module level or it will bind to a stale database.
+    """
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    return conn
 
 # Inventory operations
 def add_inventory(listed_date, item_title='', units=0, sku='', bin='', store='', category='', cost=0.0, notes='', brand='', xp=0, created_at=None):

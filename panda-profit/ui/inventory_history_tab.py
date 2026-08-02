@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt
 from datetime import datetime
 from database import (
     get_archived_inventory, copy_archived_to_active, get_inventory_by_id,
-    db, get_all_inventory
+    get_dict_connection, get_all_inventory
 )
 
 
@@ -82,10 +82,14 @@ class RestockModal(QDialog):
 
         try:
             # Check for duplicate SKU in active inventory
-            existing = db.execute(
-                "SELECT id FROM inventory WHERE sku = ? AND archived = 0",
-                (new_sku,)
-            ).fetchone()
+            conn = get_dict_connection()
+            try:
+                existing = conn.execute(
+                    "SELECT id FROM inventory WHERE sku = ? AND archived = 0",
+                    (new_sku,)
+                ).fetchone()
+            finally:
+                conn.close()
 
             if existing:
                 QMessageBox.warning(self, "SKU Conflict", f"SKU '{new_sku}' already exists in active inventory")
@@ -173,7 +177,11 @@ class InventoryHistoryTab(QWidget):
         WHERE archived = 1
         ORDER BY year DESC
         """
-        years = db.execute(query).fetchall()
+        conn = get_dict_connection()
+        try:
+            years = conn.execute(query).fetchall()
+        finally:
+            conn.close()
 
         for year_row in years:
             year = year_row['year'] if isinstance(year_row, dict) else year_row[0]
