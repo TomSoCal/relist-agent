@@ -104,7 +104,9 @@ class AddExpenseDialog(QDialog):
             for cat in categories:
                 self.category_combo.addItem(cat['name'], cat['id'])
             self.category_combo.addItem("Add New Category...", -1)
-            self.category_combo.setCurrentData(cat_id)
+            index = self.category_combo.findData(cat_id)
+            if index >= 0:
+                self.category_combo.setCurrentIndex(index)
             self.category_combo.blockSignals(False)
 
     def browse_receipt(self):
@@ -172,7 +174,9 @@ class EditExpenseDialog(QDialog):
         categories = db.get_expense_categories()
         for cat in categories:
             self.category_combo.addItem(cat['name'], cat['id'])
-        self.category_combo.setCurrentData(self.expense['category_id'])
+        index = self.category_combo.findData(self.expense['category_id'])
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
         layout.addWidget(self.category_combo)
 
         # Amount
