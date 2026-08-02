@@ -784,6 +784,66 @@ def delete_mileage_trip(trip_id):
     conn.close()
     return rows_deleted
 
+def update_mileage_trip(trip_id, trip_date=None, miles=None, odometer_start=None, odometer_end=None, purpose=None, stores_visited=None, notes=None):
+    """Update a mileage trip. Only allows updates to current year trips (write protection).
+
+    Args:
+        trip_id: ID of the mileage trip to update
+        trip_date: Date of trip (YYYY-MM-DD format)
+        miles: Miles driven
+        odometer_start: Starting odometer reading
+        odometer_end: Ending odometer reading
+        purpose: Trip purpose
+        stores_visited: Stores visited
+        notes: Trip notes
+
+    Returns:
+        Number of rows updated (0 if trip doesn't exist or is from past year, 1 if success)
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    current_year = datetime.now().year
+
+    # Build update query only for provided fields
+    updates = []
+    values = []
+
+    if trip_date is not None:
+        updates.append("trip_date = ?")
+        values.append(trip_date)
+    if miles is not None:
+        updates.append("miles = ?")
+        values.append(miles)
+    if odometer_start is not None:
+        updates.append("odometer_start = ?")
+        values.append(odometer_start)
+    if odometer_end is not None:
+        updates.append("odometer_end = ?")
+        values.append(odometer_end)
+    if purpose is not None:
+        updates.append("purpose = ?")
+        values.append(purpose)
+    if stores_visited is not None:
+        updates.append("stores_visited = ?")
+        values.append(stores_visited)
+    if notes is not None:
+        updates.append("notes = ?")
+        values.append(notes)
+
+    if not updates:
+        conn.close()
+        return 0
+
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    query = f"UPDATE mileage SET {', '.join(updates)} WHERE id = ? AND year = ?"
+    values.extend([trip_id, current_year])
+
+    c.execute(query, values)
+    conn.commit()
+    rows_updated = c.rowcount
+    conn.close()
+    return rows_updated
+
 def get_total_mileage_for_period(start_date, end_date, year=None):
     """Get total miles and trip count for a date range. Defaults to current calendar year if year not specified.
 

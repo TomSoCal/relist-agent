@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                             QTableWidget, QTableWidgetItem, QDialog, QLabel,
                             QLineEdit, QSpinBox, QTextEdit, QMessageBox,
-                            QDateEdit, QHeaderView, QTabWidget)
+                            QDateEdit, QHeaderView, QTabWidget, QCheckBox)
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
@@ -30,13 +30,17 @@ class MileageTab(QWidget):
         add_btn = QPushButton("Add Mileage Trip")
         add_btn.clicked.connect(self.add_trip_dialog)
 
-        delete_btn = QPushButton("Delete")
-        delete_btn.clicked.connect(self.delete_trip)
+        edit_btn = QPushButton("Edit")
+        edit_btn.clicked.connect(self.edit_trip)
+
+        delete_btn = QPushButton("Delete Selected")
+        delete_btn.clicked.connect(self.delete_selected_trips)
 
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.load_mileage)
 
         button_layout.addWidget(add_btn)
+        button_layout.addWidget(edit_btn)
         button_layout.addWidget(delete_btn)
         button_layout.addStretch()
         button_layout.addWidget(refresh_btn)
@@ -58,11 +62,12 @@ class MileageTab(QWidget):
 
         # Mileage log table
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "Date", "Miles", "Purpose", "Stores", "Notes"
+            "Select", "Date", "Start Odometer", "End Odometer", "Miles", "Purpose", "Stores", "Notes"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.setColumnWidth(0, 50)  # Checkbox column narrower
 
         layout.addWidget(self.table)
         self.setLayout(layout)
@@ -117,14 +122,20 @@ class MileageTab(QWidget):
         self.table.setRowCount(len(trips))
 
         for row, trip in enumerate(trips):
-            self.table.setItem(row, 0, QTableWidgetItem(str(trip['trip_date'])))
-            self.table.setItem(row, 1, QTableWidgetItem(str(trip['miles'])))
-            self.table.setItem(row, 2, QTableWidgetItem(trip['purpose'] or ''))
-            self.table.setItem(row, 3, QTableWidgetItem(trip['stores_visited'] or ''))
-            self.table.setItem(row, 4, QTableWidgetItem(trip['notes'] or ''))
+            # Checkbox for selection
+            checkbox = QCheckBox()
+            self.table.setCellWidget(row, 0, checkbox)
 
-            # Store trip ID for delete operations
-            self.table.item(row, 0).trip_id = trip['id']
+            self.table.setItem(row, 1, QTableWidgetItem(str(trip['trip_date'])))
+            self.table.setItem(row, 2, QTableWidgetItem(str(trip.get('odometer_start', 0) or 0)))
+            self.table.setItem(row, 3, QTableWidgetItem(str(trip.get('odometer_end', 0) or 0)))
+            self.table.setItem(row, 4, QTableWidgetItem(str(trip['miles'])))
+            self.table.setItem(row, 5, QTableWidgetItem(trip['purpose'] or ''))
+            self.table.setItem(row, 6, QTableWidgetItem(trip['stores_visited'] or ''))
+            self.table.setItem(row, 7, QTableWidgetItem(trip['notes'] or ''))
+
+            # Store trip ID for edit/delete operations
+            self.table.item(row, 1).trip_id = trip['id']
 
     def add_trip_dialog(self):
         """Open dialog to add a new mileage trip."""
@@ -143,34 +154,89 @@ class MileageTab(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to add trip: {str(e)}")
 
-    def delete_trip(self):
-        """Delete the selected mileage trip."""
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select a trip to delete.")
-            return
+    def delete_selected_trips(self):
+        """Delete all checked mileage trips."""
+        # Find all checked rows
+        trip_ids = []
+        for row in range(self.table.rowCount()):
+            checkbox = self.table.cellWidget(row, 0)
+            if checkbox and checkbox.isChecked():
+                trip_id = self.table.item(row, 1).trip_id
+                trip_ids.append(trip_id)
 
-        # Get trip ID from the Date cell (we stored it there)
-        trip_id = self.table.item(selected_rows[0].row(), 0).trip_id
+        if not trip_ids:
+            QMessageBox.warning(self, "Error", "Please select at least one trip to delete.")
+            return
 
         reply = QMessageBox.question(
             self, "Confirm Delete",
-            "Are you sure you want to delete this trip?",
+            f"Are you sure you want to delete {len(trip_ids)} trip(s)?",
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
             try:
-                rows_deleted = db.delete_mileage_trip(trip_id)
-                if rows_deleted == 0:
+                failed = []
+                for trip_id in trip_ids:
+                    rows_deleted = db.delete_mileage_trip(trip_id)
+                    if rows_deleted == 0:
+                        failed.append(trip_id)
+
+                if failed:
                     QMessageBox.warning(
-                        self, "Error",
-                        "Cannot delete trips from previous years. Only current year trips can be deleted."
+                        self, "Partial Deletion",
+                        f"Could not delete {len(failed)} trip(s). Trips from previous years cannot be deleted."
                     )
                 else:
-                    self.load_mileage()
-                    QMessageBox.information(self, "Success", "Trip deleted successfully!")
+                    QMessageBox.information(self, "Success", f"{len(trip_ids)} trip(s) deleted successfully!")
+
+                self.load_mileage()
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete trip: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Failed to delete trips: {str(e)}")
+
+    def edit_trip(self):
+        """Edit the selected mileage trip."""
+        # Check if row is selected (by row selection, not checkbox)
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            QMessageBox.warning(self, "Error", "Please select a trip to edit.")
+            return
+
+        row = selected_rows[0].row()
+        trip_id = self.table.item(row, 1).trip_id
+
+        # Get the trip data
+        try:
+            trips = db.get_mileage_by_date_range('2020-01-01', '2099-12-31')
+            trip = None
+            for t in trips:
+                if t['id'] == trip_id:
+                    trip = t
+                    break
+
+            if not trip:
+                QMessageBox.warning(self, "Error", "Could not find trip data.")
+                return
+
+            # Open edit dialog
+            dialog = EditMileageDialog(trip, self)
+            if dialog.exec_() == QDialog.Accepted:
+                try:
+                    db.update_mileage_trip(
+                        trip_id,
+                        trip_date=dialog.trip_date.date().toString("yyyy-MM-dd"),
+                        miles=dialog.miles_value,
+                        odometer_start=dialog.odometer_start.value(),
+                        odometer_end=dialog.odometer_end.value(),
+                        purpose=dialog.purpose_input.text() or "sourcing",
+                        stores_visited=dialog.stores_input.text(),
+                        notes=dialog.notes_input.toPlainText()
+                    )
+                    self.load_mileage()
+                    QMessageBox.information(self, "Success", "Trip updated successfully!")
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Failed to update trip: {str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open edit dialog: {str(e)}")
 
 
 class AddMileageDialog(QDialog):
@@ -350,4 +416,102 @@ class AddMileageDialog(QDialog):
                 return
 
         # All validation passed, accept the dialog
+        self.accept()
+
+
+class EditMileageDialog(QDialog):
+    """Dialog for editing an existing mileage trip."""
+
+    def __init__(self, trip, parent=None):
+        super().__init__(parent)
+        self.trip = trip
+        self.setWindowTitle("Edit Mileage Trip")
+        self.setGeometry(150, 150, 550, 500)
+        self.miles_value = trip['miles']
+        self.init_ui()
+
+    def init_ui(self):
+        """Initialize the dialog UI."""
+        layout = QVBoxLayout()
+
+        # Trip date picker
+        layout.addWidget(QLabel("Trip Date:"))
+        self.trip_date = QDateEdit()
+        self.trip_date.setDate(QDate.fromString(self.trip['trip_date'], "yyyy-MM-dd"))
+        self.trip_date.setCalendarPopup(True)
+        layout.addWidget(self.trip_date)
+
+        # Odometer readings
+        layout.addWidget(QLabel("Odometer Start (miles):"))
+        self.odometer_start = QSpinBox()
+        self.odometer_start.setRange(0, 999999)
+        self.odometer_start.setValue(self.trip.get('odometer_start') or 0)
+        self.odometer_start.valueChanged.connect(self._update_miles_display)
+        layout.addWidget(self.odometer_start)
+
+        layout.addWidget(QLabel("Odometer End (miles):"))
+        self.odometer_end = QSpinBox()
+        self.odometer_end.setRange(0, 999999)
+        self.odometer_end.setValue(self.trip.get('odometer_end') or 0)
+        self.odometer_end.valueChanged.connect(self._update_miles_display)
+        layout.addWidget(self.odometer_end)
+
+        # Miles driven display
+        layout.addWidget(QLabel("Miles Driven:"))
+        self.miles_display = QLabel(f"{self.trip['miles']} miles")
+        self.miles_display.setFont(QFont("Arial", 12, QFont.Bold))
+        layout.addWidget(self.miles_display)
+
+        # Purpose
+        layout.addWidget(QLabel("Purpose:"))
+        self.purpose_input = QLineEdit()
+        self.purpose_input.setText(self.trip['purpose'] or 'sourcing')
+        layout.addWidget(self.purpose_input)
+
+        # Stores visited
+        layout.addWidget(QLabel("Stores Visited:"))
+        self.stores_input = QLineEdit()
+        self.stores_input.setText(self.trip['stores_visited'] or '')
+        layout.addWidget(self.stores_input)
+
+        # Notes
+        layout.addWidget(QLabel("Notes:"))
+        self.notes_input = QTextEdit()
+        self.notes_input.setPlainText(self.trip['notes'] or '')
+        layout.addWidget(self.notes_input)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("Save")
+        cancel_btn = QPushButton("Cancel")
+        save_btn.clicked.connect(self._on_save)
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+
+    def _update_miles_display(self):
+        """Update the miles display based on odometer readings."""
+        odometer_start = self.odometer_start.value()
+        odometer_end = self.odometer_end.value()
+
+        if odometer_end >= odometer_start:
+            miles = odometer_end - odometer_start
+            self.miles_value = miles
+            self.miles_display.setText(f"{miles} miles")
+        else:
+            self.miles_display.setText("Invalid: End must be >= Start")
+
+    def _on_save(self):
+        """Validate and save the dialog."""
+        if self.odometer_end.value() < self.odometer_start.value():
+            QMessageBox.warning(
+                self,
+                "Invalid Input",
+                "End odometer reading must be greater than or equal to start reading."
+            )
+            return
+
         self.accept()
