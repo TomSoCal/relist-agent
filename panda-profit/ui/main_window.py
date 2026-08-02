@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 from config import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT
 from ui.dashboard_tab import DashboardTab
 from ui.inventory_tab import InventoryTab
+from ui.inventory_history_tab import InventoryHistoryTab
 from ui.sales_tab import SalesTab
 from ui.settings_tab import SettingsTab
 from ui.day_tab import DayTab
@@ -34,6 +35,7 @@ class MainWindow(QMainWindow):
         self.inventory_tab = InventoryTab(sales_tab=self.sales_tab)
         # Pass inventory_tab reference to sales_tab for auto-refresh on return
         self.sales_tab.inventory_tab = self.inventory_tab
+        self.inventory_history_tab = InventoryHistoryTab()
         self.day_tab = DayTab()
         self.month_tab = MonthTab()
         self.year_tab = YearTab()
@@ -44,6 +46,7 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self.dashboard_tab, "Dashboard")
         self.tabs.addTab(self.inventory_tab, "Inventory")
+        self.tabs.addTab(self.inventory_history_tab, "Inventory History")
         self.tabs.addTab(self.sales_tab, "Sales")
         self.tabs.addTab(self.day_tab, "Day")
         self.tabs.addTab(self.month_tab, "Month")
