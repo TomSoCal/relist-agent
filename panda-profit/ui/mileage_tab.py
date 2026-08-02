@@ -219,13 +219,28 @@ class MileageTab(QWidget):
 
     def edit_trip(self):
         """Edit the selected mileage trip."""
-        # Check if row is selected (by row selection, not checkbox)
+        # Try row selection first
         selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            QMessageBox.warning(self, "Error", "Please select a trip to edit.")
-            return
+        row = None
 
-        row = selected_rows[0].row()
+        if selected_rows:
+            row = selected_rows[0].row()
+        else:
+            # If no row selected, check if only one checkbox is checked
+            checked_rows = []
+            for r in range(self.table.rowCount()):
+                checkbox = self.table.cellWidget(r, 0)
+                if checkbox and checkbox.isChecked():
+                    checked_rows.append(r)
+
+            if len(checked_rows) == 1:
+                row = checked_rows[0]
+            elif len(checked_rows) > 1:
+                QMessageBox.warning(self, "Error", "Please select only one trip to edit (uncheck the others).")
+                return
+            else:
+                QMessageBox.warning(self, "Error", "Please select a trip to edit (click on a row or check a checkbox).")
+                return
         if not hasattr(self.table.item(row, 1), 'trip_id'):
             QMessageBox.warning(self, "Error", "Trip ID not found. Please refresh and try again.")
             return
