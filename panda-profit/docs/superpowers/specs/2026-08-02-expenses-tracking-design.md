@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS expense_categories (
 - `get_expenses(year=None, archived=0)` — Fetch expenses by year and archive status, ordered by date DESC; year=None = current year
 - `update_expense(expense_id, expense_date, category_id, amount, invoice_number, description, notes, receipt_path)` — Update expense; validate year is current
 - `delete_expense(expense_id)` — Delete expense; reject if not current year
-- `get_archived_expenses(year, search_query=None)` — Search archived expenses by: expense_id, category name, description, amount range, date range
+- `get_archived_expenses(year, search_query=None)` — Search archived expenses by any field: expense_id, date, category name, amount, invoice_number, description, notes (case-insensitive, partial match)
 - `archive_expenses_for_year(year)` — Mark expenses with archived=0 and year < current_year as archived=1
 - `check_and_archive_year_transition()` — Detect year boundary, auto-archive prior year; call at app startup
 - `get_expense_totals(year=None)` — Return (total_this_month, total_this_year) for dashboard
@@ -132,11 +132,9 @@ CREATE TABLE IF NOT EXISTS expense_categories (
 
 **Components:**
 - Year selector (QComboBox, loads only years with archived expenses)
-- Search bar (QLineEdit, real-time filtering):
-  - Search by: Expense ID, category name, description, amount
-- Filter controls (optional, MVP can skip):
-  - Date range picker
-  - Amount range slider
+- Search bar (QLineEdit, real-time filtering across all fields):
+  - Searchable fields: Expense ID, Date, Category name, Amount, Invoice Number, Description, Notes
+  - Search is case-insensitive, partial match (contains)
 - Results table (same 9 columns as main Expenses tab):
   1. Select (disabled in history)
   2. Date
