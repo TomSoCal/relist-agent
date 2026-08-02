@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     expense_date TEXT NOT NULL,
     category_id INTEGER NOT NULL,
     amount REAL NOT NULL,
+    invoice_number TEXT DEFAULT '',
     description TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     receipt_path TEXT DEFAULT '',
@@ -68,9 +69,9 @@ CREATE TABLE IF NOT EXISTS expense_categories (
 - `get_or_create_expense_categories()` — Seed 5 predefined categories if table empty
 - `add_expense_category(name)` — Create custom category, return category_id; reject duplicates
 - `get_expense_categories()` — Return all categories (predefined + custom), sorted by name
-- `add_mileage_trip(year, expense_date, category_id, amount, description, notes, receipt_path)` — Insert expense, return expense_id; validate category_id, year is current
+- `add_expense(year, expense_date, category_id, amount, invoice_number, description, notes, receipt_path)` — Insert expense, return expense_id; validate category_id, year is current
 - `get_expenses(year=None, archived=0)` — Fetch expenses by year and archive status, ordered by date DESC; year=None = current year
-- `update_expense(expense_id, expense_date, category_id, amount, description, notes, receipt_path)` — Update expense; validate year is current
+- `update_expense(expense_id, expense_date, category_id, amount, invoice_number, description, notes, receipt_path)` — Update expense; validate year is current
 - `delete_expense(expense_id)` — Delete expense; reject if not current year
 - `get_archived_expenses(year, search_query=None)` — Search archived expenses by: expense_id, category name, description, amount range, date range
 - `archive_expenses_for_year(year)` — Mark expenses with archived=0 and year < current_year as archived=1
@@ -94,15 +95,16 @@ CREATE TABLE IF NOT EXISTS expense_categories (
   - Total Expenses (This Month)
   - Total Expenses (This Year)
   - Expense Count (This Month)
-- Table (8 visible columns, 1 hidden):
+- Table (9 visible columns, 1 hidden):
   1. Select (QCheckBox)
   2. Date (YYYY-MM-DD)
   3. Category (category name)
   4. Amount (currency format: $#,##0.00)
-  5. Description (text)
-  6. Notes (text, truncated in table)
-  7. Receipt (indicator: "Yes" or "—")
-  8. (Hidden) expense_id
+  5. Invoice # (optional, alphanumeric)
+  6. Description (text)
+  7. Notes (text, truncated in table)
+  8. Receipt (indicator: "Yes" or "—")
+  9. (Hidden) expense_id
 - Buttons: Add Expense, Edit, View, Delete Selected
 
 **Functionality:**
@@ -135,15 +137,16 @@ CREATE TABLE IF NOT EXISTS expense_categories (
 - Filter controls (optional, MVP can skip):
   - Date range picker
   - Amount range slider
-- Results table (same 8 columns as main Expenses tab):
+- Results table (same 9 columns as main Expenses tab):
   1. Select (disabled in history)
   2. Date
   3. Category
   4. Amount
-  5. Description
-  6. Notes
-  7. Receipt
-  8. (Hidden) expense_id
+  5. Invoice #
+  6. Description
+  7. Notes
+  8. Receipt
+  9. (Hidden) expense_id
 - Buttons: View, Copy to Current Year (optional future feature)
 
 **Functionality:**
@@ -159,15 +162,16 @@ CREATE TABLE IF NOT EXISTS expense_categories (
 - Date picker (QDateEdit, default today)
 - Category dropdown (QComboBox, all categories + "Add New Category..." option)
 - Amount (QDoubleSpinBox, range 0.00–99,999.99, 2 decimals)
+- Invoice Number (QLineEdit, optional, max 50 chars)
 - Description (QLineEdit, max 255 chars)
 - Notes (QTextEdit, max 1000 chars)
-- Receipt upload (QPushButton "Browse", QLabel showing filename)
+- Receipt upload (QPushButton "Browse", QLabel showing filename, optional)
 - Save/Cancel buttons
 - Validation: amount > 0, category selected, date valid
 - On Save: insert to DB, close dialog
 
 **EditExpenseDialog** (QDialog)
-- Same fields as AddExpenseDialog, pre-populated with existing data
+- Same fields as AddExpenseDialog, pre-populated with existing data (including invoice_number)
 - Receipt section shows current receipt (if any) with "Replace" / "Clear" options
 - Current-year-only: reject if expense.year != current_year
 - On Save: update DB, close dialog
