@@ -17,10 +17,10 @@ from database import (
     get_platform_fee,
     get_all_platform_fees,
     update_platform_fee,
-    add_expense,
-    get_expenses_by_date_range,
-    delete_expense,
-    get_total_expenses_by_category,
+    add_expense_legacy,
+    get_expenses_by_date_range_legacy,
+    delete_expense_legacy,
+    get_total_expenses_by_category_legacy,
     add_mileage_trip,
     get_mileage_by_date_range,
     delete_mileage_trip,
@@ -302,16 +302,16 @@ class TestExpenses(unittest.TestCase):
     def test_add_expense(self):
         """Test adding a new expense."""
         # Add an expense
-        expense_id = add_expense('2026-07-30', 1, 50.00, 'Office supplies', '')
+        expense_id = add_expense_legacy('2026-07-30', 1, 50.00, 'Office supplies', '')
         self.assertIsNotNone(expense_id)
         self.assertIsInstance(expense_id, int)
 
     def test_add_expense_year_auto_populated(self):
         """Test that year is auto-populated when adding expense."""
-        expense_id = add_expense('2026-07-30', 1, 50.00, 'Test expense', '')
+        expense_id = add_expense_legacy('2026-07-30', 1, 50.00, 'Test expense', '')
 
         # Retrieve the expense
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses), 1)
 
         expense = expenses[0]
@@ -321,9 +321,9 @@ class TestExpenses(unittest.TestCase):
 
     def test_add_expense_with_default_fields(self):
         """Test adding expense with default values for optional fields."""
-        expense_id = add_expense('2026-07-30', 1, 75.00)
+        expense_id = add_expense_legacy('2026-07-30', 1, 75.00)
 
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses), 1)
 
         expense = expenses[0]
@@ -334,12 +334,12 @@ class TestExpenses(unittest.TestCase):
     def test_get_expenses_by_date_range(self):
         """Test retrieving expenses within a date range."""
         # Add multiple expenses
-        add_expense('2026-07-15', 1, 50.00)
-        add_expense('2026-07-20', 2, 100.00)
-        add_expense('2026-07-25', 1, 75.00)
+        add_expense_legacy('2026-07-15', 1, 50.00)
+        add_expense_legacy('2026-07-20', 2, 100.00)
+        add_expense_legacy('2026-07-25', 1, 75.00)
 
         # Get expenses in range
-        expenses = get_expenses_by_date_range('2026-07-10', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-10', '2026-07-31')
         self.assertEqual(len(expenses), 3)
 
         # Verify order is DESC
@@ -350,24 +350,24 @@ class TestExpenses(unittest.TestCase):
 
     def test_delete_expense(self):
         """Test deleting an expense."""
-        expense_id = add_expense('2026-07-30', 1, 50.00)
+        expense_id = add_expense_legacy('2026-07-30', 1, 50.00)
 
         # Verify it exists
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses), 1)
 
         # Delete it
-        delete_expense(expense_id)
+        delete_expense_legacy(expense_id)
 
         # Verify it's deleted
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses), 0)
 
     def test_expense_has_required_fields(self):
         """Test that expense has all required fields."""
-        add_expense('2026-07-30', 1, 50.00, 'Test expense', '/path/to/receipt.pdf')
+        add_expense_legacy('2026-07-30', 1, 50.00, 'Test expense', '/path/to/receipt.pdf')
 
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         expense = expenses[0]
 
         self.assertIn('id', expense)
@@ -383,12 +383,12 @@ class TestExpenses(unittest.TestCase):
     def test_get_total_expenses_by_category(self):
         """Test getting total expenses grouped by category."""
         # Add expenses from multiple categories
-        add_expense('2026-07-15', 1, 50.00)  # Category 1
-        add_expense('2026-07-20', 1, 75.00)  # Category 1
-        add_expense('2026-07-25', 2, 100.00)  # Category 2
+        add_expense_legacy('2026-07-15', 1, 50.00)  # Category 1
+        add_expense_legacy('2026-07-20', 1, 75.00)  # Category 1
+        add_expense_legacy('2026-07-25', 2, 100.00)  # Category 2
 
         # Get totals by category
-        totals = get_total_expenses_by_category('2026-07-01', '2026-07-31')
+        totals = get_total_expenses_by_category_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(totals), 2)
 
         # Verify totals are calculated correctly
@@ -404,7 +404,7 @@ class TestExpenses(unittest.TestCase):
 
         # Attempting to add expense with past year should raise ValueError
         with self.assertRaises(ValueError) as context:
-            add_expense('2025-07-30', 1, 50.00, year=past_year)
+            add_expense_legacy('2025-07-30', 1, 50.00, year=past_year)
 
         # Verify error message mentions current year
         self.assertIn(str(datetime.now().year), str(context.exception))
@@ -412,7 +412,7 @@ class TestExpenses(unittest.TestCase):
     def test_delete_expense_from_past_year_fails(self):
         """Test that deleting expense from past year fails (no rows match)."""
         # First, add an expense to current year
-        expense_id = add_expense('2026-07-30', 1, 50.00)
+        expense_id = add_expense_legacy('2026-07-30', 1, 50.00)
 
         # Manually update the expense to have a past year
         conn = get_connection()
@@ -423,14 +423,14 @@ class TestExpenses(unittest.TestCase):
         conn.close()
 
         # Now try to delete it - should fail (no rows match because WHERE includes year check)
-        rows_deleted = delete_expense(expense_id)
+        rows_deleted = delete_expense_legacy(expense_id)
         self.assertEqual(rows_deleted, 0)
 
     def test_get_expenses_by_date_range_with_explicit_year(self):
         """Test that querying with explicit year parameter works for read-only access."""
         # Add an expense to current year
         current_year = datetime.now().year
-        add_expense('2026-07-30', 1, 50.00, year=current_year)
+        add_expense_legacy('2026-07-30', 1, 50.00, year=current_year)
 
         # Add an expense to past year directly (simulating historical data)
         conn = get_connection()
@@ -444,21 +444,21 @@ class TestExpenses(unittest.TestCase):
         conn.close()
 
         # Query current year (default)
-        expenses_current = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses_current = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses_current), 1)
         self.assertEqual(expenses_current[0]['amount'], 50.00)
 
         # Query past year explicitly
-        expenses_past = get_expenses_by_date_range('2025-07-01', '2025-07-31', year=past_year)
+        expenses_past = get_expenses_by_date_range_legacy('2025-07-01', '2025-07-31', year=past_year)
         self.assertEqual(len(expenses_past), 1)
         self.assertEqual(expenses_past[0]['amount'], 75.00)
 
     def test_get_total_expenses_by_category_with_explicit_year(self):
-        """Test that get_total_expenses_by_category works with explicit year for read-only access."""
+        """Test that get_total_expenses_by_category_legacy works with explicit year for read-only access."""
         current_year = datetime.now().year
 
         # Add an expense to current year
-        add_expense('2026-07-30', 1, 50.00, year=current_year)
+        add_expense_legacy('2026-07-30', 1, 50.00, year=current_year)
 
         # Add an expense to past year directly
         conn = get_connection()
@@ -472,21 +472,21 @@ class TestExpenses(unittest.TestCase):
         conn.close()
 
         # Query current year (default)
-        totals_current = get_total_expenses_by_category('2026-07-01', '2026-07-31')
+        totals_current = get_total_expenses_by_category_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(totals_current), 1)
         self.assertEqual(totals_current[0]['total_amount'], 50.00)
 
         # Query past year explicitly
-        totals_past = get_total_expenses_by_category('2025-07-01', '2025-07-31', year=past_year)
+        totals_past = get_total_expenses_by_category_legacy('2025-07-01', '2025-07-31', year=past_year)
         self.assertEqual(len(totals_past), 1)
         self.assertEqual(totals_past[0]['total_amount'], 100.00)
 
     def test_expense_foreign_key_reference(self):
         """Test that expense category_id references expense_categories."""
         # Add an expense with a valid category_id
-        add_expense('2026-07-30', 1, 50.00)
+        add_expense_legacy('2026-07-30', 1, 50.00)
 
-        expenses = get_expenses_by_date_range('2026-07-01', '2026-07-31')
+        expenses = get_expenses_by_date_range_legacy('2026-07-01', '2026-07-31')
         self.assertEqual(len(expenses), 1)
 
         expense = expenses[0]

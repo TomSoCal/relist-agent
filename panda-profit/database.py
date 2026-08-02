@@ -589,7 +589,7 @@ def delete_platform_fee(fee_id):
     conn.close()
 
 # Expenses operations
-def add_expense(expense_date, category_id, amount, description='', receipt_path='', year=None):
+def add_expense_legacy(expense_date, category_id, amount, description='', receipt_path='', year=None):
     """Add a new expense entry. Year defaults to current system year if not provided.
 
     Args:
@@ -628,7 +628,7 @@ def add_expense(expense_date, category_id, amount, description='', receipt_path=
     conn.close()
     return expense_id
 
-def get_expenses_by_date_range(start_date, end_date, year=None):
+def get_expenses_by_date_range_legacy(start_date, end_date, year=None):
     """Get expenses within a date range. Defaults to current calendar year if year not specified.
 
     Args:
@@ -656,7 +656,7 @@ def get_expenses_by_date_range(start_date, end_date, year=None):
     conn.close()
     return expenses
 
-def delete_expense(expense_id):
+def delete_expense_legacy(expense_id):
     """Delete an expense entry. Only allows deletion of current year expenses (write protection).
 
     Args:
@@ -675,7 +675,7 @@ def delete_expense(expense_id):
     conn.close()
     return rows_deleted
 
-def get_total_expenses_by_category(start_date, end_date, year=None):
+def get_total_expenses_by_category_legacy(start_date, end_date, year=None):
     """Get total expenses grouped by category for a date range. Defaults to current calendar year if year not specified.
 
     Args:
@@ -1149,6 +1149,223 @@ def check_and_archive_year_transition():
         return True
 
     return False
+
+def add_expense(year, expense_date, category_id, amount, invoice_number, description, notes, receipt_path):
+    """Insert expense. Validate category exists and year is current."""
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Validate category exists
+    c.execute('SELECT id FROM expense_categories WHERE id=?', (category_id,))
+    if not c.fetchone():
+        conn.close()
+        raise ValueError(f"Category {category_id} not found")
+
+    # Validate year is current
+    if year != datetime.now().year:
+        conn.close()
+        raise ValueError(f"Can only add expenses for current year")
+
+    c.execute('''
+        INSERT INTO expenses (year, expense_date, category_id, amount, invoice_number, description, notes, receipt_path, archived)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    ''', (year, expense_date, category_id, amount, invoice_number or '', description, notes, receipt_path or ''))
+    conn.commit()
+    expense_id = c.lastrowid
+    conn.close()
+    return expense_id
+
+def get_expenses(year=None, archived=0):
+    """Fetch expenses by year and archive status, ordered by date DESC."""
+    if year is None:
+        year = datetime.now().year
+
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        SELECT e.id, e.year, e.expense_date, e.category_id, ec.name, e.amount, e.invoice_number, e.description, e.notes, e.receipt_path, e.archived
+        FROM expenses e
+        JOIN expense_categories ec ON e.category_id = ec.id
+        WHERE e.year=? AND e.archived=?
+        ORDER BY e.expense_date DESC
+    ''', (year, archived))
+
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {
+            'id': row[0],
+            'year': row[1],
+            'expense_date': row[2],
+            'category_id': row[3],
+            'category_name': row[4],
+            'amount': row[5],
+            'invoice_number': row[6],
+            'description': row[7],
+            'notes': row[8],
+            'receipt_path': row[9],
+            'archived': row[10]
+        }
+        for row in rows
+    ]
+
+def get_expense_by_id(expense_id):
+    """Fetch single expense by ID."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        SELECT e.id, e.year, e.expense_date, e.category_id, ec.name, e.amount, e.invoice_number, e.description, e.notes, e.receipt_path, e.archived
+        FROM expenses e
+        JOIN expense_categories ec ON e.category_id = ec.id
+        WHERE e.id=?
+    ''', (expense_id,))
+
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return None
+
+    return {
+        'id': row[0],
+        'year': row[1],
+        'expense_date': row[2],
+        'category_id': row[3],
+        'category_name': row[4],
+        'amount': row[5],
+        'invoice_number': row[6],
+        'description': row[7],
+        'notes': row[8],
+        'receipt_path': row[9],
+        'archived': row[10]
+    }
+
+def update_expense(expense_id, expense_date, category_id, amount, invoice_number, description, notes, receipt_path):
+    """Update expense. Only allow if current year."""
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Get expense year
+    c.execute('SELECT year FROM expenses WHERE id=?', (expense_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        raise ValueError(f"Expense {expense_id} not found")
+
+    exp_year = row[0]
+    if exp_year != datetime.now().year:
+        conn.close()
+        raise ValueError(f"Can only edit expenses from current year")
+
+    c.execute('''
+        UPDATE expenses
+        SET expense_date=?, category_id=?, amount=?, invoice_number=?, description=?, notes=?, receipt_path=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+    ''', (expense_date, category_id, amount, invoice_number or '', description, notes, receipt_path or '', expense_id))
+    conn.commit()
+    rowcount = c.rowcount
+    conn.close()
+    return rowcount
+
+def delete_expense(expense_id):
+    """Delete expense. Only allow if current year."""
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Get expense year
+    c.execute('SELECT year FROM expenses WHERE id=?', (expense_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return 0
+
+    exp_year = row[0]
+    if exp_year != datetime.now().year:
+        conn.close()
+        raise ValueError(f"Can only delete expenses from current year")
+
+    c.execute('DELETE FROM expenses WHERE id=?', (expense_id,))
+    conn.commit()
+    rowcount = c.rowcount
+    conn.close()
+    return rowcount
+
+def get_archived_expenses(year, search_query=None):
+    """Search archived expenses by any field (case-insensitive, partial match)."""
+    conn = get_connection()
+    c = conn.cursor()
+
+    query = '''
+        SELECT e.id, e.year, e.expense_date, e.category_id, ec.name, e.amount, e.invoice_number, e.description, e.notes, e.receipt_path, e.archived
+        FROM expenses e
+        JOIN expense_categories ec ON e.category_id = ec.id
+        WHERE e.year=? AND e.archived=1
+    '''
+    params = [year]
+
+    if search_query:
+        search_term = f'%{search_query.lower()}%'
+        query += '''
+            AND (
+                CAST(e.id AS TEXT) LIKE ?
+                OR DATE(e.expense_date) LIKE ?
+                OR LOWER(ec.name) LIKE ?
+                OR CAST(e.amount AS TEXT) LIKE ?
+                OR LOWER(e.invoice_number) LIKE ?
+                OR LOWER(e.description) LIKE ?
+                OR LOWER(e.notes) LIKE ?
+            )
+        '''
+        params.extend([search_term] * 7)
+
+    query += ' ORDER BY e.expense_date DESC'
+    c.execute(query, params)
+
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {
+            'id': row[0],
+            'year': row[1],
+            'expense_date': row[2],
+            'category_id': row[3],
+            'category_name': row[4],
+            'amount': row[5],
+            'invoice_number': row[6],
+            'description': row[7],
+            'notes': row[8],
+            'receipt_path': row[9],
+            'archived': row[10]
+        }
+        for row in rows
+    ]
+
+def get_expense_totals(year=None):
+    """Return (month_total, year_total, month_count, year_count) for current month and year."""
+    if year is None:
+        year = datetime.now().year
+
+    current_month = datetime.now().month
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Month total
+    c.execute('''
+        SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM expenses
+        WHERE year=? AND CAST(strftime('%m', expense_date) AS INTEGER)=? AND archived=0
+    ''', (year, current_month))
+    month_total, month_count = c.fetchone()
+
+    # Year total
+    c.execute('''
+        SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM expenses
+        WHERE year=? AND archived=0
+    ''', (year,))
+    year_total, year_count = c.fetchone()
+
+    conn.close()
+    return float(month_total), float(year_total), int(month_count), int(year_count)
 
 if __name__ == '__main__':
     init_db()
