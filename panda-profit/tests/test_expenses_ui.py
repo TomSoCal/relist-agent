@@ -48,7 +48,7 @@ def test_expenses_tab_summary_stats(qapp, test_db):
 
 def test_expense_history_tab_loads(qapp, test_db):
     """Test ExpenseHistoryTab loads archived expenses."""
-    from ui.expense_history_tab import ExpenseHistoryTab
+    from ui.history.expense_history_view import ExpenseHistoryView
 
     get_or_create_expense_categories()
     current_year = datetime.now().year
@@ -68,14 +68,14 @@ def test_expense_history_tab_loads(qapp, test_db):
     conn.commit()
     conn.close()
 
-    tab = ExpenseHistoryTab()
+    tab = ExpenseHistoryView()
     tab.load_history()
 
     assert tab.table.rowCount() > 0
 
 def test_expense_history_search(qapp, test_db):
     """Test expense history search by description."""
-    from ui.expense_history_tab import ExpenseHistoryTab
+    from ui.history.expense_history_view import ExpenseHistoryView
 
     get_or_create_expense_categories()
     current_year = datetime.now().year
@@ -95,7 +95,7 @@ def test_expense_history_search(qapp, test_db):
     conn.commit()
     conn.close()
 
-    tab = ExpenseHistoryTab()
+    tab = ExpenseHistoryView()
     tab.load_history()
     tab.search_input.setText('Widgets')
     tab.search_input.textChanged.emit('Widgets')

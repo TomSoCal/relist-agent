@@ -7,8 +7,8 @@ from PyQt5.QtGui import QFont
 from datetime import datetime
 import database as db
 
-class ExpenseHistoryTab(QWidget):
-    """Tab for viewing archived expenses from prior years."""
+class ExpenseHistoryView(QWidget):
+    """View for displaying archived expenses from prior years."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,11 +57,11 @@ class ExpenseHistoryTab(QWidget):
 
     def load_history(self):
         """Load archived expenses."""
-        # Get years with archived expenses
+        # Get years with archived expenses (prior years only)
         conn = db.get_connection()
         c = conn.cursor()
         c.execute('SELECT DISTINCT year FROM expenses WHERE archived=1 ORDER BY year DESC')
-        years = [row[0] for row in c.fetchall()]
+        years = [row[0] for row in c.fetchall() if row[0] < self.current_year]
         conn.close()
 
         current_text = self.year_selector.currentText()
