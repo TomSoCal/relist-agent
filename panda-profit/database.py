@@ -163,8 +163,6 @@ def init_db():
         )
     ''')
 
-    c.execute('CREATE INDEX IF NOT EXISTS idx_expenses_archived ON expenses(archived, year)')
-
     # Add missing columns to expenses table if they don't exist
     c.execute("PRAGMA table_info(expenses)")
     columns = [column[1] for column in c.fetchall()]
@@ -177,6 +175,8 @@ def init_db():
     if 'notes' not in columns:
         c.execute('ALTER TABLE expenses ADD COLUMN notes TEXT DEFAULT \'\'')
         print("[+] Added 'notes' column to expenses table")
+
+    c.execute('CREATE INDEX IF NOT EXISTS idx_expenses_archived ON expenses(archived, year)')
 
     # Mileage table (for tracking business trips and sourcing miles)
     c.execute('''
