@@ -16,7 +16,7 @@ from io import StringIO
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import get_sales_by_date_range, get_connection, dict_factory
+from database import get_sales_by_date_range, get_connection, dict_factory, SALE_YEAR_SQL
 
 
 def _format_currency(value):
@@ -51,9 +51,11 @@ def _get_sales_for_report(start_date, end_date, year=None):
     conn.row_factory = dict_factory
     c = conn.cursor()
 
-    c.execute('''
-        SELECT * FROM sales
-        WHERE sold_date BETWEEN ? AND ? AND year = ?
+    # sales.year is nullable and NULL for every UI-entered sale, so the year is
+    # derived from sold_date (NOT NULL) instead. See database.SALE_YEAR_SQL.
+    c.execute(f'''
+        SELECT *, {SALE_YEAR_SQL} AS year FROM sales
+        WHERE sold_date BETWEEN ? AND ? AND {SALE_YEAR_SQL} = ?
         ORDER BY sold_date DESC
     ''', (start_date, end_date, year))
 

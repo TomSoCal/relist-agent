@@ -4,6 +4,22 @@ from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'panda_profit.db')
 
+# SQL expression that derives a sale's calendar year from ``sales.sold_date``.
+#
+# ``sales.year`` is nullable and the UI add-sale dialogs (ui/sales_tab.py
+# AddSaleDialog.get_sale_data, ui/inventory_tab.py) never populate it, so every
+# UI-entered sale has year = NULL. ``sold_date`` is NOT NULL, so the year is
+# derived from it instead.
+#
+# Two date formats exist in the wild:
+#   * ISO      "YYYY-MM-DD" (imported / legacy rows)  -> first 4 chars
+#   * US       "MM/DD/YYYY" (UI dialogs)              -> last 4 chars
+# Anything ending in a 4-digit year works with the substr(...,-4) fallback.
+SALE_YEAR_SQL = (
+    "CAST(CASE WHEN sold_date LIKE '____-__-__%' "
+    "THEN substr(sold_date, 1, 4) ELSE substr(sold_date, -4) END AS INTEGER)"
+)
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -479,14 +495,26 @@ def get_sales_by_date_range(start_date, end_date):
     return sales
 
 def get_sales(year=None):
-    """Get sales, optionally filtered by year."""
+    """Get sales, optionally filtered by year.
+
+    The ``sales.year`` column is nullable and is left NULL by the UI add-sale
+    dialogs, so it can never be trusted. The year is therefore derived from
+    ``sold_date`` (NOT NULL) via ``SALE_YEAR_SQL``. The derived column is
+    aliased to ``year`` and, because ``dict_factory`` assigns columns in
+    cursor order, it deliberately overwrites the raw nullable ``year`` from
+    ``SELECT *``. Callers always get a real integer year.
+    """
     conn = get_connection()
     conn.row_factory = dict_factory
     c = conn.cursor()
     if year is None:
-        c.execute('SELECT * FROM sales ORDER BY sold_date DESC')
+        c.execute(f'SELECT *, {SALE_YEAR_SQL} AS year FROM sales ORDER BY sold_date DESC')
     else:
-        c.execute('SELECT * FROM sales WHERE year = ? ORDER BY sold_date DESC', (year,))
+        c.execute(
+            f'SELECT *, {SALE_YEAR_SQL} AS year FROM sales '
+            f'WHERE {SALE_YEAR_SQL} = ? ORDER BY sold_date DESC',
+            (year,)
+        )
     sales = c.fetchall()
     conn.close()
     return sales
