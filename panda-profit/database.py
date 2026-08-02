@@ -209,6 +209,19 @@ def init_db():
         )
     ''')
 
+    # Add archived column if it doesn't exist
+    c.execute("PRAGMA table_info(inventory)")
+    columns = [row[1] for row in c.fetchall()]
+    if 'archived' not in columns:
+        c.execute("""
+            ALTER TABLE inventory ADD COLUMN archived INTEGER DEFAULT 0
+        """)
+        # Create index for fast filtering
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_inventory_archived ON inventory(archived)
+        """)
+        print("[+] Added 'archived' column to inventory table")
+
     conn.commit()
     conn.close()
 
@@ -224,13 +237,15 @@ def dict_factory(cursor, row):
     return d
 
 # Inventory operations
-def add_inventory(listed_date, item_title, units, sku, bin, store, category, cost, notes):
+def add_inventory(listed_date, item_title='', units=0, sku='', bin='', store='', category='', cost=0.0, notes='', brand='', xp=0, created_at=None):
     conn = get_connection()
     c = conn.cursor()
+    if created_at is None:
+        created_at = datetime.now().isoformat()
     c.execute('''
-        INSERT INTO inventory (listed_date, item_title, units, sku, bin, store, category, cost, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (listed_date, item_title, units, sku, bin, store, category, cost, notes))
+        INSERT INTO inventory (listed_date, item_title, units, sku, bin, store, category, cost, notes, brand, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (listed_date, item_title, units, sku, bin, store, category, cost, notes, brand, created_at))
     conn.commit()
     item_id = c.lastrowid
     conn.close()
@@ -831,6 +846,130 @@ def delete_brand(brand_id):
     c.execute('DELETE FROM brands WHERE id = ?', (brand_id,))
     conn.commit()
     conn.close()
+
+
+# Archive operations
+def archive_sold_inventory_for_year(year):
+    """
+    Archive all inventory from the given year where units = 0 (completely sold).
+    Called at year boundary. Never deletes data.
+
+    Args:
+        year (int): The year to archive (e.g., 2026)
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    query = """
+    UPDATE inventory
+    SET archived = 1
+    WHERE
+        strftime('%Y', created_at) = ?
+        AND units = 0
+    """
+    c.execute(query, (str(year),))
+    conn.commit()
+    conn.close()
+
+
+def get_archived_inventory(year=None, search_query=None):
+    """
+    Fetch archived inventory items with sales history metadata.
+
+    Args:
+        year (int, optional): Filter by year created. Default: all years.
+        search_query (str, optional): Filter by SKU, title, category, or brand.
+
+    Returns:
+        List of dicts with fields:
+        - id, sku, item_title, category, brand, cost, created_at
+        - last_sold_date, units_sold_total, revenue_total
+    """
+    conn = get_connection()
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+
+    query = """
+    SELECT
+        i.id, i.sku, i.item_title, i.category, i.brand, i.cost, i.created_at,
+        MAX(s.sold_date) as last_sold_date,
+        SUM(s.units) as units_sold_total,
+        SUM(s.sale_price * s.units + COALESCE(s.shipping_collected, 0)) as revenue_total
+    FROM inventory i
+    LEFT JOIN sales s ON i.sku = s.sku
+    WHERE i.archived = 1
+    """
+
+    params = []
+
+    if year:
+        query += " AND strftime('%Y', i.created_at) = ?"
+        params.append(str(year))
+
+    if search_query:
+        query += " AND (i.sku LIKE ? OR i.item_title LIKE ? OR i.category LIKE ? OR i.brand LIKE ?)"
+        search_pattern = f"%{search_query}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+    query += " GROUP BY i.id ORDER BY last_sold_date DESC NULLS LAST"
+
+    rows = c.execute(query, params).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def copy_archived_to_active(archived_id, new_sku, copy_details=True):
+    """
+    Copy archived inventory to active inventory with new SKU.
+
+    Args:
+        archived_id (int): ID of archived inventory item.
+        new_sku (str): New SKU for restocked item.
+        copy_details (bool): If True, copy title, category, brand, cost.
+
+    Returns:
+        int: ID of new inventory item.
+
+    Raises:
+        ValueError: If new_sku already exists in active inventory.
+    """
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Check for duplicate SKU
+    existing = c.execute(
+        "SELECT id FROM inventory WHERE sku = ? AND archived = 0",
+        (new_sku,)
+    ).fetchone()
+
+    if existing:
+        conn.close()
+        raise ValueError(f"SKU '{new_sku}' already exists in active inventory")
+
+    archived = get_inventory_by_id(archived_id)
+
+    if copy_details:
+        new_item = {
+            'sku': new_sku,
+            'item_title': archived['item_title'],
+            'category': archived['category'],
+            'brand': archived.get('brand', ''),
+            'cost': archived['cost'],
+            'units': 1,
+            'listed_date': datetime.today().isoformat(),
+            'store': archived.get('store', ''),
+            'bin': archived.get('bin', ''),
+            'notes': f"Restocked from SKU {archived['sku']}",
+            'xp': 0
+        }
+    else:
+        new_item = {
+            'sku': new_sku,
+            'units': 1,
+            'listed_date': datetime.today().isoformat()
+        }
+
+    conn.close()
+    return add_inventory(**new_item)
 
 if __name__ == '__main__':
     init_db()
