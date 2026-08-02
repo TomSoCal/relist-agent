@@ -169,11 +169,24 @@ class ExpensesTab(QWidget):
     def view_expense(self):
         """View selected expense."""
         selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
+        row = None
+
+        if selected_rows:
+            row = selected_rows[0].row()
+        else:
+            # Check checkboxes
+            checked_rows = []
+            for r in range(self.table.rowCount()):
+                checkbox = self.table.cellWidget(r, 0)
+                if checkbox and checkbox.isChecked():
+                    checked_rows.append(r)
+
+            if len(checked_rows) == 1:
+                row = checked_rows[0]
+
+        if row is None:
             QMessageBox.warning(self, "Error", "Please select an expense to view.")
             return
-
-        row = selected_rows[0].row()
         expense_id = int(self.table.item(row, 8).text())
         expense = db.get_expense_by_id(expense_id)
 
