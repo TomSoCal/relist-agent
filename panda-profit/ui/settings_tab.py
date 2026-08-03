@@ -19,13 +19,16 @@ class SettingsTab(QWidget):
 
         # Create QTabWidget
         self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(self.on_tab_changed)
+        self.tabs.blockSignals(True)
 
         # Add tabs (initially empty, will be filled on click)
         self.tabs.addTab(QWidget(), "API Info")
         self.tabs.addTab(QWidget(), "Item Settings")
         self.tabs.addTab(QWidget(), "Platform Fees")
         self.tabs.addTab(QWidget(), "Tax Settings")
+
+        self.tabs.blockSignals(False)
+        self.tabs.currentChanged.connect(self.on_tab_changed)
 
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
