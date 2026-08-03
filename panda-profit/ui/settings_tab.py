@@ -19,22 +19,7 @@ class SettingsTab(QWidget):
 
         # Create QTabWidget
         self.tabs = QTabWidget()
-
-        # Tab 1: API Info
-        self.api_button = QPushButton("API Info")
-        self.api_button.clicked.connect(self.on_api_clicked)
-
-        # Tab 2: Item Settings
-        self.items_button = QPushButton("Item Settings")
-        self.items_button.clicked.connect(self.on_items_clicked)
-
-        # Tab 3: Platform Fees
-        self.fees_button = QPushButton("Platform Fees")
-        self.fees_button.clicked.connect(self.on_fees_clicked)
-
-        # Tab 4: Tax Settings
-        self.tax_button = QPushButton("Tax Settings")
-        self.tax_button.clicked.connect(self.on_tax_clicked)
+        self.tabs.currentChanged.connect(self.on_tab_changed)
 
         # Add tabs (initially empty, will be filled on click)
         self.tabs.addTab(QWidget(), "API Info")
@@ -44,6 +29,17 @@ class SettingsTab(QWidget):
 
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
+
+    def on_tab_changed(self, index):
+        """Handle tab change to lazy-load views"""
+        if index == 0:
+            self.on_api_clicked()
+        elif index == 1:
+            self.on_items_clicked()
+        elif index == 2:
+            self.on_fees_clicked()
+        elif index == 3:
+            self.on_tax_clicked()
 
     def on_api_clicked(self):
         """Lazy-load API Info view"""
