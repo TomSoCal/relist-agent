@@ -1418,6 +1418,43 @@ def get_expense_totals(year=None):
     conn.close()
     return float(month_total), float(year_total), int(month_count), int(year_count)
 
+def get_pl_total(year=None):
+    """
+    Calculate total Profit & Loss for a given year (current year if not specified).
+    Returns: revenue - expenses (can be negative if expenses exceed revenue).
+    """
+    if year is None:
+        year = datetime.now().year
+
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+
+        # Calculate total revenue from sales (current year)
+        c.execute("""
+            SELECT COALESCE(SUM(CAST(sale_price AS FLOAT) * units), 0)
+            FROM sales
+            WHERE strftime('%Y', sold_date) = ?
+        """, (str(year),))
+        total_revenue = c.fetchone()[0]
+
+        # Calculate total expenses (current year, non-archived only)
+        c.execute("""
+            SELECT COALESCE(SUM(CAST(amount AS FLOAT)), 0)
+            FROM expenses
+            WHERE strftime('%Y', expense_date) = ? AND archived = 0
+        """, (str(year),))
+        total_expenses = c.fetchone()[0]
+
+        conn.close()
+
+        # P&L = Revenue - Expenses
+        return total_revenue - total_expenses
+
+    except Exception as e:
+        print(f"Error calculating P&L total: {e}")
+        return 0.0
+
 if __name__ == '__main__':
     init_db()
     print("Database initialized successfully!")
