@@ -39,6 +39,9 @@ class HistoryTab(QWidget):
 
         self.setLayout(layout)
 
+        # Load Sales History by default
+        self.on_sales_clicked()
+
     def on_sales_clicked(self):
         """Show Sales History view."""
         if self.sales_view is None:

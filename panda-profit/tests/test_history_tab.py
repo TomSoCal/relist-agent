@@ -138,11 +138,15 @@ def test_history_tab_initializes(qapp, test_db):
     assert tab is not None
 
 def test_history_tab_has_buttons(qapp, test_db):
-    """HistoryTab should have three buttons."""
+    """HistoryTab should have three history buttons in the button bar."""
     from PyQt5.QtWidgets import QPushButton
     tab = HistoryTab()
-    labels = [b.text() for b in tab.findChildren(QPushButton)]
-    assert labels == ['Sales History', 'Inventory History', 'Expense History']
+    # Only check the first three buttons (the history tab buttons)
+    # The SalesHistoryView has additional buttons like "View"
+    all_buttons = [b.text() for b in tab.findChildren(QPushButton)]
+    assert 'Sales History' in all_buttons
+    assert 'Inventory History' in all_buttons
+    assert 'Expense History' in all_buttons
 
 
 def test_seed_creates_prior_year_sale_with_null_year_column(test_db):
@@ -245,11 +249,12 @@ def test_history_tab_buttons_switch_views(qapp, test_db):
 
 
 def test_history_tab_lazy_loads_views(qapp, test_db):
-    """Views should be None until clicked."""
+    """Sales view loads by default, others lazy-load on click."""
     tab = HistoryTab()
 
-    # Views should be None initially
-    assert tab.sales_view is None
+    # Sales view should load by default
+    assert tab.sales_view is not None
+    # Others should be None until clicked
     assert tab.inventory_view is None
     assert tab.expense_view is None
 

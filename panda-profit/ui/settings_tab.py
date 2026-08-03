@@ -33,6 +33,9 @@ class SettingsTab(QWidget):
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
 
+        # Load API Info tab by default
+        self.on_api_clicked()
+
     def on_tab_changed(self, index):
         """Handle tab change to lazy-load views"""
         if index == 0:

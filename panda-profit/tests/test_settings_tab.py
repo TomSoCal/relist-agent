@@ -47,10 +47,10 @@ def test_settings_tab_initializes(qapp, test_db):
     assert tab.tabs.tabText(3) == "Tax Settings"
 
 def test_settings_tab_lazy_loads_views(qapp, test_db):
-    """Views should be None initially"""
+    """API view should load by default, others None until clicked"""
     tab = SettingsTab()
-    assert tab.api_view is None
-    assert tab.items_view is None
+    assert tab.api_view is not None  # API Info loads by default
+    assert tab.items_view is None    # Others lazy-load on click
     assert tab.fees_view is None
     assert tab.tax_view is None
 
